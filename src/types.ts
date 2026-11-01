@@ -193,6 +193,8 @@ export interface SaleTransaction {
   loyaltyDiscountAmount: number;
   couponCodeApplied?: string;
   couponDiscountAmount?: number;
+  promoDiscountAmount?: number;
+  promoTitleApplied?: string;
   creditNoteCodeApplied?: string;
   creditNoteDiscountAmount?: number;
   taxTotal: number;
@@ -308,6 +310,71 @@ export interface CouponCode {
   discountValue: number;
   minBillAmount: number;
   description: string;
+}
+
+export type PromotionType = 'bogo' | 'cart_slab' | 'bundle_price' | 'category_discount';
+
+export interface PromotionRule {
+  id: string;
+  title: string; // e.g. "Buy 2 Get 1 Free - Summer T-Shirts"
+  code?: string; // Optional coupon code, if blank it's auto-applied
+  type: PromotionType;
+  isActive: boolean;
+  applicableCategory?: ClothingCategory | 'ALL';
+  minQuantity?: number; // for BOGO or bundle (e.g. 3)
+  freeQuantity?: number; // for BOGO (e.g. 1)
+  bundlePrice?: number; // for bundle_price (e.g. 1499 for 2 items)
+  minCartAmount?: number; // for cart_slab (e.g. 3000)
+  slabDiscountAmount?: number; // flat discount (e.g. 500)
+  slabDiscountPercent?: number; // % discount (e.g. 15%)
+  description: string;
+}
+
+export interface MatrixBatchProductInput {
+  styleName: string;
+  skuPrefix: string;
+  category: ClothingCategory;
+  subCategory: string;
+  season: Season;
+  costPrice: number;
+  sellingPrice: number;
+  taxRate: number;
+  purchaseSource?: 'billed' | 'cash' | 'mixed';
+  minStockAlert: number;
+  description?: string;
+  colors: string[];
+  sizes: string[];
+  grid: Record<string, number>; // key: `${color}__${size}`, value: qty
+}
+
+export interface StockAuditItem {
+  productId: string;
+  sku: string;
+  barcode: string;
+  name: string;
+  category: string;
+  size: string;
+  color: string;
+  expectedStock: number;
+  scannedStock: number;
+  variance: number; // scanned - expected
+  unitCost: number;
+  costImpact: number; // variance * unitCost
+}
+
+export interface StockAuditSession {
+  id: string;
+  auditNumber: string;
+  date: string; // ISO
+  auditorName: string;
+  categoryFilter: string; // 'All' or specific category
+  items: StockAuditItem[];
+  totalExpected: number;
+  totalScanned: number;
+  netVariance: number;
+  netCostImpact: number;
+  status: 'draft' | 'completed';
+  notes?: string;
 }
 
 export interface Vendor {

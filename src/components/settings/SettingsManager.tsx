@@ -33,11 +33,13 @@ import {
   Smartphone,
   IndianRupee,
   Database,
+  Tag,
 } from 'lucide-react';
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
 import { SupabaseDatabaseSettings } from './SupabaseDatabaseSettings';
 import { FirstTimeSetupModal } from '../onboarding/FirstTimeSetupModal';
+import { PromotionsManager } from './PromotionsManager';
 
 export const SettingsManager: React.FC = () => {
   const {
@@ -68,7 +70,7 @@ export const SettingsManager: React.FC = () => {
     setStoreUpiName,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'staff' | 'entities' | 'preferences' | 'database'>('staff');
+  const [activeTab, setActiveTab] = useState<'staff' | 'entities' | 'promotions' | 'preferences' | 'database'>('staff');
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
   // UPI Settings State
@@ -346,6 +348,18 @@ export const SettingsManager: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setActiveTab('promotions')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === 'promotions'
+                ? 'bg-white text-slate-900 shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Tag className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Promotions & Offers</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('preferences')}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'preferences'
@@ -545,6 +559,9 @@ export const SettingsManager: React.FC = () => {
           <CompanySettings />
         </div>
       )}
+
+      {/* TAB: Automated Promotions & Offers */}
+      {activeTab === 'promotions' && <PromotionsManager />}
 
       {/* TAB 3: Security & Terminal Preferences */}
       {activeTab === 'preferences' && (

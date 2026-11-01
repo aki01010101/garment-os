@@ -91,6 +91,8 @@ export const POSBilling: React.FC = () => {
     recallParkedCart,
     deleteParkedCart,
     clearAllParkedCarts,
+    promotions,
+    calculatePromotionsDiscount,
   } = useApp();
 
   const [isCustomerHistoryOpen, setIsCustomerHistoryOpen] = useState(false);
@@ -361,11 +363,16 @@ export const POSBilling: React.FC = () => {
       );
     }
 
+    // Promotional Engine Discounts (BOGO, Cart Slabs, Bundle Deals)
+    const promoResult = calculatePromotionsDiscount(cart);
+    const promoDiscountAmount = promoResult.discountAmount;
+
     const grandTotal = Math.max(
       0,
       Math.round(
         subtotal -
-        discounts +
+        discounts -
+        promoDiscountAmount +
         taxes -
         loyaltyDiscountAmount -
         couponDiscountAmount -
@@ -379,6 +386,9 @@ export const POSBilling: React.FC = () => {
       subtotal,
       discounts,
       taxes,
+      promoDiscountAmount,
+      appliedPromoRule: promoResult.appliedRule,
+      promoExplanation: promoResult.explanation,
       loyaltyDiscountAmount,
       couponDiscountAmount,
       creditNoteDiscountAmount,
@@ -389,11 +399,14 @@ export const POSBilling: React.FC = () => {
   }, [
     cart,
     activeCompany.type,
+    activeCompany.enableDynamicGarmentGst,
     selectedCustomer,
     redeemedPoints,
     loyaltyConfig,
     appliedCoupon,
     appliedCreditNote,
+    calculatePromotionsDiscount,
+    promotions,
   ]);
 
   const tenderedAmount = parseFloat(cashTendered) || 0;
@@ -1268,6 +1281,27 @@ export const POSBilling: React.FC = () => {
               Bill Summary & Settlement
             </h3>
 
+            {/* Active Promotional Offer Banner */}
+            {cartSummary.appliedPromoRule && (
+              <div className="p-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-lg flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                    %
+                  </div>
+                  <div>
+                    <div className="font-bold text-emerald-950 flex items-center gap-1.5">
+                      <span>{cartSummary.appliedPromoRule.title}</span>
+                      <span className="text-[10px] px-1.5 py-0.2 bg-emerald-200 text-emerald-900 rounded font-semibold">APPLIED</span>
+                    </div>
+                    <div className="text-[10px] text-emerald-700 font-sans">{cartSummary.promoExplanation}</div>
+                  </div>
+                </div>
+                <div className="text-right font-mono font-bold text-emerald-800">
+                  -₹{cartSummary.promoDiscountAmount.toFixed(0)}
+                </div>
+              </div>
+            )}
+
             {/* Calculations Breakdown */}
             <div className="space-y-1.5 text-xs font-mono">
               <div className="flex justify-between text-slate-600">
@@ -1279,6 +1313,16 @@ export const POSBilling: React.FC = () => {
                 <div className="flex justify-between text-slate-600">
                   <span>Item Discounts:</span>
                   <span>-₹{cartSummary.discounts.toFixed(2)}</span>
+                </div>
+              )}
+
+              {cartSummary.promoDiscountAmount > 0 && (
+                <div className="flex justify-between text-emerald-800 font-semibold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">
+                  <span className="flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Offer ({cartSummary.appliedPromoRule?.title}):</span>
+                  </span>
+                  <span className="font-bold font-mono text-emerald-700">-₹{cartSummary.promoDiscountAmount.toFixed(2)}</span>
                 </div>
               )}
 

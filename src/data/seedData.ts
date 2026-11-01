@@ -1249,6 +1249,38 @@ export const INITIAL_COUPONS: import('../types').CouponCode[] = [
   },
 ];
 
+export const INITIAL_PROMOTIONS: import('../types').PromotionRule[] = [
+  {
+    id: 'promo_bogo_1',
+    title: 'Buy 2 Get 1 Free (Lowest Price Free)',
+    type: 'bogo',
+    isActive: true,
+    minQuantity: 3,
+    freeQuantity: 1,
+    description: 'Buy any 3 garments, the lowest priced piece is 100% free!',
+  },
+  {
+    id: 'promo_slab_500',
+    title: 'Flat ₹500 Off on Shopping above ₹3,000',
+    code: 'FESTIVE500',
+    type: 'cart_slab',
+    isActive: true,
+    minCartAmount: 3000,
+    slabDiscountAmount: 500,
+    description: 'Get instant ₹500 discount on cart value above ₹3,000.',
+  },
+  {
+    id: 'promo_bundle_shirts',
+    title: 'Any 2 Formal Shirts for ₹1,999',
+    type: 'bundle_price',
+    isActive: true,
+    applicableCategory: 'Men',
+    minQuantity: 2,
+    bundlePrice: 1999,
+    description: 'Special combo offer on Menswear Shirts.',
+  },
+];
+
 export const INITIAL_CREDIT_NOTES: import('../types').CreditNote[] = [
   {
     id: 'cn_1042',

@@ -21,10 +21,14 @@ import {
   Bell,
   Sliders,
   AlertOctagon,
+  Grid,
+  ClipboardCheck,
 } from 'lucide-react';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 import { BulkUpdateModal } from './BulkUpdateModal';
 import { BulkCsvImportModal } from './BulkCsvImportModal';
+import { MatrixProductModal } from './MatrixProductModal';
+import { StockAuditModal } from './StockAuditModal';
 import { BulkProductUpdate, BulkCsvImportRow } from '../../types';
 
 interface InventoryManagerProps {
@@ -43,13 +47,20 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
     bulkImportProducts,
     globalLowStockThreshold,
     setGlobalLowStockThreshold,
+    currentUser,
+    addMatrixProducts,
+    saveStockAudit,
+    applyStockAuditReconciliation,
   } = useApp();
-
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [stockStatusFilter, setStockStatusFilter] = useState<'all' | 'low' | 'out'>('all');
   const [scannerTarget, setScannerTarget] = useState<'search' | 'form' | null>(null);
+
+  // Variant Matrix & Stock Audit Modals
+  const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
+  const [isStockAuditOpen, setIsStockAuditOpen] = useState(false);
 
   // Bulk Selection States
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
@@ -287,6 +298,26 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
             />
             <span className="text-[11px] text-amber-700 font-mono">pcs</span>
           </div>
+
+          {/* Stock Audit / Physical Count Button */}
+          <button
+            onClick={() => setIsStockAuditOpen(true)}
+            className="px-3.5 py-1.5 text-xs font-semibold text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Perform barcode-based physical inventory count and reconcile variance"
+          >
+            <ClipboardCheck className="w-3.5 h-3.5 text-purple-600" />
+            <span>Stock Audit</span>
+          </button>
+
+          {/* Matrix Variant Generator */}
+          <button
+            onClick={() => setIsMatrixModalOpen(true)}
+            className="px-3.5 py-1.5 text-xs font-semibold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Batch generate size and color variant matrix with automated SKUs and barcodes"
+          >
+            <Grid className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Matrix Variants</span>
+          </button>
 
           <button
             onClick={() => setIsCsvModalOpen(true)}
@@ -1020,6 +1051,38 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
         allowContinuous={false}
         defaultContinuous={false}
         sampleCodes={sampleProductCodes}
+      />
+
+      {/* Variant Size x Color Matrix Batch Generator Modal */}
+      <MatrixProductModal
+        isOpen={isMatrixModalOpen}
+        onClose={() => setIsMatrixModalOpen(false)}
+        onGenerate={(matrix) => {
+          const generated = addMatrixProducts(matrix);
+          setBulkFeedbackMsg(`Generated ${generated.length} variant SKUs across sizes & colors!`);
+          setTimeout(() => setBulkFeedbackMsg(null), 3500);
+          return generated;
+        }}
+        onNavigateToTags={onNavigateToTags}
+      />
+
+      {/* Physical Stock Take Barcode Audit Modal */}
+      <StockAuditModal
+        isOpen={isStockAuditOpen}
+        onClose={() => setIsStockAuditOpen(false)}
+        products={products}
+        currentUserName={currentUser?.fullName || 'Store Manager'}
+        onSaveAudit={(audit) => {
+          saveStockAudit(audit);
+          setBulkFeedbackMsg(`Stock Audit "${audit.sessionName}" saved successfully.`);
+          setTimeout(() => setBulkFeedbackMsg(null), 3500);
+        }}
+        onApplyReconciliation={(auditId) => {
+          const result = applyStockAuditReconciliation(auditId);
+          setBulkFeedbackMsg(result.message);
+          setTimeout(() => setBulkFeedbackMsg(null), 4000);
+          return result;
+        }}
       />
     </div>
   );

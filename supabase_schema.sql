@@ -283,6 +283,39 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 14. AUTOMATED PROMOTIONS & DEALS (BOGO, Cart Slabs, Bundles)
+CREATE TABLE IF NOT EXISTS promotions (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  code TEXT,
+  type TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  applicable_category TEXT,
+  min_quantity INTEGER,
+  free_quantity INTEGER,
+  bundle_price NUMERIC(12,2),
+  min_cart_amount NUMERIC(12,2),
+  slab_discount_amount NUMERIC(12,2),
+  slab_discount_percent NUMERIC(5,2),
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 15. PHYSICAL STOCK TAKE AUDITS & RECONCILIATIONS
+CREATE TABLE IF NOT EXISTS stock_audits (
+  id TEXT PRIMARY KEY,
+  session_name TEXT NOT NULL,
+  audited_at TIMESTAMPTZ DEFAULT NOW(),
+  auditor_name TEXT NOT NULL,
+  status TEXT DEFAULT 'completed',
+  category_filter TEXT,
+  notes TEXT,
+  total_expected_qty INTEGER DEFAULT 0,
+  total_counted_qty INTEGER DEFAULT 0,
+  discrepancy_cost NUMERIC(12,2) DEFAULT 0,
+  items JSONB NOT NULL DEFAULT '[]'::jsonb
+);
+
 -- =============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- =============================================================================
@@ -300,6 +333,8 @@ ALTER TABLE day_registers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE staff_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE promotions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_audits ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
@@ -341,5 +376,11 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'pos_app_settings_all') THEN
     CREATE POLICY pos_app_settings_all ON app_settings FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'pos_promotions_all') THEN
+    CREATE POLICY pos_promotions_all ON promotions FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'pos_stock_audits_all') THEN
+    CREATE POLICY pos_stock_audits_all ON stock_audits FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;

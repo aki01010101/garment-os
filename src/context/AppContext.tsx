@@ -24,6 +24,10 @@ import {
   QrPrintSize,
   ParkedCart,
   CashDrop,
+  MatrixBatchProductInput,
+  StockAuditItem,
+  StockAuditSession,
+  PromotionRule,
 } from '../types';
 import {
   INITIAL_COMPANIES,
@@ -35,6 +39,7 @@ import {
   INITIAL_SALES,
   DEFAULT_LOYALTY_CONFIG,
   INITIAL_COUPONS,
+  INITIAL_PROMOTIONS,
   INITIAL_CREDIT_NOTES,
   INITIAL_ALTERATIONS,
   INITIAL_REGISTER,
@@ -81,6 +86,20 @@ interface AppContextType {
   adjustStock: (productId: string, adjustment: number, reason?: string) => void;
   bulkUpdateProducts: (updates: BulkProductUpdate[]) => void;
   bulkImportProducts: (items: BulkCsvImportRow[]) => { updatedCount: number; notFoundCount: number; errors: string[] };
+  addMatrixProducts: (input: MatrixBatchProductInput) => Product[];
+
+  // Physical Stock Take Audit
+  stockAudits: StockAuditSession[];
+  saveStockAudit: (audit: StockAuditSession) => void;
+  applyStockAuditReconciliation: (auditId: string) => { adjustedCount: number; message: string };
+
+  // Retail Promotions & Offers Engine
+  promotions: PromotionRule[];
+  addPromotion: (promo: Omit<PromotionRule, 'id'>) => PromotionRule;
+  updatePromotion: (promo: PromotionRule) => void;
+  deletePromotion: (id: string) => void;
+  togglePromotion: (id: string) => void;
+  calculatePromotionsDiscount: (cartItems: CartItem[]) => { discountAmount: number; appliedRule: PromotionRule | null; explanation: string };
 
   // Vendors & Purchases (Dual Ledger: Cash vs Billed)
   vendors: Vendor[];
@@ -247,6 +266,8 @@ const STORAGE_KEYS = {
   LOW_STOCK_THRESHOLD: 'verve_clothing_low_stock_threshold_v2',
   AUTO_LOCK_MINUTES: 'verve_clothing_autolock_minutes_v2',
   PARKED_CARTS: 'garment_os_parked_carts_v1',
+  PROMOTIONS: 'garment_os_promotions_v1',
+  STOCK_AUDITS: 'garment_os_stock_audits_v1',
 };
 
 
@@ -764,6 +785,202 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setParkedCarts([]);
   };
 
+  // Retail Promotions State & Rules Engine
+  const [promotions, setPromotions] = useState<PromotionRule[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PROMOTIONS);
+      return saved ? JSON.parse(saved) : INITIAL_PROMOTIONS;
+    } catch {
+      return INITIAL_PROMOTIONS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.PROMOTIONS, JSON.stringify(promotions));
+    } catch (e) {
+      console.warn('Failed to save promotions to localStorage:', e);
+    }
+  }, [promotions]);
+
+  const addPromotion = (promo: Omit<PromotionRule, 'id'>): PromotionRule => {
+    const newPromo: PromotionRule = {
+      ...promo,
+      id: `promo_${Date.now()}`,
+    };
+    setPromotions((prev) => [newPromo, ...prev]);
+    return newPromo;
+  };
+
+  const updatePromotion = (promo: PromotionRule) => {
+    setPromotions((prev) => prev.map((p) => (p.id === promo.id ? promo : p)));
+  };
+
+  const deletePromotion = (id: string) => {
+    setPromotions((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const togglePromotion = (id: string) => {
+    setPromotions((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p))
+    );
+  };
+
+  const calculatePromotionsDiscount = (
+    cartItems: CartItem[]
+  ): { discountAmount: number; appliedRule: PromotionRule | null; explanation: string } => {
+    if (cartItems.length === 0) {
+      return { discountAmount: 0, appliedRule: null, explanation: '' };
+    }
+
+    const activeRules = promotions.filter((p) => p.isActive);
+    if (activeRules.length === 0) {
+      return { discountAmount: 0, appliedRule: null, explanation: '' };
+    }
+
+    const individualPieces: { item: CartItem; netPrice: number }[] = [];
+    let grossCartTotal = 0;
+    cartItems.forEach((ci) => {
+      const unitNet = (ci.unitPrice * (100 - ci.discountPercent)) / 100;
+      grossCartTotal += ci.unitPrice * ci.quantity;
+      for (let i = 0; i < ci.quantity; i++) {
+        individualPieces.push({ item: ci, netPrice: unitNet });
+      }
+    });
+
+    for (const rule of activeRules) {
+      // 1. BOGO (Buy X Get Y Free)
+      if (rule.type === 'bogo' && rule.minQuantity && rule.freeQuantity) {
+        const qualifyingPieces = rule.applicableCategory && rule.applicableCategory !== 'ALL'
+          ? individualPieces.filter((p) => p.item.product.category === rule.applicableCategory)
+          : individualPieces;
+
+        if (qualifyingPieces.length >= rule.minQuantity) {
+          const sorted = [...qualifyingPieces].sort((a, b) => a.netPrice - b.netPrice);
+          const howManySets = Math.floor(qualifyingPieces.length / rule.minQuantity);
+          const totalFreePieces = Math.min(howManySets * rule.freeQuantity, sorted.length);
+          const freePieces = sorted.slice(0, totalFreePieces);
+          const savings = freePieces.reduce((sum, p) => sum + p.netPrice, 0);
+
+          if (savings > 0) {
+            return {
+              discountAmount: Math.round(savings),
+              appliedRule: rule,
+              explanation: `${rule.title}: ${totalFreePieces} free garment(s) (-₹${Math.round(savings)})`,
+            };
+          }
+        }
+      }
+
+      // 2. Cart Slab (e.g. Spend ₹3,000 get ₹500 off)
+      if (rule.type === 'cart_slab' && rule.minCartAmount) {
+        if (grossCartTotal >= rule.minCartAmount) {
+          let savings = 0;
+          if (rule.slabDiscountAmount) {
+            savings = rule.slabDiscountAmount;
+          } else if (rule.slabDiscountPercent) {
+            savings = (grossCartTotal * rule.slabDiscountPercent) / 100;
+          }
+          if (savings > 0) {
+            return {
+              discountAmount: Math.round(savings),
+              appliedRule: rule,
+              explanation: `${rule.title}: Instant ₹${Math.round(savings)} cart discount`,
+            };
+          }
+        }
+      }
+
+      // 3. Bundle Price (e.g. Any 2 for ₹1,499)
+      if (rule.type === 'bundle_price' && rule.minQuantity && rule.bundlePrice) {
+        const qualifyingPieces = rule.applicableCategory && rule.applicableCategory !== 'ALL'
+          ? individualPieces.filter((p) => p.item.product.category === rule.applicableCategory)
+          : individualPieces;
+
+        if (qualifyingPieces.length >= rule.minQuantity) {
+          const sets = Math.floor(qualifyingPieces.length / rule.minQuantity);
+          const sortedDesc = [...qualifyingPieces].sort((a, b) => b.netPrice - a.netPrice);
+          const bundlePieces = sortedDesc.slice(0, sets * rule.minQuantity);
+          const normalTotal = bundlePieces.reduce((sum, p) => sum + p.netPrice, 0);
+          const bundleTotal = sets * rule.bundlePrice;
+          const savings = normalTotal - bundleTotal;
+
+          if (savings > 0) {
+            return {
+              discountAmount: Math.round(savings),
+              appliedRule: rule,
+              explanation: `${rule.title}: Combo bundle savings (-₹${Math.round(savings)})`,
+            };
+          }
+        }
+      }
+    }
+
+    return { discountAmount: 0, appliedRule: null, explanation: '' };
+  };
+
+  // Stock Take Audits State
+  const [stockAudits, setStockAudits] = useState<StockAuditSession[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.STOCK_AUDITS);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.STOCK_AUDITS, JSON.stringify(stockAudits));
+    } catch (e) {
+      console.warn('Failed to save stock audits to localStorage:', e);
+    }
+  }, [stockAudits]);
+
+  const saveStockAudit = (audit: StockAuditSession) => {
+    setStockAudits((prev) => [audit, ...prev.filter((a) => a.id !== audit.id)]);
+  };
+
+  const applyStockAuditReconciliation = (
+    auditId: string
+  ): { adjustedCount: number; message: string } => {
+    const targetAudit = stockAudits.find((a) => a.id === auditId);
+    if (!targetAudit) {
+      return { adjustedCount: 0, message: 'Audit session not found' };
+    }
+
+    let adjustedCount = 0;
+    setProducts((prev) => {
+      const updated = [...prev];
+      targetAudit.items.forEach((auditItem) => {
+        const idx = updated.findIndex((p) => p.id === auditItem.productId);
+        if (idx !== -1) {
+          if (updated[idx].stock !== auditItem.scannedStock) {
+            updated[idx] = { ...updated[idx], stock: auditItem.scannedStock };
+            adjustedCount++;
+            if (isSupabaseAutoSync) {
+              try {
+                asyncSyncProduct(updated[idx]);
+              } catch {}
+            }
+          }
+        }
+      });
+      return updated;
+    });
+
+    const completedAudit: StockAuditSession = {
+      ...targetAudit,
+      status: 'completed',
+    };
+    saveStockAudit(completedAudit);
+
+    return {
+      adjustedCount,
+      message: `Stock reconciled for ${adjustedCount} garments from Audit #${targetAudit.auditNumber}.`,
+    };
+  };
+
   const startNextSale = () => {
     clearCart();
     setLastCompletedSale(null);
@@ -1028,6 +1245,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     return { updatedCount, notFoundCount, errors };
+  };
+
+  const addMatrixProducts = (input: MatrixBatchProductInput): Product[] => {
+    const newProducts: Product[] = [];
+    const timestamp = Date.now();
+    let counter = 1;
+
+    for (const color of input.colors) {
+      for (const size of input.sizes) {
+        const key = `${color}__${size}`;
+        const qty = input.grid[key] ?? 0;
+
+        const colorCode = color.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase();
+        const sizeCode = size.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        const sku = `${input.skuPrefix.trim().toUpperCase()}-${colorCode}-${sizeCode}`;
+        const barcode = `890${Math.floor(100000000 + Math.random() * 900000000)}`;
+
+        const newProd: Product = {
+          id: `prod_mtx_${timestamp}_${counter++}`,
+          name: `${input.styleName} - ${color} (${size})`,
+          sku,
+          barcode,
+          category: input.category,
+          subCategory: input.subCategory,
+          size,
+          color,
+          season: input.season,
+          costPrice: input.costPrice,
+          sellingPrice: input.sellingPrice,
+          stock: qty,
+          minStockAlert: input.minStockAlert || 4,
+          taxRate: input.taxRate || 5,
+          purchaseSource: input.purchaseSource || 'billed',
+          description: input.description || `${input.styleName} in ${color}, size ${size}`,
+        };
+
+        newProducts.push(newProd);
+      }
+    }
+
+    if (newProducts.length > 0) {
+      setProducts((prev) => [...newProducts, ...prev]);
+      if (isSupabaseAutoSync) {
+        newProducts.forEach((p) => {
+          try {
+            asyncSyncProduct(p);
+          } catch {}
+        });
+      }
+    }
+
+    return newProducts;
   };
 
   // Vendors & Purchases
@@ -1514,11 +1783,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
 
+    // Promotional Discount (BOGO, Cart Slabs, Bundle Combo Deals)
+    const promoResult = calculatePromotionsDiscount(cart);
+    const promoDiscountAmount = promoResult.discountAmount;
+    const promoTitleApplied = promoResult.appliedRule?.title;
+
     const finalGrandTotal = Math.max(
       0,
       Math.round(
         subtotal -
-          itemDiscountsTotal +
+          itemDiscountsTotal -
+          promoDiscountAmount +
           taxTotal -
           loyaltyDiscountAmount -
           couponDiscountAmount -
@@ -1553,6 +1828,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       loyaltyDiscountAmount,
       couponCodeApplied: appliedCoupon?.code,
       couponDiscountAmount,
+      promoDiscountAmount: promoDiscountAmount > 0 ? promoDiscountAmount : undefined,
+      promoTitleApplied: promoDiscountAmount > 0 ? promoTitleApplied : undefined,
       creditNoteCodeApplied: appliedCreditNote?.code,
       creditNoteDiscountAmount,
       taxTotal,
@@ -1731,6 +2008,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         adjustStock,
         bulkUpdateProducts,
         bulkImportProducts,
+        addMatrixProducts,
+        stockAudits,
+        saveStockAudit,
+        applyStockAuditReconciliation,
+        promotions,
+        addPromotion,
+        updatePromotion,
+        deletePromotion,
+        togglePromotion,
+        calculatePromotionsDiscount,
         vendors,
         purchases,
         vendorPayments,

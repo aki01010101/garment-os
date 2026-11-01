@@ -126,7 +126,7 @@ ${receipt.items.map((i) => `* ${i.qty}x ${i.name} [Size: ${i.size}, ${i.color}] 
 --------------------------------
 *Subtotal:* Rs. ${receipt.subtotal.toFixed(2)}
 *Total Items:* ${totalItemsCount} pcs
-${receipt.itemDiscountsTotal > 0 ? `*Discount:* -Rs. ${receipt.itemDiscountsTotal.toFixed(2)}\n` : ''}${receipt.loyaltyDiscountAmount > 0 ? `*Loyalty Redeemed:* -Rs. ${receipt.loyaltyDiscountAmount.toFixed(2)}\n` : ''}${Boolean(receipt.couponDiscountAmount && receipt.couponDiscountAmount > 0) ? `*Coupon:* -Rs. ${receipt.couponDiscountAmount!.toFixed(2)}\n` : ''}${Boolean(receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) ? `*Credit Note:* -Rs. ${receipt.creditNoteDiscountAmount!.toFixed(2)}\n` : ''}${receipt.taxTotal > 0 ? `*GST:* Rs. ${receipt.taxTotal.toFixed(2)}\n` : ''}*NET PAID:* Rs. ${receipt.grandTotal.toFixed(2)} (${paymentModeLabel})
+${receipt.itemDiscountsTotal > 0 ? `*Discount:* -Rs. ${receipt.itemDiscountsTotal.toFixed(2)}\n` : ''}${Boolean(receipt.promoDiscountAmount && receipt.promoDiscountAmount > 0) ? `*Offer/Promo (${receipt.promoTitleApplied || 'Special Deal'}):* -Rs. ${receipt.promoDiscountAmount!.toFixed(2)}\n` : ''}${receipt.loyaltyDiscountAmount > 0 ? `*Loyalty Redeemed:* -Rs. ${receipt.loyaltyDiscountAmount.toFixed(2)}\n` : ''}${Boolean(receipt.couponDiscountAmount && receipt.couponDiscountAmount > 0) ? `*Coupon:* -Rs. ${receipt.couponDiscountAmount!.toFixed(2)}\n` : ''}${Boolean(receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) ? `*Credit Note:* -Rs. ${receipt.creditNoteDiscountAmount!.toFixed(2)}\n` : ''}${receipt.taxTotal > 0 ? `*GST:* Rs. ${receipt.taxTotal.toFixed(2)}\n` : ''}*NET PAID:* Rs. ${receipt.grandTotal.toFixed(2)} (${paymentModeLabel})
 --------------------------------
 ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n--------------------------------\n' : ''}*Return Policy:* ${receipt.companyReturnPolicy}
 *Thank you for shopping with us!*
@@ -387,6 +387,13 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                   <div className="receipt-row text-neutral-700">
                     <span>ITEM DISCOUNTS:</span>
                     <span>-₹{receipt.itemDiscountsTotal.toFixed(2)}</span>
+                  </div>
+                )}
+
+                {Boolean(receipt.promoDiscountAmount && receipt.promoDiscountAmount > 0) && (
+                  <div className="receipt-row text-emerald-700 font-bold">
+                    <span>OFFER ({receipt.promoTitleApplied || 'PROMO'}):</span>
+                    <span>-₹{receipt.promoDiscountAmount!.toFixed(2)}</span>
                   </div>
                 )}
 
