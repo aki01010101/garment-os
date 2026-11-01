@@ -1,0 +1,6 @@
+{
+  "name": "Garment OS - POS & Retail CRM",
+  "description": "Multi-company clothing shop POS and CRM featuring cash vs. billed vendor ledgers, 50mm thermal receipt printing, barcode price tags, and inventory tracking.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

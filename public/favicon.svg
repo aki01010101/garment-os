@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="gosBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b" />
+      <stop offset="50%" stop-color="#312e81" />
+      <stop offset="100%" stop-color="#4338ca" />
+    </linearGradient>
+
+    <!-- Electric Cyan/Purple Gradient -->
+    <linearGradient id="gosAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+
+    <!-- Warm Amber Hook Gradient -->
+    <linearGradient id="hookGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+  </defs>
+
+  <!-- Base Squircle with Subtle Inner Rim -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#gosBg)" />
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" />
+
+  <!-- Clothes Hanger Hook -->
+  <path d="M64 24 C57.5 24 53 28.5 53 34.5 C53 40.5 58 42.5 64 46 L64 51"
+        fill="none" stroke="url(#hookGrad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Tailored Shoulder Bar forming top triangle -->
+  <path d="M64 51 L31 66.5 C27.5 68.2 27.5 73.2 31 75 L38.5 78.5 C40.8 79.6 43.5 78.8 45 76.8 L64 54.5 L83 76.8 C84.5 78.8 87.2 79.6 89.5 78.5 L97 75 C100.5 73.2 100.5 68.2 97 66.5 Z"
+        fill="#FFFFFF" />
+
+  <!-- The "G" Dynamic Lower Orbit -->
+  <path d="M43.5 74 C36 82 36 93.5 45 101 C54 108.5 74 108.5 83 101 C89.5 95.5 93 87 93 78 L65 78"
+        fill="none" stroke="url(#gosAccent)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Retail POS Core Node Dot -->
+  <circle cx="65" cy="78" r="4.5" fill="#38bdf8" />
+  <circle cx="65" cy="78" r="2" fill="#ffffff" />
+</svg>
+
