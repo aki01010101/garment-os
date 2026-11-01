@@ -712,3 +712,4 @@ export const MatrixProductModal: React.FC<MatrixProductModalProps> = ({
     </div>
   );
 };
+

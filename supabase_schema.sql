@@ -316,6 +316,43 @@ CREATE TABLE IF NOT EXISTS stock_audits (
   items JSONB NOT NULL DEFAULT '[]'::jsonb
 );
 
+-- 16. MULTI-BRANCH STOCK TRANSFERS (STO)
+CREATE TABLE IF NOT EXISTS stock_transfers (
+  id TEXT PRIMARY KEY,
+  transfer_number TEXT NOT NULL UNIQUE,
+  date TIMESTAMPTZ DEFAULT NOW(),
+  source_branch TEXT NOT NULL,
+  destination_branch TEXT NOT NULL,
+  dispatched_by TEXT NOT NULL,
+  received_by TEXT,
+  received_at TIMESTAMPTZ,
+  status TEXT DEFAULT 'in_transit',
+  total_dispatched_qty INTEGER NOT NULL DEFAULT 0,
+  total_received_qty INTEGER,
+  vehicle_or_challan_no TEXT,
+  notes TEXT,
+  items JSONB NOT NULL DEFAULT '[]'::jsonb
+);
+
+-- 17. SALES ASSOCIATE COMMISSION CONFIGURATIONS
+CREATE TABLE IF NOT EXISTS associate_commissions (
+  associate_name TEXT PRIMARY KEY,
+  monthly_sales_target NUMERIC(12,2) DEFAULT 150000,
+  base_commission_percent NUMERIC(5,2) DEFAULT 1.5,
+  bonus_commission_percent NUMERIC(5,2) DEFAULT 2.5,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 18. WHATSAPP CAMPAIGN TEMPLATES
+CREATE TABLE IF NOT EXISTS campaign_templates (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  target_segment TEXT NOT NULL,
+  message_template TEXT NOT NULL,
+  coupon_code TEXT,
+  discount_text TEXT
+);
+
 -- =============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- =============================================================================
@@ -335,6 +372,9 @@ ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promotions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_audits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_transfers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE associate_commissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE campaign_templates ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
@@ -382,5 +422,14 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'pos_stock_audits_all') THEN
     CREATE POLICY pos_stock_audits_all ON stock_audits FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'pos_stock_transfers_all') THEN
+    CREATE POLICY pos_stock_transfers_all ON stock_transfers FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'pos_associate_commissions_all') THEN
+    CREATE POLICY pos_associate_commissions_all ON associate_commissions FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'pos_campaign_templates_all') THEN
+    CREATE POLICY pos_campaign_templates_all ON campaign_templates FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;

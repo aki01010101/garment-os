@@ -1,4 +1,4 @@
-import { Customer, SaleTransaction } from '../types';
+import { Customer, SaleTransaction, CustomerRFMProfile, RFMSegment } from '../types';
 
 export interface CustomerSpendMetrics {
   monthlySpend: number;
@@ -212,4 +212,110 @@ export function isUpcomingMilestone(dateStr?: string, daysWindow: number = 30): 
   const nextYearDiff = Math.ceil((nextYearDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   return nextYearDiff >= 0 && nextYearDiff <= daysWindow;
 }
+
+/**
+ * Computes RFM (Recency, Frequency, Monetary) segmentation profiles across all customers.
+ */
+export function computeCustomerRFMProfiles(
+  customers: Customer[],
+  sales: SaleTransaction[]
+): CustomerRFMProfile[] {
+  const now = new Date();
+
+  return customers.map((c) => {
+    const custSales = getCustomerPurchases(c, sales);
+    const totalOrders = custSales.length || c.totalVisits || 1;
+    const lifetimeSpend = custSales.reduce((sum, s) => sum + s.grandTotal, 0) || c.totalSpend || 0;
+    const averageOrderValue = totalOrders > 0 ? Math.round(lifetimeSpend / totalOrders) : 0;
+
+    let recencyDays = 999;
+    let lastPurchaseDate: string | undefined = undefined;
+
+    if (custSales.length > 0) {
+      lastPurchaseDate = custSales[0].date;
+      const lastTime = new Date(custSales[0].date).getTime();
+      if (!isNaN(lastTime)) {
+        recencyDays = Math.max(0, Math.floor((now.getTime() - lastTime) / (1000 * 60 * 60 * 24)));
+      }
+    } else if (c.createdAt) {
+      const createdTime = new Date(c.createdAt).getTime();
+      if (!isNaN(createdTime)) {
+        recencyDays = Math.max(0, Math.floor((now.getTime() - createdTime) / (1000 * 60 * 60 * 24)));
+      }
+    }
+
+    // Segment determination
+    let segment: RFMSegment = 'new_walkins';
+    let segmentLabel = '🌱 New Walk-in';
+    let suggestedAction = 'Welcome perk on 2nd visit';
+
+    if (lifetimeSpend >= 10000 || c.isVip || (totalOrders >= 4 && recencyDays <= 45)) {
+      segment = 'champions';
+      segmentLabel = '👑 Champion / VIP';
+      suggestedAction = 'VIP early collection preview & double points';
+    } else if (totalOrders >= 2 && recencyDays <= 90) {
+      segment = 'loyal';
+      segmentLabel = '💎 Loyal Patron';
+      suggestedAction = '15% loyalty retention reward';
+    } else if (recencyDays > 90 && recencyDays <= 180) {
+      segment = 'at_risk';
+      segmentLabel = '⚠️ At-Risk / Slipping';
+      suggestedAction = 'Send win-back voucher (MISSU500)';
+    } else if (recencyDays > 180) {
+      segment = 'hibernating';
+      segmentLabel = '💤 Hibernating / Inactive';
+      suggestedAction = 'Festive mega sale re-activation';
+    } else {
+      segment = 'new_walkins';
+      segmentLabel = '🌱 New Shopper';
+      suggestedAction = 'Welcome perk on 2nd visit';
+    }
+
+    return {
+      customerId: c.id,
+      customerName: c.name,
+      phone: c.phone,
+      email: c.email,
+      recencyDays,
+      lastPurchaseDate,
+      frequencyOrders: totalOrders,
+      monetaryLifetimeSpend: lifetimeSpend,
+      averageOrderValue,
+      segment,
+      segmentLabel,
+      loyaltyPoints: c.loyaltyPoints || 0,
+      suggestedAction,
+    };
+  });
+}
+
+/**
+ * Replaces dynamic campaign variables into a customer-specific personalized text.
+ */
+export function formatWhatsAppCampaignMessage(
+  template: string,
+  profile: CustomerRFMProfile,
+  storeName: string,
+  storeAddress: string,
+  couponCode?: string
+): string {
+  let text = template;
+  text = text.replace(/\{CustomerName\}/g, profile.customerName);
+  text = text.replace(/\{PointsBalance\}/g, String(profile.loyaltyPoints));
+  text = text.replace(/\{StoreName\}/g, storeName);
+  text = text.replace(/\{StoreAddress\}/g, storeAddress);
+  text = text.replace(/\{DiscountCoupon\}/g, couponCode || 'SPECIALOFFER');
+  text = text.replace(
+    /\{LastVisited\}/g,
+    profile.lastPurchaseDate
+      ? new Date(profile.lastPurchaseDate).toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+        })
+      : 'earlier'
+  );
+
+  return text;
+}
+
 

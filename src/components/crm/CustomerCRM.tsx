@@ -40,7 +40,9 @@ import {
   Link2,
   UserPlus,
   Unlink,
+  MessageSquare,
 } from 'lucide-react';
+import { RFMCampaignsManager } from './RFMCampaignsManager';
 
 export const CustomerCRM: React.FC = () => {
   const {
@@ -56,6 +58,7 @@ export const CustomerCRM: React.FC = () => {
     setIsReceiptModalOpen,
   } = useApp();
 
+  const [crmView, setCrmView] = useState<'directory' | 'rfm_campaigns'>('directory');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [companyFilter, setCompanyFilter] = useState<string>('all');
@@ -311,8 +314,41 @@ export const CustomerCRM: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Grid: Customer Directory & Detail Drawer */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* CRM Navigation Tabs: Directory vs RFM Campaigns */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold w-fit">
+        <button
+          onClick={() => setCrmView('directory')}
+          className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+            crmView === 'directory'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5 text-indigo-600" />
+          <span>Customer Directory & Profiles</span>
+        </button>
+
+        <button
+          onClick={() => setCrmView('rfm_campaigns')}
+          className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+            crmView === 'rfm_campaigns'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+          <span>RFM Smart WhatsApp Campaigns</span>
+          <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold">
+            NEW
+          </span>
+        </button>
+      </div>
+
+      {crmView === 'rfm_campaigns' ? (
+        <RFMCampaignsManager />
+      ) : (
+        /* Main Grid: Customer Directory & Detail Drawer */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Customer Directory */}
         <div className="lg:col-span-5 space-y-3">
           {/* Search Box & Tier Filter Tabs */}
@@ -1228,6 +1264,7 @@ export const CustomerCRM: React.FC = () => {
           )}
         </div>
       </div>
+      )}
 
       {/* Customer Past Purchases Modal */}
       <CustomerPurchasesModal

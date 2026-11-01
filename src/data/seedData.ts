@@ -1,4 +1,17 @@
-import { Company, Product, Vendor, Customer, SaleTransaction, PurchaseOrder, VendorPaymentRecord, LoyaltyConfig, UserAccount } from '../types';
+import {
+  Company,
+  Product,
+  Vendor,
+  Customer,
+  SaleTransaction,
+  PurchaseOrder,
+  VendorPaymentRecord,
+  LoyaltyConfig,
+  UserAccount,
+  WhatsAppCampaignTemplate,
+  StockTransferOrder,
+  AssociateCommissionConfig,
+} from '../types';
 
 export const INITIAL_COMPANIES: Company[] = [
   {
@@ -1425,4 +1438,154 @@ export const DEFAULT_USERS: UserAccount[] = [
     designation: 'Sales Cashier & Counter Associate',
   },
 ];
+
+export const DEFAULT_STORE_BRANCHES = [
+  'Main Flagship Store (City Center)',
+  'Boutique Outlet (Mall Promenade)',
+  'Central Logistics Depot (Warehouse)',
+];
+
+export const INITIAL_CAMPAIGN_TEMPLATES: WhatsAppCampaignTemplate[] = [
+  {
+    id: 'camp_champions',
+    name: '👑 VIP Early Festive Preview & 2X Points',
+    targetSegment: 'champions',
+    messageTemplate:
+      'Dear {CustomerName},\n\nAs our most cherished VIP patron at {StoreName}, you have exclusive early access to our New Festive Autumn/Winter Collection! 🌟\n\nEnjoy *Double Loyalty Points (2X)* on all purchases this weekend only. You currently have *{PointsBalance} reward points* ready to redeem.\n\n📍 Visit us at {StoreAddress} or reply to reserve your personalized styling appointment.',
+    discountText: 'Double Points Weekend',
+  },
+  {
+    id: 'camp_loyal',
+    name: '💎 Loyal Shopper Appreciation Perk (15% Off)',
+    targetSegment: 'loyal',
+    messageTemplate:
+      'Hello {CustomerName}! 💫\n\nThank you for being such a loyal part of the {StoreName} family! As a token of our appreciation, here is a special *15% discount* on your next visit.\n\nUse Code: *{DiscountCoupon}*\nYour Loyalty Balance: *{PointsBalance} pts*\n\nExplore our fresh arrivals today: {StoreAddress}. See you soon!',
+    couponCode: 'LOYAL15',
+    discountText: '15% Off Code: LOYAL15',
+  },
+  {
+    id: 'camp_at_risk',
+    name: '✨ We Miss You! Come Back Flat ₹500 Voucher',
+    targetSegment: 'at_risk',
+    messageTemplate:
+      'Hi {CustomerName}, we miss having you at {StoreName}! 🛍️\n\nIt has been a while since your last visit. We would love to welcome you back with a special gift: *Flat ₹500 OFF* on your next bill of ₹2,500 or more!\n\nUse Promo Code: *{DiscountCoupon}*\n\nDrop by our boutique this week to claim your gift! Valid until Sunday.',
+    couponCode: 'MISSU500',
+    discountText: 'Flat ₹500 Voucher: MISSU500',
+  },
+  {
+    id: 'camp_new_walkins',
+    name: '🌱 Welcome Gift: 10% Off On Your 2nd Visit',
+    targetSegment: 'new_walkins',
+    messageTemplate:
+      'Hi {CustomerName}! Thank you for shopping with us recently at {StoreName}! ✨\n\nWe hope you love your new garments. Here is a special welcome perk for your 2nd visit: *10% OFF* on all fresh styles with code *{DiscountCoupon}*.\n\nPlus, you have already earned *{PointsBalance} loyalty points* on your first bill! See you again soon.',
+    couponCode: 'WELCOME10',
+    discountText: '10% Welcome Perk: WELCOME10',
+  },
+];
+
+export const INITIAL_COMMISSION_CONFIGS: AssociateCommissionConfig[] = [
+  {
+    associateName: 'Aman Deep (Counter 1)',
+    monthlySalesTarget: 150000,
+    baseCommissionPercent: 1.5,
+    bonusCommissionPercent: 2.5,
+  },
+  {
+    associateName: 'Ravi Verma (Counter 2)',
+    monthlySalesTarget: 120000,
+    baseCommissionPercent: 1.5,
+    bonusCommissionPercent: 2.0,
+  },
+  {
+    associateName: 'Neha Sharma (Floor Stylist)',
+    monthlySalesTarget: 200000,
+    baseCommissionPercent: 2.0,
+    bonusCommissionPercent: 3.0,
+  },
+  {
+    associateName: 'Kunal Mehra (VIP Section)',
+    monthlySalesTarget: 250000,
+    baseCommissionPercent: 2.0,
+    bonusCommissionPercent: 3.5,
+  },
+];
+
+export const INITIAL_STOCK_TRANSFERS: StockTransferOrder[] = [
+  {
+    id: 'sto_1',
+    transferNumber: 'STO-2026-001',
+    date: '2026-10-28T11:30:00Z',
+    sourceBranch: 'Central Logistics Depot (Warehouse)',
+    destinationBranch: 'Main Flagship Store (City Center)',
+    dispatchedBy: 'Suresh Sharma',
+    receivedBy: 'Pooja Verma',
+    receivedAt: '2026-10-28T16:45:00Z',
+    status: 'received',
+    totalDispatchedQty: 25,
+    totalReceivedQty: 25,
+    vehicleOrChallanNo: 'CH-01-GA-4521',
+    notes: 'Replenishment of festive formal shirts and denim trousers',
+    items: [
+      {
+        productId: 'prod_1',
+        sku: 'VT-MEN-SH-001',
+        barcode: '8901234567890',
+        name: 'Slim Fit Cotton Casual Shirt',
+        size: 'L',
+        color: 'Navy Blue',
+        category: 'Men',
+        qtyDispatched: 15,
+        qtyReceived: 15,
+        variance: 0,
+      },
+      {
+        productId: 'prod_2',
+        sku: 'VT-MEN-JN-002',
+        barcode: '8901234567891',
+        name: 'Stretch Denim Jeans',
+        size: '32',
+        color: 'Indigo Blue',
+        category: 'Men',
+        qtyDispatched: 10,
+        qtyReceived: 10,
+        variance: 0,
+      },
+    ],
+  },
+  {
+    id: 'sto_2',
+    transferNumber: 'STO-2026-002',
+    date: '2026-11-01T09:15:00Z',
+    sourceBranch: 'Main Flagship Store (City Center)',
+    destinationBranch: 'Boutique Outlet (Mall Promenade)',
+    dispatchedBy: 'Pooja Verma',
+    status: 'in_transit',
+    totalDispatchedQty: 18,
+    vehicleOrChallanNo: 'HR-05-BK-8812',
+    notes: 'Floor stock transfer for weekend mall footfall rush',
+    items: [
+      {
+        productId: 'prod_3',
+        sku: 'VT-WOM-DR-003',
+        barcode: '8901234567892',
+        name: 'Floral Print Maxi Dress',
+        size: 'M',
+        color: 'Pastel Peach',
+        category: 'Women',
+        qtyDispatched: 10,
+      },
+      {
+        productId: 'prod_5',
+        sku: 'VT-KID-TS-005',
+        barcode: '8901234567894',
+        name: 'Graphic Print Kids T-Shirt',
+        size: '4-5Y',
+        color: 'Yellow',
+        category: 'Kids',
+        qtyDispatched: 8,
+      },
+    ],
+  },
+];
+
 

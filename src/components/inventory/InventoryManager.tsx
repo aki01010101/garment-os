@@ -23,12 +23,14 @@ import {
   AlertOctagon,
   Grid,
   ClipboardCheck,
+  Truck,
 } from 'lucide-react';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 import { BulkUpdateModal } from './BulkUpdateModal';
 import { BulkCsvImportModal } from './BulkCsvImportModal';
 import { MatrixProductModal } from './MatrixProductModal';
 import { StockAuditModal } from './StockAuditModal';
+import { StockTransferModal } from './StockTransferModal';
 import { BulkProductUpdate, BulkCsvImportRow } from '../../types';
 
 interface InventoryManagerProps {
@@ -58,9 +60,10 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
   const [stockStatusFilter, setStockStatusFilter] = useState<'all' | 'low' | 'out'>('all');
   const [scannerTarget, setScannerTarget] = useState<'search' | 'form' | null>(null);
 
-  // Variant Matrix & Stock Audit Modals
+  // Variant Matrix, Stock Audit & Branch Transfers Modals
   const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
   const [isStockAuditOpen, setIsStockAuditOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
   // Bulk Selection States
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
@@ -317,6 +320,16 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
           >
             <Grid className="w-3.5 h-3.5 text-indigo-600" />
             <span>Matrix Variants</span>
+          </button>
+
+          {/* Multi-Branch Stock Transfers (STO) */}
+          <button
+            onClick={() => setIsTransferModalOpen(true)}
+            className="px-3.5 py-1.5 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Transfer stock between branches, dispatch consignments & track in-transit items"
+          >
+            <Truck className="w-3.5 h-3.5 text-teal-600" />
+            <span>Branch Transfers (STO)</span>
           </button>
 
           <button
@@ -1083,6 +1096,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
           setTimeout(() => setBulkFeedbackMsg(null), 4000);
           return result;
         }}
+      />
+
+      {/* Multi-Branch Stock Transfer (STO) Modal */}
+      <StockTransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        products={products}
+        currentUserName={currentUser?.fullName || 'Store Manager'}
       />
     </div>
   );

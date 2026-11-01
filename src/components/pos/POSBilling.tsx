@@ -43,6 +43,7 @@ import { CustomerPurchasesModal } from '../crm/CustomerPurchasesModal';
 import { CustomerProfileModal } from '../crm/CustomerProfileModal';
 import { computeCustomerSpendMetrics } from '../../utils/crmUtils';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
+import { DigitalReceiptModal } from './DigitalReceiptModal';
 
 export const POSBilling: React.FC = () => {
   const {
@@ -93,8 +94,10 @@ export const POSBilling: React.FC = () => {
     clearAllParkedCarts,
     promotions,
     calculatePromotionsDiscount,
+    storeGoogleReviewUrl,
   } = useApp();
 
+  const [isDigitalReceiptModalOpen, setIsDigitalReceiptModalOpen] = useState(false);
   const [isCustomerHistoryOpen, setIsCustomerHistoryOpen] = useState(false);
   const [isFamilySizingModalOpen, setIsFamilySizingModalOpen] = useState(false);
   const [isPosProfileModalOpen, setIsPosProfileModalOpen] = useState(false);
@@ -647,6 +650,14 @@ export const POSBilling: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setIsDigitalReceiptModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              title="Show Digital E-Receipt and QR Code on screen"
+            >
+              <QrCode className="w-4 h-4 text-indigo-600" />
+              <span>Digital E-Receipt QR</span>
+            </button>
             <button
               onClick={() => {
                 setActiveReceipt(lastCompletedSale);
@@ -2320,6 +2331,14 @@ export const POSBilling: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Digital E-Receipt & QR Presentation Modal */}
+      <DigitalReceiptModal
+        isOpen={isDigitalReceiptModalOpen}
+        onClose={() => setIsDigitalReceiptModalOpen(false)}
+        receipt={lastCompletedSale || activeReceipt}
+        googleReviewUrl={storeGoogleReviewUrl}
+      />
     </div>
   );
 };

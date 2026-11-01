@@ -495,4 +495,92 @@ export interface AuthState {
   lastActivityTimestamp: number;
 }
 
+// =============================================================================
+// PHASE 4 DATA MODELS: RFM CAMPAIGNS, STO TRANSFERS, COMMISSIONS, DIGITAL E-RECEIPTS
+// =============================================================================
+
+export type RFMSegment = 'champions' | 'loyal' | 'at_risk' | 'hibernating' | 'new_walkins';
+
+export interface CustomerRFMProfile {
+  customerId: string;
+  customerName: string;
+  phone: string;
+  email?: string;
+  recencyDays: number;
+  lastPurchaseDate?: string;
+  frequencyOrders: number;
+  monetaryLifetimeSpend: number;
+  averageOrderValue: number;
+  segment: RFMSegment;
+  segmentLabel: string;
+  loyaltyPoints: number;
+  suggestedAction: string;
+}
+
+export interface WhatsAppCampaignTemplate {
+  id: string;
+  name: string;
+  targetSegment: RFMSegment | 'all';
+  messageTemplate: string;
+  couponCode?: string;
+  discountText?: string;
+}
+
+export type StockTransferStatus = 'draft' | 'dispatched' | 'in_transit' | 'received' | 'discrepancy';
+
+export interface StockTransferItem {
+  productId: string;
+  sku: string;
+  barcode: string;
+  name: string;
+  size: string;
+  color: string;
+  category: ClothingCategory;
+  qtyDispatched: number;
+  qtyReceived?: number;
+  variance?: number; // qtyReceived - qtyDispatched
+  notes?: string;
+}
+
+export interface StockTransferOrder {
+  id: string;
+  transferNumber: string; // e.g. STO-2026-001
+  date: string; // ISO
+  sourceBranch: string;
+  destinationBranch: string;
+  dispatchedBy: string;
+  receivedBy?: string;
+  receivedAt?: string;
+  status: StockTransferStatus;
+  items: StockTransferItem[];
+  totalDispatchedQty: number;
+  totalReceivedQty?: number;
+  vehicleOrChallanNo?: string;
+  notes?: string;
+}
+
+export interface AssociateCommissionConfig {
+  associateName: string;
+  monthlySalesTarget: number; // e.g. 150000
+  baseCommissionPercent: number; // e.g. 1.5%
+  bonusCommissionPercent?: number; // e.g. 2.5% if target met
+}
+
+export interface AssociateCommissionPayout {
+  id: string;
+  associateName: string;
+  periodMonth: string; // e.g. "2026-11"
+  totalSalesRevenue: number;
+  billsHandled: number;
+  targetAmount: number;
+  targetAchievedPercent: number;
+  commissionAmount: number;
+  bonusAmount: number;
+  totalPayout: number;
+  status: 'pending' | 'paid';
+  paidAt?: string;
+  paidBy?: string;
+  notes?: string;
+}
+
 

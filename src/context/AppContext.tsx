@@ -28,6 +28,11 @@ import {
   StockAuditItem,
   StockAuditSession,
   PromotionRule,
+  StockTransferOrder,
+  StockTransferStatus,
+  AssociateCommissionConfig,
+  AssociateCommissionPayout,
+  WhatsAppCampaignTemplate,
 } from '../types';
 import {
   INITIAL_COMPANIES,
@@ -45,6 +50,10 @@ import {
   INITIAL_REGISTER,
   SALES_ASSOCIATES,
   DEFAULT_USERS,
+  DEFAULT_STORE_BRANCHES,
+  INITIAL_CAMPAIGN_TEMPLATES,
+  INITIAL_COMMISSION_CONFIGS,
+  INITIAL_STOCK_TRANSFERS,
 } from '../data/seedData';
 
 import { playBarcodeBeep } from '../utils/audio';
@@ -236,6 +245,28 @@ interface AppContextType {
   isSupabaseAutoSync: boolean;
   setIsSupabaseAutoSync: (val: boolean) => void;
 
+  // Phase 4: Multi-Branch Stock Transfers (STO)
+  storeBranches: string[];
+  stockTransfers: StockTransferOrder[];
+  createStockTransfer: (order: Omit<StockTransferOrder, 'id' | 'transferNumber' | 'date'>) => StockTransferOrder;
+  updateStockTransferStatus: (id: string, status: StockTransferStatus, notes?: string) => void;
+  receiveStockTransfer: (id: string, receivedItems: { productId: string; qtyReceived: number }[], receivedBy: string) => { success: boolean; message: string };
+
+  // Phase 4: Sales Associate Commission Engine
+  associateCommissions: AssociateCommissionConfig[];
+  updateAssociateCommission: (config: AssociateCommissionConfig) => void;
+  calculateAssociateCommissions: (monthPeriod: string) => AssociateCommissionPayout[];
+
+  // Phase 4: RFM WhatsApp Campaigns
+  campaignTemplates: WhatsAppCampaignTemplate[];
+  saveCampaignTemplate: (template: WhatsAppCampaignTemplate) => void;
+
+  // Phase 4: Digital E-Receipt & Google Reviews
+  storeGoogleReviewUrl: string;
+  setStoreGoogleReviewUrl: (url: string) => void;
+  enableEReceiptQr: boolean;
+  setEnableEReceiptQr: (enable: boolean) => void;
+
   // System
   resetToSampleData: () => void;
 }
@@ -268,6 +299,11 @@ const STORAGE_KEYS = {
   PARKED_CARTS: 'garment_os_parked_carts_v1',
   PROMOTIONS: 'garment_os_promotions_v1',
   STOCK_AUDITS: 'garment_os_stock_audits_v1',
+  STOCK_TRANSFERS: 'garment_os_stock_transfers_v1',
+  COMMISSION_CONFIGS: 'garment_os_commission_configs_v1',
+  CAMPAIGN_TEMPLATES: 'garment_os_campaign_templates_v1',
+  GOOGLE_REVIEW_URL: 'garment_os_google_review_url_v1',
+  ENABLE_E_RECEIPT_QR: 'garment_os_enable_ereceipt_qr_v1',
 };
 
 
@@ -979,6 +1015,248 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       adjustedCount,
       message: `Stock reconciled for ${adjustedCount} garments from Audit #${targetAudit.auditNumber}.`,
     };
+  };
+
+  // Phase 4: Multi-Branch Stock Transfer (STO) State
+  const [storeBranches] = useState<string[]>(DEFAULT_STORE_BRANCHES);
+  const [stockTransfers, setStockTransfers] = useState<StockTransferOrder[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.STOCK_TRANSFERS);
+      return saved ? JSON.parse(saved) : INITIAL_STOCK_TRANSFERS;
+    } catch {
+      return INITIAL_STOCK_TRANSFERS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.STOCK_TRANSFERS, JSON.stringify(stockTransfers));
+    } catch (e) {
+      console.warn('Failed to save stock transfers to localStorage:', e);
+    }
+  }, [stockTransfers]);
+
+  const createStockTransfer = (
+    order: Omit<StockTransferOrder, 'id' | 'transferNumber' | 'date'>
+  ): StockTransferOrder => {
+    const highestNum = stockTransfers.reduce((max, t) => {
+      const match = t.transferNumber.match(/\d+$/);
+      return match ? Math.max(max, parseInt(match[0], 10)) : max;
+    }, 0);
+    const transferNumber = `STO-${new Date().getFullYear()}-${String(highestNum + 1).padStart(3, '0')}`;
+    const newTransfer: StockTransferOrder = {
+      ...order,
+      id: `sto_${Date.now()}`,
+      transferNumber,
+      date: new Date().toISOString(),
+    };
+
+    setStockTransfers((prev) => [newTransfer, ...prev]);
+
+    // Automatically deduct inventory stock for dispatched products if dispatched/in_transit
+    if (order.status === 'dispatched' || order.status === 'in_transit') {
+      setProducts((prev) =>
+        prev.map((p) => {
+          const item = order.items.find((i) => i.productId === p.id);
+          if (item) {
+            return { ...p, stock: Math.max(0, p.stock - item.qtyDispatched) };
+          }
+          return p;
+        })
+      );
+    }
+
+    return newTransfer;
+  };
+
+  const updateStockTransferStatus = (id: string, status: StockTransferStatus, notes?: string) => {
+    setStockTransfers((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, status, ...(notes ? { notes } : {}) } : t))
+    );
+  };
+
+  const receiveStockTransfer = (
+    id: string,
+    receivedItems: { productId: string; qtyReceived: number }[],
+    receivedBy: string
+  ): { success: boolean; message: string } => {
+    const target = stockTransfers.find((t) => t.id === id);
+    if (!target) return { success: false, message: 'Stock transfer order not found.' };
+
+    let totalReceived = 0;
+    let hasDiscrepancy = false;
+
+    const updatedItems = target.items.map((item) => {
+      const match = receivedItems.find((r) => r.productId === item.productId);
+      const qtyReceived = match ? match.qtyReceived : item.qtyDispatched;
+      const variance = qtyReceived - item.qtyDispatched;
+      if (variance !== 0) hasDiscrepancy = true;
+      totalReceived += qtyReceived;
+      return {
+        ...item,
+        qtyReceived,
+        variance,
+      };
+    });
+
+    const newStatus: StockTransferStatus = hasDiscrepancy ? 'discrepancy' : 'received';
+
+    setStockTransfers((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              status: newStatus,
+              items: updatedItems,
+              totalReceivedQty: totalReceived,
+              receivedBy,
+              receivedAt: new Date().toISOString(),
+            }
+          : t
+      )
+    );
+
+    // Increment inventory stock for products received
+    setProducts((prev) =>
+      prev.map((p) => {
+        const item = updatedItems.find((i) => i.productId === p.id);
+        if (item && item.qtyReceived) {
+          return { ...p, stock: p.stock + item.qtyReceived };
+        }
+        return p;
+      })
+    );
+
+    return {
+      success: true,
+      message: `Stock Transfer ${target.transferNumber} received (${totalReceived} units). Status: ${newStatus.toUpperCase()}`,
+    };
+  };
+
+  // Phase 4: Sales Associate Commission Engine
+  const [associateCommissions, setAssociateCommissions] = useState<AssociateCommissionConfig[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.COMMISSION_CONFIGS);
+      return saved ? JSON.parse(saved) : INITIAL_COMMISSION_CONFIGS;
+    } catch {
+      return INITIAL_COMMISSION_CONFIGS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.COMMISSION_CONFIGS, JSON.stringify(associateCommissions));
+    } catch (e) {
+      console.warn('Failed to save commission configs to localStorage:', e);
+    }
+  }, [associateCommissions]);
+
+  const updateAssociateCommission = (config: AssociateCommissionConfig) => {
+    setAssociateCommissions((prev) => {
+      const exists = prev.some((c) => c.associateName === config.associateName);
+      if (exists) {
+        return prev.map((c) => (c.associateName === config.associateName ? config : c));
+      }
+      return [...prev, config];
+    });
+  };
+
+  const calculateAssociateCommissions = (monthPeriod: string): AssociateCommissionPayout[] => {
+    return SALES_ASSOCIATES.map((assocName) => {
+      const config = associateCommissions.find((c) => c.associateName === assocName) || {
+        associateName: assocName,
+        monthlySalesTarget: 150000,
+        baseCommissionPercent: 1.5,
+        bonusCommissionPercent: 2.5,
+      };
+
+      const monthSales = sales.filter(
+        (s) => s.salesAssociate === assocName && s.date.startsWith(monthPeriod)
+      );
+      const totalSalesRevenue = monthSales.reduce((sum, s) => sum + s.grandTotal, 0);
+      const billsHandled = monthSales.length;
+
+      const targetAmount = config.monthlySalesTarget;
+      const targetAchievedPercent = targetAmount > 0 ? Math.round((totalSalesRevenue / targetAmount) * 100) : 0;
+
+      const baseCommission = (totalSalesRevenue * config.baseCommissionPercent) / 100;
+      let bonusAmount = 0;
+      if (targetAchievedPercent >= 100 && config.bonusCommissionPercent) {
+        const surplus = totalSalesRevenue - targetAmount;
+        bonusAmount = (surplus * config.bonusCommissionPercent) / 100;
+      }
+
+      const totalPayout = Math.round(baseCommission + bonusAmount);
+
+      return {
+        id: `payout_${assocName}_${monthPeriod}`,
+        associateName: assocName,
+        periodMonth: monthPeriod,
+        totalSalesRevenue,
+        billsHandled,
+        targetAmount,
+        targetAchievedPercent,
+        commissionAmount: Math.round(baseCommission),
+        bonusAmount: Math.round(bonusAmount),
+        totalPayout,
+        status: 'pending',
+      };
+    });
+  };
+
+  // Phase 4: WhatsApp Campaign Templates
+  const [campaignTemplates, setCampaignTemplates] = useState<WhatsAppCampaignTemplate[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.CAMPAIGN_TEMPLATES);
+      return saved ? JSON.parse(saved) : INITIAL_CAMPAIGN_TEMPLATES;
+    } catch {
+      return INITIAL_CAMPAIGN_TEMPLATES;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CAMPAIGN_TEMPLATES, JSON.stringify(campaignTemplates));
+    } catch (e) {
+      console.warn('Failed to save campaign templates to localStorage:', e);
+    }
+  }, [campaignTemplates]);
+
+  const saveCampaignTemplate = (template: WhatsAppCampaignTemplate) => {
+    setCampaignTemplates((prev) => {
+      const exists = prev.some((t) => t.id === template.id);
+      if (exists) {
+        return prev.map((t) => (t.id === template.id ? template : t));
+      }
+      return [template, ...prev];
+    });
+  };
+
+  // Phase 4: Digital E-Receipt & Google Reviews
+  const [storeGoogleReviewUrl, setStoreGoogleReviewUrlState] = useState<string>(() => {
+    return localStorage.getItem(STORAGE_KEYS.GOOGLE_REVIEW_URL) || 'https://g.page/r/garment-os-reviews';
+  });
+
+  const setStoreGoogleReviewUrl = (url: string) => {
+    setStoreGoogleReviewUrlState(url);
+    try {
+      localStorage.setItem(STORAGE_KEYS.GOOGLE_REVIEW_URL, url);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const [enableEReceiptQr, setEnableEReceiptQrState] = useState<boolean>(() => {
+    return localStorage.getItem(STORAGE_KEYS.ENABLE_E_RECEIPT_QR) !== 'false';
+  });
+
+  const setEnableEReceiptQr = (enable: boolean) => {
+    setEnableEReceiptQrState(enable);
+    try {
+      localStorage.setItem(STORAGE_KEYS.ENABLE_E_RECEIPT_QR, String(enable));
+    } catch (e) {
+      console.warn(e);
+    }
   };
 
   const startNextSale = () => {
@@ -2123,6 +2401,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastSupabaseSync,
         isSupabaseAutoSync,
         setIsSupabaseAutoSync,
+        // Phase 4: Multi-Branch Stock Transfers (STO)
+        storeBranches,
+        stockTransfers,
+        createStockTransfer,
+        updateStockTransferStatus,
+        receiveStockTransfer,
+        // Phase 4: Sales Associate Commission Engine
+        associateCommissions,
+        updateAssociateCommission,
+        calculateAssociateCommissions,
+        // Phase 4: RFM WhatsApp Campaigns
+        campaignTemplates,
+        saveCampaignTemplate,
+        // Phase 4: Digital E-Receipt & Google Reviews
+        storeGoogleReviewUrl,
+        setStoreGoogleReviewUrl,
+        enableEReceiptQr,
+        setEnableEReceiptQr,
         resetToSampleData,
       }}
     >

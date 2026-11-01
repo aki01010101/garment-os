@@ -34,6 +34,7 @@ import {
   IndianRupee,
   Database,
   Tag,
+  Star,
 } from 'lucide-react';
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
@@ -68,14 +69,19 @@ export const SettingsManager: React.FC = () => {
     setStoreUpiId,
     storeUpiName,
     setStoreUpiName,
+    storeGoogleReviewUrl,
+    setStoreGoogleReviewUrl,
+    enableEReceiptQr,
+    setEnableEReceiptQr,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'staff' | 'entities' | 'promotions' | 'preferences' | 'database'>('staff');
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
-  // UPI Settings State
+  // UPI & Google Reviews Settings State
   const [upiIdInput, setUpiIdInput] = useState(storeUpiId);
   const [upiNameInput, setUpiNameInput] = useState(storeUpiName);
+  const [reviewUrlInput, setReviewUrlInput] = useState(storeGoogleReviewUrl);
 
   // Edit User Modal
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
@@ -309,27 +315,26 @@ export const SettingsManager: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1">
             Manage multi-company billing entities, staff credentials, custom module permissions, and POS security rules.
           </p>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={() => setIsSetupWizardOpen(true)}
-            className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Launch Setup Wizard</span>
-          </button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setIsSetupWizardOpen(true)}
+              className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Launch Setup Wizard</span>
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Tab Switcher */}
+        {/* Tab Switcher */}
         <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold">
           <button
             onClick={() => setActiveTab('staff')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeTab === 'staff'
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'staff'
                 ? 'bg-white text-slate-900 shadow-xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             <Users className="w-3.5 h-3.5 text-indigo-600" />
             <span>Staff, Roles & Permissions</span>
@@ -337,11 +342,10 @@ export const SettingsManager: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('entities')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeTab === 'entities'
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'entities'
                 ? 'bg-white text-slate-900 shadow-xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             <Building2 className="w-3.5 h-3.5 text-indigo-600" />
             <span>Billing Entities</span>
@@ -349,11 +353,10 @@ export const SettingsManager: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('promotions')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeTab === 'promotions'
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'promotions'
                 ? 'bg-white text-slate-900 shadow-xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             <Tag className="w-3.5 h-3.5 text-indigo-600" />
             <span>Promotions & Offers</span>
@@ -361,11 +364,10 @@ export const SettingsManager: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('preferences')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeTab === 'preferences'
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'preferences'
                 ? 'bg-white text-slate-900 shadow-xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             <Sliders className="w-3.5 h-3.5 text-indigo-600" />
             <span>Security & Terminal</span>
@@ -373,11 +375,10 @@ export const SettingsManager: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('database')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeTab === 'database'
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'database'
                 ? 'bg-white text-slate-900 shadow-xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             <Database className="w-3.5 h-3.5 text-indigo-600" />
             <span>Cloud Database (Supabase)</span>
@@ -388,11 +389,10 @@ export const SettingsManager: React.FC = () => {
       {/* Feedback Toast */}
       {statusMsg && (
         <div
-          className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 shadow-xs animate-in fade-in ${
-            statusMsg.type === 'success'
+          className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 shadow-xs animate-in fade-in ${statusMsg.type === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
               : 'bg-rose-50 border-rose-200 text-rose-900'
-          }`}
+            }`}
         >
           <span>{statusMsg.text}</span>
           <button
@@ -438,11 +438,10 @@ export const SettingsManager: React.FC = () => {
               return (
                 <div
                   key={user.id}
-                  className={`bg-white rounded-2xl border transition-all p-5 flex flex-col justify-between shadow-xs ${
-                    isCurrent
+                  className={`bg-white rounded-2xl border transition-all p-5 flex flex-col justify-between shadow-xs ${isCurrent
                       ? 'border-indigo-500/60 ring-2 ring-indigo-500/20'
                       : 'border-slate-200 hover:border-slate-300'
-                  }`}
+                    }`}
                 >
                   <div>
                     {/* User Header */}
@@ -592,11 +591,10 @@ export const SettingsManager: React.FC = () => {
                   setCodePrintType('barcode');
                   showToast('Code print format set to 1D Barcode (Code 128).');
                 }}
-                className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
-                  codePrintType === 'barcode'
+                className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${codePrintType === 'barcode'
                     ? 'border-indigo-600 bg-indigo-50/40 shadow-xs'
                     : 'border-slate-200 hover:border-slate-300 bg-white'
-                }`}
+                  }`}
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -607,11 +605,10 @@ export const SettingsManager: React.FC = () => {
                       </span>
                     </div>
                     <span
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                        codePrintType === 'barcode'
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${codePrintType === 'barcode'
                           ? 'border-indigo-600 bg-indigo-600 text-white'
                           : 'border-slate-300'
-                      }`}
+                        }`}
                     >
                       {codePrintType === 'barcode' && <Check className="w-3 h-3 stroke-[3]" />}
                     </span>
@@ -643,11 +640,10 @@ export const SettingsManager: React.FC = () => {
                   setCodePrintType('qr');
                   showToast('Code print format set to 2D QR Code.');
                 }}
-                className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
-                  codePrintType === 'qr'
+                className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${codePrintType === 'qr'
                     ? 'border-indigo-600 bg-indigo-50/40 shadow-xs'
                     : 'border-slate-200 hover:border-slate-300 bg-white'
-                }`}
+                  }`}
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -658,11 +654,10 @@ export const SettingsManager: React.FC = () => {
                       </span>
                     </div>
                     <span
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                        codePrintType === 'qr'
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${codePrintType === 'qr'
                           ? 'border-indigo-600 bg-indigo-600 text-white'
                           : 'border-slate-300'
-                      }`}
+                        }`}
                     >
                       {codePrintType === 'qr' && <Check className="w-3 h-3 stroke-[3]" />}
                     </span>
@@ -713,11 +708,10 @@ export const SettingsManager: React.FC = () => {
                       setQrPrintSize(item.key as any);
                       showToast(`QR Print Size set to ${item.label} (${item.px}).`);
                     }}
-                    className={`px-3 py-1.5 rounded-lg border text-left transition-all cursor-pointer ${
-                      qrPrintSize === item.key
+                    className={`px-3 py-1.5 rounded-lg border text-left transition-all cursor-pointer ${qrPrintSize === item.key
                         ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 font-bold shadow-2xs'
                         : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     <div className="text-xs font-bold flex items-center justify-between gap-1">
                       <span>{item.label}</span>
@@ -840,6 +834,80 @@ export const SettingsManager: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Digital E-Receipt & Google Reviews Gateway */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4 md:col-span-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Digital E-Receipt Gateway & Google 5★ Review Link
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Configure your store's public Google Reviews link printed on thermal slips and embedded into mobile digital receipts.
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 w-fit">
+                {enableEReceiptQr ? 'E-Receipt Enabled' : 'Disabled'}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Store Google Review URL
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={reviewUrlInput}
+                    onChange={(e) => setReviewUrlInput(e.target.value)}
+                    placeholder="https://g.page/r/your-store/review"
+                    className="flex-1 px-3 py-2 text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStoreGoogleReviewUrl(reviewUrlInput.trim());
+                      showToast('Google Reviews URL saved successfully!');
+                    }}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors shadow-xs"
+                  >
+                    Save URL
+                  </button>
+                  <a
+                    href={reviewUrlInput}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors"
+                  >
+                    Test Link
+                  </a>
+                </div>
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Find your direct review link in your Google Business Profile dashboard under "Ask for reviews".
+                </span>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={enableEReceiptQr}
+                  onChange={(e) => {
+                    setEnableEReceiptQr(e.target.checked);
+                    showToast(e.target.checked ? 'E-Receipt & review link enabled on receipts.' : 'E-Receipt disabled on receipts.');
+                  }}
+                  className="w-4 h-4 text-amber-500 rounded"
+                />
+                <span className="font-bold text-xs text-slate-800">
+                  Include 5-Star Review Prompt & Digital Bill Gateway on 58mm Thermal Printed Receipts
+                </span>
+              </label>
+            </div>
+          </div>
+
           {/* Security & Inactivity Lock */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -874,11 +942,10 @@ export const SettingsManager: React.FC = () => {
                           : `Auto-lock set to ${opt.value} minutes.`
                       );
                     }}
-                    className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center ${
-                      autoLockMinutes === opt.value
+                    className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center ${autoLockMinutes === opt.value
                         ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
+                      }`}
                   >
                     {opt.label}
                   </button>
@@ -929,11 +996,10 @@ export const SettingsManager: React.FC = () => {
                   setSoundEnabled(!soundEnabled);
                   showToast(`Scanner sound ${!soundEnabled ? 'enabled' : 'muted'}.`);
                 }}
-                className={`p-2 rounded-xl border transition-colors cursor-pointer ${
-                  soundEnabled
+                className={`p-2 rounded-xl border transition-colors cursor-pointer ${soundEnabled
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                     : 'bg-slate-100 text-slate-500 border-slate-200'
-                }`}
+                  }`}
               >
                 {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
               </button>
@@ -1225,16 +1291,15 @@ export const SettingsManager: React.FC = () => {
                     <label
                       key={tab.id}
                       onClick={() => handleToggleTabPermission(tab.id)}
-                      className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none ${
-                        isChecked
+                      className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none ${isChecked
                           ? 'bg-indigo-50/60 border-indigo-200'
                           : 'bg-white border-slate-200 hover:bg-slate-50'
-                      }`}
+                        }`}
                     >
                       <input
                         type="checkbox"
                         checked={isChecked}
-                        onChange={() => {}} // Handled by container onClick
+                        onChange={() => { }} // Handled by container onClick
                         className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
                       />
                       <div className="flex-1 min-w-0">

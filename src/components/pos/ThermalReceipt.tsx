@@ -48,6 +48,8 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     setQrPrintSize,
     storeUpiId,
     storeUpiName,
+    storeGoogleReviewUrl,
+    enableEReceiptQr,
   } = useApp();
 
   const activeQrPixelSize = QR_SIZE_PIXELS[qrPrintSize] || 130;
@@ -556,6 +558,23 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                 >
                   *** THANK YOU ***
                 </div>
+
+                {/* Digital E-Receipt & 5-Star Review Prompt */}
+                {enableEReceiptQr && (
+                  <div
+                    style={{
+                      textAlign: 'center',
+                      margin: '4px auto',
+                      width: '100%',
+                      borderTop: '1px dashed #777',
+                      paddingTop: '3px',
+                    }}
+                  >
+                    <div style={{ fontSize: '8px', fontWeight: 'bold' }}>RATE YOUR FIT 5★ ON GOOGLE</div>
+                    <div style={{ fontSize: '7px', color: '#444' }}>{storeGoogleReviewUrl}</div>
+                  </div>
+                )}
+
                 <div
                   className="receipt-brand text-[7.5px] text-neutral-500"
                   style={{ textAlign: 'center', margin: '1px auto 0 auto', width: '100%', display: 'block' }}

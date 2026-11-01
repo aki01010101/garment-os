@@ -13,7 +13,9 @@ import {
   Check,
   Layers,
   ShoppingBag,
+  Award,
 } from 'lucide-react';
+import { AssociateCommissionReport } from './AssociateCommissionReport';
 import {
   ResponsiveContainer,
   LineChart,
@@ -28,6 +30,7 @@ import {
 export const ReportsDashboard: React.FC = () => {
   const { sales, purchases, vendors, companies, products } = useApp();
 
+  const [reportTab, setReportTab] = useState<'analytics' | 'commissions'>('analytics');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('all');
   const [timeFilter, setTimeFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [chartMetric, setChartMetric] = useState<'revenue' | 'breakdown' | 'volume'>('revenue');
@@ -329,8 +332,42 @@ export const ReportsDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Top Sales & Financial KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Reports View Switcher Tabs */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold w-fit">
+        <button
+          onClick={() => setReportTab('analytics')}
+          className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+            reportTab === 'analytics'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <BarChart3 className="w-3.5 h-3.5 text-indigo-600" />
+          <span>Financial Reports & Tax Intelligence</span>
+        </button>
+
+        <button
+          onClick={() => setReportTab('commissions')}
+          className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+            reportTab === 'commissions'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Award className="w-3.5 h-3.5 text-amber-600" />
+          <span>Staff Commissions & Targets</span>
+          <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold">
+            NEW
+          </span>
+        </button>
+      </div>
+
+      {reportTab === 'commissions' ? (
+        <AssociateCommissionReport />
+      ) : (
+        <>
+          {/* Top Sales & Financial KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
             Total Net Sales Revenue
@@ -795,6 +832,8 @@ export const ReportsDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };
