@@ -439,3 +439,4 @@ export const RFMCampaignsManager: React.FC = () => {
     </div>
   );
 };
+

@@ -716,3 +716,4 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
     </div>
   );
 };
+

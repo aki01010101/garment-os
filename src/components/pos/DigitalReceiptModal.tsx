@@ -323,3 +323,4 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
     </div>
   );
 };
+
