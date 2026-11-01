@@ -59,6 +59,7 @@ export const MatrixProductModal: React.FC<MatrixProductModalProps> = ({
   const [costPrice, setCostPrice] = useState('550');
   const [sellingPrice, setSellingPrice] = useState('1399');
   const [taxRate, setTaxRate] = useState<number>(5);
+  const [taxInclusive, setTaxInclusive] = useState<boolean>(true);
   const [purchaseSource, setPurchaseSource] = useState<'billed' | 'cash' | 'mixed'>('billed');
   const [minStockAlert, setMinStockAlert] = useState('4');
 
@@ -189,6 +190,7 @@ export const MatrixProductModal: React.FC<MatrixProductModalProps> = ({
       costPrice: parseFloat(costPrice) || 0,
       sellingPrice: parseFloat(sellingPrice) || 0,
       taxRate,
+      taxInclusive,
       purchaseSource,
       minStockAlert: parseInt(minStockAlert) || 4,
       colors: selectedColors,
@@ -381,7 +383,7 @@ export const MatrixProductModal: React.FC<MatrixProductModalProps> = ({
               </div>
 
               {/* Financials */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1 text-xs">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Cost Price (Per Piece ₹)
@@ -420,6 +422,18 @@ export const MatrixProductModal: React.FC<MatrixProductModalProps> = ({
                     <option value={12}>12% (Garments &gt; ₹1,000)</option>
                     <option value={18}>18% (Accessories / Bags)</option>
                     <option value={0}>0% (Exempt)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Rate Tax Mode</label>
+                  <select
+                    value={taxInclusive ? 'inclusive' : 'exclusive'}
+                    onChange={(e) => setTaxInclusive(e.target.value === 'inclusive')}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold"
+                  >
+                    <option value="inclusive">GST Included (MRP)</option>
+                    <option value="exclusive">GST Added Separately</option>
                   </select>
                 </div>
               </div>

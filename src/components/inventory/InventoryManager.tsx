@@ -96,6 +96,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
     stock: 10,
     minStockAlert: 4,
     taxRate: 5,
+    taxInclusive: true,
     purchaseSource: 'billed',
     description: '',
   });
@@ -116,6 +117,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
       stock: 15,
       minStockAlert: 4,
       taxRate: 5,
+      taxInclusive: true,
       purchaseSource: 'billed',
       description: '',
     });
@@ -124,7 +126,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
 
   const handleOpenEdit = (product: Product) => {
     setEditingProduct(product);
-    setFormData({ ...product });
+    setFormData({ ...product, taxInclusive: product.taxInclusive !== false });
     setIsModalOpen(true);
   };
 
@@ -682,7 +684,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
                   </td>
 
                   <td className="py-3 px-3 text-right font-mono text-slate-600">
-                    {p.taxRate}%
+                    <div>{p.taxRate}%</div>
+                    <span className={`text-[9px] px-1 py-0.2 rounded font-semibold ${
+                      p.taxInclusive === false
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'bg-emerald-50 text-emerald-700'
+                    }`}>
+                      {p.taxInclusive === false ? '+GST' : 'Incl'}
+                    </span>
                   </td>
 
                   <td className="py-3 px-3 text-right">
@@ -917,7 +926,45 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
                     <option value={5}>5%</option>
                     <option value={12}>12%</option>
                     <option value={18}>18%</option>
+                    <option value={0}>0%</option>
                   </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Price Tax Mode</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, taxInclusive: true })}
+                    className={`py-2 px-3 rounded-lg border text-left flex items-start gap-2 cursor-pointer transition-colors ${
+                      formData.taxInclusive !== false
+                        ? 'border-emerald-500 bg-emerald-50/50 text-emerald-950 font-semibold'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${formData.taxInclusive !== false ? 'bg-emerald-600' : 'bg-slate-300'}`} />
+                    <div>
+                      <div className="text-xs font-bold">GST Included (MRP)</div>
+                      <div className="text-[10px] text-slate-500 font-normal">Customer pays selling price; tax extracted</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, taxInclusive: false })}
+                    className={`py-2 px-3 rounded-lg border text-left flex items-start gap-2 cursor-pointer transition-colors ${
+                      formData.taxInclusive === false
+                        ? 'border-indigo-500 bg-indigo-50/50 text-indigo-950 font-semibold'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${formData.taxInclusive === false ? 'bg-indigo-600' : 'bg-slate-300'}`} />
+                    <div>
+                      <div className="text-xs font-bold">GST Added Separately</div>
+                      <div className="text-[10px] text-slate-500 font-normal">Tax added on top of selling price at billing</div>
+                    </div>
+                  </button>
                 </div>
               </div>
 

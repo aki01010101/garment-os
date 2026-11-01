@@ -153,7 +153,8 @@ interface AppContextType {
     paymentMode: 'Cash' | 'Card' | 'UPI' | 'Split',
     cashTendered?: number,
     notes?: string,
-    splitBreakdown?: SplitPaymentBreakdown
+    splitBreakdown?: SplitPaymentBreakdown,
+    taxInclusive?: boolean
   ) => SaleTransaction;
 
   // Sales History & Receipts
@@ -1555,6 +1556,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           stock: qty,
           minStockAlert: input.minStockAlert || 4,
           taxRate: input.taxRate || 5,
+          taxInclusive: input.taxInclusive,
           purchaseSource: input.purchaseSource || 'billed',
           description: input.description || `${input.styleName} in ${color}, size ${size}`,
         };
@@ -1990,21 +1992,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     paymentMode: 'Cash' | 'Card' | 'UPI' | 'Split',
     cashTendered?: number,
     notes?: string,
-    splitBreakdown?: SplitPaymentBreakdown
+    splitBreakdown?: SplitPaymentBreakdown,
+    taxInclusive?: boolean
   ): SaleTransaction => {
     if (cart.length === 0) throw new Error('Cart is empty');
 
     const company = activeCompany;
     const invoiceNumber = `${company.invoicePrefix}${company.currentInvoiceNumber}`;
+    const defaultInclusive = taxInclusive !== undefined ? taxInclusive : (company.taxInclusive !== false);
 
     let subtotal = 0;
     let itemDiscountsTotal = 0;
     let taxTotal = 0;
+    let totalExclusiveTax = 0;
 
     const saleItems = cart.map((item) => {
       const itemGross = item.unitPrice * item.quantity;
       const discount = (itemGross * item.discountPercent) / 100;
       const itemNet = itemGross - discount;
+      const itemIsInclusive = item.product.taxInclusive !== undefined ? item.product.taxInclusive : defaultInclusive;
 
       // Dynamic Indian Garment GST Slabs: 5% if net unit price <= 1000, 12% if > 1000
       let taxRate = company.type === 'billed' ? item.product.taxRate : 0;
@@ -2013,8 +2019,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         taxRate = netPerUnit <= 1000 ? 5 : 12;
       }
 
-      const tax = (itemNet * taxRate) / 100;
-      const lineTotal = itemNet + tax;
+      let tax = 0;
+      let lineTotal = itemNet;
+
+      if (company.type === 'billed') {
+        if (itemIsInclusive) {
+          tax = itemNet - itemNet / (1 + taxRate / 100);
+          lineTotal = itemNet;
+        } else {
+          tax = (itemNet * taxRate) / 100;
+          lineTotal = itemNet + tax;
+          totalExclusiveTax += tax;
+        }
+      }
 
       subtotal += itemGross;
       itemDiscountsTotal += discount;
@@ -2072,7 +2089,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         subtotal -
           itemDiscountsTotal -
           promoDiscountAmount +
-          taxTotal -
+          totalExclusiveTax -
           loyaltyDiscountAmount -
           couponDiscountAmount -
           creditNoteDiscountAmount
@@ -2117,6 +2134,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       changeDue,
       splitBreakdown,
       notes,
+      taxInclusive: defaultInclusive,
       cashierName: company.type === 'billed' ? 'Billing Clerk (Reg 1)' : 'Cashier (Counter 2)',
       salesAssociate: selectedAssociate,
     };

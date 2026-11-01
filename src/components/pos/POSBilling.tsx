@@ -120,6 +120,14 @@ export const POSBilling: React.FC = () => {
   const [newCustPhone, setNewCustPhone] = useState('');
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
 
+  // Rate GST Tax Mode override (null = inherit from activeCompany.taxInclusive)
+  const [taxInclusiveOverride, setTaxInclusiveOverride] = useState<boolean | null>(null);
+  const isTaxInclusive = taxInclusiveOverride !== null ? taxInclusiveOverride : (activeCompany.taxInclusive !== false);
+
+  useEffect(() => {
+    setTaxInclusiveOverride(null);
+  }, [activeCompanyId]);
+
   // Coupon & Credit Note inputs
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -318,19 +326,38 @@ export const POSBilling: React.FC = () => {
     let subtotal = 0;
     let discounts = 0;
     let taxes = 0;
+    let taxableAmount = 0;
+    let totalExclusiveTax = 0;
+    let totalInclusiveTax = 0;
 
     cart.forEach((item) => {
       const itemGross = item.unitPrice * item.quantity;
       const itemDisc = (itemGross * item.discountPercent) / 100;
       const net = itemGross - itemDisc;
       
+      const itemIsInclusive = item.product.taxInclusive !== undefined ? item.product.taxInclusive : isTaxInclusive;
+
       // Dynamic Indian Garment GST Slabs: <= ₹1000 attracts 5%, > ₹1000 attracts 12%
       let taxRate = activeCompany.type === 'billed' ? item.product.taxRate : 0;
       if (activeCompany.type === 'billed' && activeCompany.enableDynamicGarmentGst !== false) {
         const netPerUnit = net / (item.quantity || 1);
         taxRate = netPerUnit <= 1000 ? 5 : 12;
       }
-      const tax = (net * taxRate) / 100;
+
+      let tax = 0;
+      if (activeCompany.type === 'billed') {
+        if (itemIsInclusive) {
+          tax = net - net / (1 + taxRate / 100);
+          totalInclusiveTax += tax;
+          taxableAmount += (net - tax);
+        } else {
+          tax = (net * taxRate) / 100;
+          totalExclusiveTax += tax;
+          taxableAmount += net;
+        }
+      } else {
+        taxableAmount += net;
+      }
 
       subtotal += itemGross;
       discounts += itemDisc;
@@ -376,7 +403,7 @@ export const POSBilling: React.FC = () => {
         subtotal -
         discounts -
         promoDiscountAmount +
-        taxes -
+        totalExclusiveTax -
         loyaltyDiscountAmount -
         couponDiscountAmount -
         creditNoteDiscountAmount
@@ -389,6 +416,10 @@ export const POSBilling: React.FC = () => {
       subtotal,
       discounts,
       taxes,
+      taxableAmount,
+      totalExclusiveTax,
+      totalInclusiveTax,
+      isTaxInclusive,
       promoDiscountAmount,
       appliedPromoRule: promoResult.appliedRule,
       promoExplanation: promoResult.explanation,
@@ -403,6 +434,7 @@ export const POSBilling: React.FC = () => {
     cart,
     activeCompany.type,
     activeCompany.enableDynamicGarmentGst,
+    isTaxInclusive,
     selectedCustomer,
     redeemedPoints,
     loyaltyConfig,
@@ -516,7 +548,8 @@ export const POSBilling: React.FC = () => {
             ? splitCashVal
             : undefined,
         saleNotes,
-        splitBreakdown
+        splitBreakdown,
+        isTaxInclusive
       );
       setCashTendered('');
       setSplitCash('');
@@ -593,6 +626,25 @@ export const POSBilling: React.FC = () => {
               );
             })}
           </div>
+
+          {activeCompany.type === 'billed' && (
+            <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
+              <span className="text-[11px] font-medium text-slate-500 hidden md:inline">Rate Tax:</span>
+              <button
+                type="button"
+                onClick={() => setTaxInclusiveOverride(!isTaxInclusive)}
+                title={isTaxInclusive ? "Rate includes GST (MRP). Click to switch to GST Added Separately (+Tax)" : "Rate excludes GST (Added on top). Click to switch to GST Included in MRP"}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                  isTaxInclusive
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-2xs'
+                    : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 shadow-2xs'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${isTaxInclusive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                <span>{isTaxInclusive ? 'GST Included (MRP)' : 'GST Added Separately (+Tax)'}</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Staff Associate & Scanner Beep Sound Toggle */}
@@ -1079,12 +1131,12 @@ export const POSBilling: React.FC = () => {
                     <th className="py-2.5 px-3 text-center w-8">#</th>
                     <th className="py-2.5 px-3">Garment / SKU</th>
                     <th className="py-2.5 px-2">Size / Color</th>
-                    <th className="py-2.5 px-3 text-right">MRP (₹)</th>
+                    <th className="py-2.5 px-3 text-right">{isTaxInclusive ? 'MRP (₹)' : 'Rate (₹)'}</th>
                     <th className="py-2.5 px-2 text-center w-28">Quantity</th>
                     <th className="py-2.5 px-2 text-center w-20">Disc %</th>
                     <th className="py-2.5 px-2 text-center">Tailor</th>
                     {activeCompany.type === 'billed' && (
-                      <th className="py-2.5 px-2 text-right">GST</th>
+                      <th className="py-2.5 px-2 text-right">{isTaxInclusive ? 'GST (Inc)' : 'GST (+)'}</th>
                     )}
                     <th className="py-2.5 px-3 text-right">Net Amount</th>
                     <th className="py-2.5 px-2 text-center w-10">Del</th>
@@ -1101,8 +1153,19 @@ export const POSBilling: React.FC = () => {
                     if (isDynamicGstActive) {
                       taxRate = netPerUnit <= 1000 ? 5 : 12;
                     }
-                    const tax = (net * taxRate) / 100;
-                    const lineTotal = net + tax;
+                    const itemIsInclusive = item.product.taxInclusive !== undefined ? item.product.taxInclusive : isTaxInclusive;
+                    let tax = 0;
+                    let lineTotal = net;
+
+                    if (activeCompany.type === 'billed') {
+                      if (itemIsInclusive) {
+                        tax = net - net / (1 + taxRate / 100);
+                        lineTotal = net;
+                      } else {
+                        tax = (net * taxRate) / 100;
+                        lineTotal = net + tax;
+                      }
+                    }
 
                     return (
                       <tr key={item.product.id} className="hover:bg-slate-50/70 transition-colors">
@@ -1226,9 +1289,18 @@ export const POSBilling: React.FC = () => {
                         {/* GST Tax if billed */}
                         {activeCompany.type === 'billed' && (
                           <td className="py-3 px-2 text-right font-mono text-[11px] text-slate-600">
-                            <div>₹{tax.toFixed(2)}</div>
+                            <div>
+                              {itemIsInclusive ? (
+                                <span className="text-slate-500">₹{tax.toFixed(2)}</span>
+                              ) : (
+                                <span className="text-indigo-600 font-bold">+₹{tax.toFixed(2)}</span>
+                              )}
+                            </div>
                             <div className="flex items-center justify-end gap-1 text-[9px] text-slate-400 mt-0.5">
                               <span>({taxRate}%)</span>
+                              <span className={`text-[8px] px-1 py-0.2 rounded font-semibold ${itemIsInclusive ? 'bg-slate-100 text-slate-600' : 'bg-indigo-50 text-indigo-700'}`}>
+                                {itemIsInclusive ? 'inc' : 'add'}
+                              </span>
                               {isDynamicGstActive && (
                                 <span
                                   className={`px-1 py-0.2 rounded font-semibold ${
@@ -1375,9 +1447,26 @@ export const POSBilling: React.FC = () => {
               )}
 
               {activeCompany.type === 'billed' ? (
-                <div className="flex justify-between text-slate-600">
-                  <span>GST (CGST + SGST):</span>
-                  <span>+₹{cartSummary.taxes.toFixed(2)}</span>
+                <div className="space-y-1 bg-slate-50/80 p-2 rounded-lg border border-slate-200">
+                  <div className="flex justify-between text-slate-700 font-medium">
+                    <span className="flex items-center gap-1.5">
+                      <span>GST (CGST + SGST):</span>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border ${
+                        isTaxInclusive
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                      }`}>
+                        {isTaxInclusive ? 'Included in MRP' : 'Added Separately'}
+                      </span>
+                    </span>
+                    <span className={`font-mono ${isTaxInclusive ? 'text-slate-600' : 'text-indigo-600 font-bold'}`}>
+                      {isTaxInclusive ? `(₹${cartSummary.taxes.toFixed(2)})` : `+₹${cartSummary.taxes.toFixed(2)}`}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 flex justify-between font-mono pt-0.5 border-t border-slate-200/60">
+                    <span>Taxable Base: ₹{cartSummary.taxableAmount.toFixed(2)}</span>
+                    <span>CGST: ₹{(cartSummary.taxes / 2).toFixed(2)} | SGST: ₹{(cartSummary.taxes / 2).toFixed(2)}</span>
+                  </div>
                 </div>
               ) : (
                 <div className="flex justify-between text-emerald-700 text-[11px] font-sans font-medium">

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS companies (
   tagline TEXT,
   is_default BOOLEAN DEFAULT FALSE,
   enable_dynamic_garment_gst BOOLEAN DEFAULT TRUE,
+  tax_inclusive BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS products (
   defective_stock INT DEFAULT 0,
   min_stock_alert INT DEFAULT 5,
   tax_rate NUMERIC(5,2) DEFAULT 5,
+  tax_inclusive BOOLEAN DEFAULT TRUE,
   purchase_source TEXT,
   description TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -108,6 +110,7 @@ CREATE TABLE IF NOT EXISTS sales (
   notes TEXT,
   cashier_name TEXT,
   sales_associate TEXT,
+  tax_inclusive BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -31,6 +31,7 @@ export const INITIAL_COMPANIES: Company[] = [
     tagline: 'Premium Menswear & Contemporary Fashion',
     isDefault: true,
     enableDynamicGarmentGst: true,
+    taxInclusive: true,
   },
   {
     id: 'comp_cash',
@@ -48,6 +49,8 @@ export const INITIAL_COMPANIES: Company[] = [
     accentColor: '#059669',
     tagline: 'Everyday Essentials & Clearance Outlet',
     isDefault: false,
+    enableDynamicGarmentGst: false,
+    taxInclusive: true,
   },
 ];
 

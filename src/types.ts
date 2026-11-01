@@ -23,6 +23,7 @@ export interface Company {
   tagline: string;
   isDefault?: boolean;
   enableDynamicGarmentGst?: boolean; // Indian Garment Rule: 5% if net <= 1000, 12% if net > 1000
+  taxInclusive?: boolean; // true = prices are GST inclusive (MRP model), false = GST added separately on top
 }
 
 export interface Product {
@@ -36,13 +37,14 @@ export interface Product {
   color: string;
   season: Season;
   costPrice: number;
-  sellingPrice: number; // MRP
+  sellingPrice: number; // MRP or base price
   stock: number;
   defectiveStock?: number; // Quarantined defective/return-to-vendor stock
   minStockAlert: number;
   taxRate: number; // e.g. 5 or 12 (%)
   purchaseSource?: 'billed' | 'cash' | 'mixed';
   description?: string;
+  taxInclusive?: boolean; // Optional per-item override (default inherits from activeCompany)
 }
 
 export interface BulkProductUpdate {
@@ -206,6 +208,7 @@ export interface SaleTransaction {
   notes?: string;
   cashierName: string;
   salesAssociate?: string;
+  taxInclusive?: boolean;
 }
 
 export interface AlterationRecord {
@@ -339,6 +342,7 @@ export interface MatrixBatchProductInput {
   costPrice: number;
   sellingPrice: number;
   taxRate: number;
+  taxInclusive?: boolean;
   purchaseSource?: 'billed' | 'cash' | 'mixed';
   minStockAlert: number;
   description?: string;
