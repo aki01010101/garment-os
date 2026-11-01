@@ -3,6 +3,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { POSBilling } from './components/pos/POSBilling';
+import { SalesRegister } from './components/sales/SalesRegister';
 import { InventoryManager } from './components/inventory/InventoryManager';
 import { PriceTagGenerator } from './components/tags/PriceTagGenerator';
 import { VendorPurchaseManager } from './components/vendors/VendorPurchaseManager';
@@ -15,12 +16,20 @@ import { ThermalReceipt } from './components/pos/ThermalReceipt';
 import { PrinterGuideModal } from './components/printer/PrinterGuideModal';
 import { LoginLockScreen } from './components/auth/LoginLockScreen';
 import { SettingsManager } from './components/settings/SettingsManager';
+import { FirstTimeSetupModal } from './components/onboarding/FirstTimeSetupModal';
 import { ShieldAlert } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<string>('pos');
   const [isPrinterGuideOpen, setIsPrinterGuideOpen] = useState(false);
   const [accessDeniedNotice, setAccessDeniedNotice] = useState<string | null>(null);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('garment_os_onboarding_completed') !== 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Sidebar collapse & mobile drawer states
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
@@ -113,6 +122,7 @@ const AppContent: React.FC = () => {
         <main className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 no-print">
           <div className="max-w-7xl mx-auto">
             {currentTab === 'pos' && <POSBilling />}
+            {currentTab === 'sales-register' && hasPermission('sales-register') && <SalesRegister />}
             {currentTab === 'inventory' && hasPermission('inventory') && (
               <InventoryManager onNavigateToTags={() => setCurrentTab('tags')} />
             )}
@@ -142,6 +152,12 @@ const AppContent: React.FC = () => {
       <PrinterGuideModal
         isOpen={isPrinterGuideOpen}
         onClose={() => setIsPrinterGuideOpen(false)}
+      />
+
+      {/* First-Time Setup Wizard Modal */}
+      <FirstTimeSetupModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
       />
 
       {/* Dedicated print mount point for @media print */}

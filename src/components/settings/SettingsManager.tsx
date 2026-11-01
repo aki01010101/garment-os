@@ -37,6 +37,7 @@ import {
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
 import { SupabaseDatabaseSettings } from './SupabaseDatabaseSettings';
+import { FirstTimeSetupModal } from '../onboarding/FirstTimeSetupModal';
 
 export const SettingsManager: React.FC = () => {
   const {
@@ -68,6 +69,7 @@ export const SettingsManager: React.FC = () => {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'staff' | 'entities' | 'preferences' | 'database'>('staff');
+  const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
   // UPI Settings State
   const [upiIdInput, setUpiIdInput] = useState(storeUpiId);
@@ -305,9 +307,19 @@ export const SettingsManager: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1">
             Manage multi-company billing entities, staff credentials, custom module permissions, and POS security rules.
           </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setIsSetupWizardOpen(true)}
+            className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Launch Setup Wizard</span>
+          </button>
         </div>
+      </div>
 
-        {/* Tab Switcher */}
+      {/* Tab Switcher */}
         <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold">
           <button
             onClick={() => setActiveTab('staff')}
@@ -1356,6 +1368,13 @@ export const SettingsManager: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+      {/* First-Time Setup Wizard Modal */}
+      {isSetupWizardOpen && (
+        <FirstTimeSetupModal
+          isOpen={isSetupWizardOpen}
+          onClose={() => setIsSetupWizardOpen(false)}
+        />
       )}
     </div>
   );

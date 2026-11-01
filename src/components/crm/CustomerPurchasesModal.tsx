@@ -24,7 +24,9 @@ import {
   Tag,
   Scissors,
   ExternalLink,
+  Edit,
 } from 'lucide-react';
+import { EditSaleModal } from '../sales/EditSaleModal';
 
 interface CustomerPurchasesModalProps {
   customer: Customer | null;
@@ -42,6 +44,8 @@ export const CustomerPurchasesModal: React.FC<CustomerPurchasesModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEntity, setSelectedEntity] = useState<string>('all');
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
+  const [editingSale, setEditingSale] = useState<SaleTransaction | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Close on Escape key
   useEffect(() => {
@@ -380,11 +384,23 @@ export const CustomerPurchasesModal: React.FC<CustomerPurchasesModalProps> = ({
 
                         <button
                           onClick={() => handleOpenReceipt(sale)}
-                          className="px-3 py-1.5 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1.5 transition-colors border border-slate-200"
+                          className="px-3 py-1.5 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1.5 transition-colors border border-slate-200 cursor-pointer"
                           title="Print 58mm Thermal Receipt"
                         >
                           <Printer className="w-3.5 h-3.5 text-slate-600" />
                           <span>Receipt</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setEditingSale(sale);
+                            setIsEditModalOpen(true);
+                          }}
+                          className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-amber-800 bg-slate-100 hover:bg-amber-50 rounded-lg flex items-center gap-1 transition-colors border border-slate-200 cursor-pointer"
+                          title="Edit Sale / Invoice"
+                        >
+                          <Edit className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Edit</span>
                         </button>
 
                         <button
@@ -513,6 +529,18 @@ export const CustomerPurchasesModal: React.FC<CustomerPurchasesModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Edit Sale Modal */}
+      {isEditModalOpen && (
+        <EditSaleModal
+          sale={editingSale}
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingSale(null);
+          }}
+        />
+      )}
     </div>
   );
 };

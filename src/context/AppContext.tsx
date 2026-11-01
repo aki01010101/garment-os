@@ -132,6 +132,10 @@ interface AppContextType {
   setActiveReceipt: (receipt: SaleTransaction | null) => void;
   isReceiptModalOpen: boolean;
   setIsReceiptModalOpen: (isOpen: boolean) => void;
+  lastCompletedSale: SaleTransaction | null;
+  setLastCompletedSale: (sale: SaleTransaction | null) => void;
+  startNextSale: () => void;
+  updateSale: (updatedSale: SaleTransaction) => void;
 
   // Alterations / Tailoring
   alterations: AlterationRecord[];
@@ -376,7 +380,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem(STORAGE_KEYS.QR_PRINT_SIZE);
     return saved === 'compact' || saved === 'medium' || saved === 'large' || saved === 'xlarge'
       ? saved
-      : 'large';
+      : 'xlarge';
   });
 
   const setQrPrintSize = (size: QrPrintSize) => {
@@ -589,8 +593,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return !['reports', 'companies', 'settings'].includes(tabKey);
     }
     if (active.role === 'sales_cashier') {
-      // Sales cashiers can only access POS billing, Returns/Exchanges, and Alterations
-      return ['pos', 'returns', 'alterations'].includes(tabKey);
+      // Sales cashiers can access POS billing, Returns/Exchanges, Alterations, and Sales Register
+      return ['pos', 'returns', 'alterations', 'sales-register'].includes(tabKey);
     }
     return false;
   };
@@ -666,6 +670,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedAssociate, setSelectedAssociate] = useState<string>(SALES_ASSOCIATES[0]);
   const [activeReceipt, setActiveReceipt] = useState<SaleTransaction | null>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
+  const [lastCompletedSale, setLastCompletedSale] = useState<SaleTransaction | null>(null);
+
+  const startNextSale = () => {
+    clearCart();
+    setLastCompletedSale(null);
+  };
+
+  const updateSale = (updatedSale: SaleTransaction) => {
+    const oldSale = sales.find((s) => s.id === updatedSale.id);
+    if (!oldSale) return;
+
+    // 1. Stock reconciliation: adjust for qty differences
+    setProducts((prev) => {
+      const updatedProducts = [...prev];
+
+      // Restore old quantities
+      oldSale.items.forEach((oldItem) => {
+        const idx = updatedProducts.findIndex((p) => p.id === oldItem.productId);
+        if (idx !== -1) {
+          updatedProducts[idx] = {
+            ...updatedProducts[idx],
+            stock: updatedProducts[idx].stock + oldItem.qty,
+          };
+        }
+      });
+
+      // Deduct new quantities
+      updatedSale.items.forEach((newItem) => {
+        const idx = updatedProducts.findIndex((p) => p.id === newItem.productId);
+        if (idx !== -1) {
+          updatedProducts[idx] = {
+            ...updatedProducts[idx],
+            stock: Math.max(0, updatedProducts[idx].stock - newItem.qty),
+          };
+        }
+      });
+
+      return updatedProducts;
+    });
+
+    // 2. Customer spend adjustment
+    if (updatedSale.customerId) {
+      const delta = updatedSale.grandTotal - oldSale.grandTotal;
+      setCustomers((prev) =>
+        prev.map((c) =>
+          c.id === updatedSale.customerId
+            ? { ...c, totalSpend: Math.max(0, c.totalSpend + delta) }
+            : c
+        )
+      );
+    }
+
+    // 3. Update sale in state
+    setSales((prev) =>
+      prev.map((s) => (s.id === updatedSale.id ? updatedSale : s))
+    );
+
+    // If activeReceipt is the same sale, update it too
+    if (activeReceipt?.id === updatedSale.id) {
+      setActiveReceipt(updatedSale);
+    }
+    if (lastCompletedSale?.id === updatedSale.id) {
+      setLastCompletedSale(updatedSale);
+    }
+
+    // 4. Background Supabase sync
+    if (isSupabaseAutoSync) {
+      try {
+        asyncSyncSale(updatedSale);
+      } catch (err) {
+        console.warn('Background Supabase updateSale error:', err);
+      }
+    }
+  };
 
 
   // Sync state to local storage
@@ -1485,8 +1563,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveReceipt(transaction);
     setIsReceiptModalOpen(true);
 
-    // 8. Clear cart
-    clearCart();
+    // 8. Retain completed sale data until cashier explicitly starts next sale
+    setLastCompletedSale(transaction);
 
     return transaction;
   };
@@ -1575,6 +1653,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveReceipt,
         isReceiptModalOpen,
         setIsReceiptModalOpen,
+        lastCompletedSale,
+        setLastCompletedSale,
+        startNextSale,
+        updateSale,
         alterations,
         addAlteration,
         updateAlterationStatus,

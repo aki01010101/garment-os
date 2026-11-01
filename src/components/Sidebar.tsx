@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Scissors,
   IndianRupee,
+  Receipt,
   Users,
   BarChart3,
   Settings,
@@ -39,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = [
     { id: 'pos', label: 'POS Billing', icon: ShoppingBag, short: 'POS' },
+    { id: 'sales-register', label: 'Sales Register', icon: Receipt, short: 'Sales' },
     { id: 'inventory', label: 'Inventory', icon: Package, short: 'Stock' },
     { id: 'tags', label: 'Price Tags', icon: Tag, short: 'Tags' },
     { id: 'vendors', label: 'Vendors & Stock', icon: Truck, short: 'Vendors' },

@@ -54,14 +54,12 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
   const [copied, setCopied] = useState(false);
   const [whatsAppPhone, setWhatsAppPhone] = useState<string>('');
-  const [includeUpiQr, setIncludeUpiQr] = useState<boolean>(() => {
-    return Boolean(receipt && (receipt.paymentMode === 'UPI' || (receipt.splitBreakdown && receipt.splitBreakdown.upi > 0)));
-  });
+  const [includeUpiQr, setIncludeUpiQr] = useState<boolean>(true);
   const [isBoldThermal, setIsBoldThermal] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('thermal_bold_print') === 'true';
+      return localStorage.getItem('thermal_bold_print') !== 'false';
     } catch {
-      return false;
+      return true;
     }
   });
 
@@ -351,7 +349,7 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                       {item.name}
                     </div>
                     <div className="text-[8px] text-neutral-600">
-                      {item.color} · Size: {item.size} · SKU: {item.sku}
+                      {[item.color, item.size ? `Size: ${item.size}` : ''].filter(Boolean).join(' · ')}
                     </div>
                     <div className="receipt-row text-[9px] font-mono">
                       <span>

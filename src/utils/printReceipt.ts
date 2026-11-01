@@ -12,12 +12,8 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean) {
       receiptHtml.toLowerCase().includes('end-of-day summary');
 
     const boldActive =
-      isBold !== undefined
-        ? isBold
-        : (typeof localStorage !== 'undefined' &&
-            localStorage.getItem('thermal_bold_print') === 'true') ||
-          receiptHtml.includes('thermal-bold') ||
-          isZReport;
+      isBold !== false &&
+      (typeof localStorage === 'undefined' || localStorage.getItem('thermal_bold_print') !== 'false');
 
     // 1. Also update the DOM print mount point if present
     const printMount = document.getElementById('print-mount-point');

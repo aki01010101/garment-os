@@ -31,6 +31,8 @@ import {
   Users,
   Link2,
   Heart,
+  CheckCircle2,
+  PlusCircle,
 } from 'lucide-react';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 import { CustomerPurchasesModal } from '../crm/CustomerPurchasesModal';
@@ -76,6 +78,10 @@ export const POSBilling: React.FC = () => {
     sales,
     storeUpiId,
     storeUpiName,
+    lastCompletedSale,
+    startNextSale,
+    setActiveReceipt,
+    setIsReceiptModalOpen,
   } = useApp();
 
   const [isCustomerHistoryOpen, setIsCustomerHistoryOpen] = useState(false);
@@ -171,6 +177,14 @@ export const POSBilling: React.FC = () => {
       .slice(0, 8);
   }, [products, searchQuery]);
 
+  // If a completed sale is being shown, adding a new item automatically resets for next sale
+  const safeAddToCart = (product: Product, qty: number = 1) => {
+    if (lastCompletedSale) {
+      startNextSale();
+    }
+    addToCart(product, qty);
+  };
+
   // Barcode / SKU quick-scan detector & Enter key handler
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
@@ -180,14 +194,14 @@ export const POSBilling: React.FC = () => {
       );
 
       if (exactMatch) {
-        addToCart(exactMatch, 1);
+        safeAddToCart(exactMatch, 1);
         setScanFeedback(`Added: ${exactMatch.name} (${exactMatch.size})`);
         setSearchQuery('');
         return;
       }
 
       if (searchResults.length > 0) {
-        addToCart(searchResults[0], 1);
+        safeAddToCart(searchResults[0], 1);
         setScanFeedback(`Added: ${searchResults[0].name} (${searchResults[0].size})`);
         setSearchQuery('');
       }
@@ -195,7 +209,7 @@ export const POSBilling: React.FC = () => {
   };
 
   const handleSelectSearchResult = (product: Product) => {
-    addToCart(product, 1);
+    safeAddToCart(product, 1);
     setScanFeedback(`Added: ${product.name} (${product.size})`);
     setSearchQuery('');
     searchInputRef.current?.focus();
@@ -216,7 +230,7 @@ export const POSBilling: React.FC = () => {
     );
 
     if (exactMatch) {
-      addToCart(exactMatch, 1);
+      safeAddToCart(exactMatch, 1);
       setScanFeedback(`Scanned & Added: ${exactMatch.name} (${exactMatch.size})`);
     } else {
       setSearchQuery(scannedText);
@@ -525,6 +539,49 @@ export const POSBilling: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* 1.5. COMPLETED SALE BANNER & START NEXT SALE ACTION */}
+      {lastCompletedSale && (
+        <div className="bg-emerald-50 border-2 border-emerald-500/40 rounded-xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-slate-900 text-base">
+                  Sale Completed: {lastCompletedSale.invoiceNumber}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white shadow-2xs">
+                  {lastCompletedSale.paymentMode}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Paid: <span className="font-extrabold text-slate-900 font-mono text-sm">₹{lastCompletedSale.grandTotal.toFixed(2)}</span> • Customer: <span className="font-semibold text-slate-800">{lastCompletedSale.customerName}</span> ({lastCompletedSale.items.reduce((s, i) => s + i.qty, 0)} items)
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => {
+                setActiveReceipt(lastCompletedSale);
+                setIsReceiptModalOpen(true);
+              }}
+              className="px-3.5 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+            >
+              <Printer className="w-4 h-4 text-slate-600" />
+              <span>Reprint Receipt</span>
+            </button>
+            <button
+              onClick={startNextSale}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-600/20"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Start Next Sale</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 2. CUSTOMER DETAILS & LOYALTY (Directly above search bar & below active company) */}
       <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
@@ -1460,24 +1517,46 @@ export const POSBilling: React.FC = () => {
               </div>
             )}
 
-            {/* Complete Sale Button */}
-            <button
-              onClick={handleCheckout}
-              disabled={
-                cart.length === 0 ||
-                (paymentMode === 'Split' &&
-                  cartSummary.grandTotal > 0 &&
-                  splitAllocatedTotal < cartSummary.grandTotal)
-              }
-              className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <Printer className="w-4 h-4" />
-              <span>
-                {paymentMode === 'Split' && splitRemaining > 0
-                  ? `Allocate ₹${splitRemaining.toFixed(2)} to Complete`
-                  : `Complete & Print Receipt (₹${cartSummary.grandTotal.toFixed(2)})`}
-              </span>
-            </button>
+            {/* Complete Sale Button OR Start Next Sale Button */}
+            {lastCompletedSale ? (
+              <div className="space-y-2">
+                <button
+                  onClick={startNextSale}
+                  className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <PlusCircle className="w-5 h-5" />
+                  <span>Start Next Sale</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveReceipt(lastCompletedSale);
+                    setIsReceiptModalOpen(true);
+                  }}
+                  className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Reprint Last Bill ({lastCompletedSale.invoiceNumber})</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleCheckout}
+                disabled={
+                  cart.length === 0 ||
+                  (paymentMode === 'Split' &&
+                    cartSummary.grandTotal > 0 &&
+                    splitAllocatedTotal < cartSummary.grandTotal)
+                }
+                className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>
+                  {paymentMode === 'Split' && splitRemaining > 0
+                    ? `Allocate ₹${splitRemaining.toFixed(2)} to Complete`
+                    : `Complete & Print Receipt (₹${cartSummary.grandTotal.toFixed(2)})`}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </div>
