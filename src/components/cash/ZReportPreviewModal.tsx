@@ -28,6 +28,7 @@ interface ZReportPreviewModalProps {
   };
   todaySalesCount: number;
   totalPettyExpenses: number;
+  totalCashDrops?: number;
   expectedCashInDrawer: number;
   countedCash?: number;
   discrepancy?: number;
@@ -41,6 +42,7 @@ export const ZReportPreviewModal: React.FC<ZReportPreviewModalProps> = ({
   salesTotals,
   todaySalesCount,
   totalPettyExpenses,
+  totalCashDrops,
   expectedCashInDrawer,
   countedCash,
   discrepancy,
@@ -129,7 +131,7 @@ Tax Collected: Rs. ${salesTotals.taxTotal.toFixed(2)}
 * Opening Float:      Rs. ${dayRegister.openingCash.toFixed(2)}
 * (+) Cash Sales In:  +Rs. ${salesTotals.cash.toFixed(2)}
 * (-) Petty Outlays:  -Rs. ${totalPettyExpenses.toFixed(2)}
-*Expected In Till:  Rs. ${expectedCashInDrawer.toFixed(2)}*
+${totalCashDrops !== undefined && totalCashDrops > 0 ? `* (-) Safe Skims:     -Rs. ${totalCashDrops.toFixed(2)}\n` : ''}*Expected In Till:  Rs. ${expectedCashInDrawer.toFixed(2)}*
 ${actualCounted !== undefined ? `* Actual Counted:     Rs. ${actualCounted.toFixed(2)}\n* Over / (Short):     Rs. ${actualDiscrepancy !== undefined ? actualDiscrepancy.toFixed(2) : '0.00'}` : ''}
 --------------------------------
 *PETTY EXPENSES (${dayRegister.expenses.length}):*
@@ -311,6 +313,12 @@ ${dayRegister.closingNotes ? `Note: "${dayRegister.closingNotes}"\n-------------
                 <span>(-) PETTY OUTLAYS:</span>
                 <span>-₹{totalPettyExpenses.toFixed(2)}</span>
               </div>
+              {totalCashDrops !== undefined && totalCashDrops > 0 && (
+                <div className="receipt-row text-amber-900">
+                  <span>(-) SAFE SKIMS:</span>
+                  <span>-₹{totalCashDrops.toFixed(2)}</span>
+                </div>
+              )}
               <div
                 className="receipt-row font-bold text-[10px] pt-1"
                 style={{ borderTop: '1px dashed #000', marginTop: '2px' }}

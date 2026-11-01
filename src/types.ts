@@ -22,6 +22,7 @@ export interface Company {
   accentColor: string;
   tagline: string;
   isDefault?: boolean;
+  enableDynamicGarmentGst?: boolean; // Indian Garment Rule: 5% if net <= 1000, 12% if net > 1000
 }
 
 export interface Product {
@@ -259,16 +260,46 @@ export interface PettyExpense {
   notes: string;
 }
 
+export interface CashDrop {
+  id: string;
+  time: string;
+  amount: number;
+  droppedBy: string; // Cashier / Manager
+  witnessName?: string;
+  reason?: string;
+  notes?: string;
+}
+
 export interface DayEndRegister {
   id: string;
   date: string;
   companyId: string;
   openingCash: number;
   expenses: PettyExpense[];
+  cashDrops?: CashDrop[]; // Mid-day cash transferred from till to main store safe (anti-theft)
   closingCashCounted?: number;
   closingNotes?: string;
   closedAt?: string;
   status: 'open' | 'closed';
+}
+
+export interface ParkedCart {
+  id: string;
+  ticketNumber: number;
+  label?: string; // e.g. "Rahul - Blue Sherwani"
+  parkedAt: string; // ISO string
+  cashierName: string;
+  customerId?: string | null;
+  customerName?: string;
+  customerPhone?: string;
+  items: CartItem[];
+  selectedAssociate?: string;
+  appliedCoupon?: CouponCode | null;
+  appliedCreditNote?: CreditNote | null;
+  redeemedPoints: number;
+  subtotal: number;
+  grandTotal: number;
+  notes?: string;
 }
 
 export interface CouponCode {

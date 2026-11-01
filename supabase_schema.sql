@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS companies (
   accent_color TEXT DEFAULT '#4f46e5',
   tagline TEXT,
   is_default BOOLEAN DEFAULT FALSE,
+  enable_dynamic_garment_gst BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -217,6 +218,7 @@ CREATE TABLE IF NOT EXISTS day_registers (
   company_id TEXT NOT NULL,
   opening_cash NUMERIC(12,2) DEFAULT 0,
   expenses JSONB DEFAULT '[]'::jsonb,
+  cash_drops JSONB DEFAULT '[]'::jsonb,
   closing_cash_counted NUMERIC(12,2),
   closing_notes TEXT,
   closed_at TEXT,
@@ -239,7 +241,30 @@ CREATE TABLE IF NOT EXISTS staff_users (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 12. COUPONS & PROMO DISCOUNTS
+-- 12. PARKED CARTS & HELD BILLS
+-- Used on: POS Billing (Multi-Ticket Hold & Recall)
+CREATE TABLE IF NOT EXISTS parked_carts (
+  id TEXT PRIMARY KEY,
+  ticket_number INT NOT NULL,
+  label TEXT,
+  parked_at TEXT,
+  cashier_name TEXT,
+  customer_id TEXT,
+  customer_name TEXT,
+  customer_phone TEXT,
+  items JSONB DEFAULT '[]'::jsonb,
+  selected_associate TEXT,
+  applied_coupon JSONB,
+  applied_credit_note JSONB,
+  redeemed_points NUMERIC(12,2) DEFAULT 0,
+  subtotal NUMERIC(12,2) DEFAULT 0,
+  grand_total NUMERIC(12,2) DEFAULT 0,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 13. COUPONS & PROMO DISCOUNTS
 -- Used on: POS Billing Discounts & Coupons
 CREATE TABLE IF NOT EXISTS coupons (
   code TEXT PRIMARY KEY,

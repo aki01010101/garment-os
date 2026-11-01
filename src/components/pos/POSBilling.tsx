@@ -33,6 +33,10 @@ import {
   Heart,
   CheckCircle2,
   PlusCircle,
+  Pause,
+  Layers,
+  Bookmark,
+  Clock,
 } from 'lucide-react';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 import { CustomerPurchasesModal } from '../crm/CustomerPurchasesModal';
@@ -82,11 +86,20 @@ export const POSBilling: React.FC = () => {
     startNextSale,
     setActiveReceipt,
     setIsReceiptModalOpen,
+    parkedCarts,
+    parkCurrentCart,
+    recallParkedCart,
+    deleteParkedCart,
+    clearAllParkedCarts,
   } = useApp();
 
   const [isCustomerHistoryOpen, setIsCustomerHistoryOpen] = useState(false);
   const [isFamilySizingModalOpen, setIsFamilySizingModalOpen] = useState(false);
   const [isPosProfileModalOpen, setIsPosProfileModalOpen] = useState(false);
+  const [isParkModalOpen, setIsParkModalOpen] = useState(false);
+  const [isHoldCartPromptOpen, setIsHoldCartPromptOpen] = useState(false);
+  const [parkTicketLabel, setParkTicketLabel] = useState('');
+  const [ticketToRecall, setTicketToRecall] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
@@ -140,6 +153,13 @@ export const POSBilling: React.FC = () => {
           if (prev === 'Card') return 'Split';
           return 'Cash';
         });
+      } else if (e.key === 'F6') {
+        e.preventDefault();
+        if (cart.length > 0) {
+          setIsHoldCartPromptOpen(true);
+        } else {
+          setIsParkModalOpen(true);
+        }
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         if (cart.length > 0) {
@@ -223,6 +243,55 @@ export const POSBilling: React.FC = () => {
     }));
   }, [products]);
 
+  // Parked Cart Handlers
+  const handleHoldCart = (customLabel?: string) => {
+    if (cart.length === 0) return;
+    try {
+      const ticket = parkCurrentCart(customLabel);
+      setScanFeedback(`Bill held: ${ticket.label}`);
+      setIsHoldCartPromptOpen(false);
+      setParkTicketLabel('');
+    } catch (err: any) {
+      alert(err.message || 'Could not hold bill');
+    }
+  };
+
+  const handleRecallTicket = (ticketId: string) => {
+    const target = parkedCarts.find((p) => p.id === ticketId);
+    if (!target) return;
+
+    if (cart.length > 0) {
+      setTicketToRecall(target);
+      return;
+    }
+
+    recallParkedCart(ticketId);
+    setIsParkModalOpen(false);
+    setScanFeedback(`Resumed: ${target.label}`);
+  };
+
+  const confirmRecallWithHold = () => {
+    if (!ticketToRecall) return;
+    try {
+      parkCurrentCart();
+      recallParkedCart(ticketToRecall.id);
+      setIsParkModalOpen(false);
+      setTicketToRecall(null);
+      setScanFeedback(`Current bill held & resumed ${ticketToRecall.label}`);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const confirmRecallWithDiscard = () => {
+    if (!ticketToRecall) return;
+    clearCart();
+    recallParkedCart(ticketToRecall.id);
+    setIsParkModalOpen(false);
+    setTicketToRecall(null);
+    setScanFeedback(`Resumed: ${ticketToRecall.label}`);
+  };
+
   const handleCameraScan = (scannedText: string) => {
     const q = scannedText.trim().toLowerCase();
     const exactMatch = products.find(
@@ -249,7 +318,13 @@ export const POSBilling: React.FC = () => {
       const itemGross = item.unitPrice * item.quantity;
       const itemDisc = (itemGross * item.discountPercent) / 100;
       const net = itemGross - itemDisc;
-      const taxRate = activeCompany.type === 'billed' ? item.product.taxRate : 0;
+      
+      // Dynamic Indian Garment GST Slabs: <= ₹1000 attracts 5%, > ₹1000 attracts 12%
+      let taxRate = activeCompany.type === 'billed' ? item.product.taxRate : 0;
+      if (activeCompany.type === 'billed' && activeCompany.enableDynamicGarmentGst !== false) {
+        const netPerUnit = net / (item.quantity || 1);
+        taxRate = netPerUnit <= 1000 ? 5 : 12;
+      }
       const tax = (net * taxRate) / 100;
 
       subtotal += itemGross;
@@ -259,9 +334,9 @@ export const POSBilling: React.FC = () => {
 
     const maxRedeemablePoints = selectedCustomer
       ? Math.min(
-          selectedCustomer.loyaltyPoints,
-          Math.floor((subtotal - discounts) / loyaltyConfig.pointRedemptionValue)
-        )
+        selectedCustomer.loyaltyPoints,
+        Math.floor((subtotal - discounts) / loyaltyConfig.pointRedemptionValue)
+      )
       : 0;
 
     const actualRedeemedPoints = Math.min(redeemedPoints, maxRedeemablePoints);
@@ -290,11 +365,11 @@ export const POSBilling: React.FC = () => {
       0,
       Math.round(
         subtotal -
-          discounts +
-          taxes -
-          loyaltyDiscountAmount -
-          couponDiscountAmount -
-          creditNoteDiscountAmount
+        discounts +
+        taxes -
+        loyaltyDiscountAmount -
+        couponDiscountAmount -
+        creditNoteDiscountAmount
       )
     );
 
@@ -411,10 +486,10 @@ export const POSBilling: React.FC = () => {
       const splitBreakdown =
         paymentMode === 'Split'
           ? {
-              cash: splitCashVal,
-              upi: splitUpiVal,
-              card: splitCardVal,
-            }
+            cash: splitCashVal,
+            upi: splitUpiVal,
+            card: splitCardVal,
+          }
           : undefined;
 
       checkoutSale(
@@ -422,8 +497,8 @@ export const POSBilling: React.FC = () => {
         paymentMode === 'Cash'
           ? tenderedAmount || cartSummary.grandTotal
           : paymentMode === 'Split' && splitCashVal > 0
-          ? splitCashVal
-          : undefined,
+            ? splitCashVal
+            : undefined,
         saleNotes,
         splitBreakdown
       );
@@ -483,18 +558,16 @@ export const POSBilling: React.FC = () => {
                 <button
                   key={comp.id}
                   onClick={() => setActiveCompanyId(comp.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 border transition-all cursor-pointer ${
-                    isSelected
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 border transition-all cursor-pointer ${isSelected
                       ? isBilled
                         ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
                         : 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
                       : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   <span
-                    className={`w-2 h-2 rounded-full ${
-                      isBilled ? 'bg-indigo-300' : 'bg-emerald-300'
-                    }`}
+                    className={`w-2 h-2 rounded-full ${isBilled ? 'bg-indigo-300' : 'bg-emerald-300'
+                      }`}
                   />
                   <span>{comp.name}</span>
                   <span className="font-mono text-[10px] opacity-80">
@@ -529,11 +602,10 @@ export const POSBilling: React.FC = () => {
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
             title={soundEnabled ? 'Scanner Beep: ON (Click to Mute)' : 'Scanner Beep: OFF (Click to Enable)'}
-            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-              soundEnabled
+            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${soundEnabled
                 ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                 : 'bg-slate-100 text-slate-400 border-slate-200'
-            }`}
+              }`}
           >
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
@@ -880,7 +952,7 @@ export const POSBilling: React.FC = () => {
         {/* ADDED STOCK TABLE */}
         <div className="lg:col-span-8 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
           {/* Table Header Strip */}
-          <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="p-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50">
             <div className="flex items-center gap-2">
               <ShoppingCart className="w-4 h-4 text-slate-700" />
               <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
@@ -888,16 +960,81 @@ export const POSBilling: React.FC = () => {
               </span>
             </div>
 
-            {cart.length > 0 && (
+            <div className="flex items-center gap-2">
+              {/* Held / Parked Carts Button */}
               <button
-                onClick={clearCart}
-                className="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 cursor-pointer"
+                type="button"
+                onClick={() => setIsParkModalOpen(true)}
+                className={`text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                  parkedCarts.length > 0
+                    ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 shadow-2xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+                title="View held/parked customer bills"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Clear All Items</span>
+                <Layers className="w-3.5 h-3.5 text-amber-600" />
+                <span>Held Bills</span>
+                {parkedCarts.length > 0 && (
+                  <span className="px-1.5 py-0.2 bg-amber-500 text-white rounded-full text-[10px] font-bold">
+                    {parkedCarts.length}
+                  </span>
+                )}
               </button>
-            )}
+
+              {/* Hold Current Cart Button */}
+              {cart.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsHoldCartPromptOpen(true)}
+                  className="text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer shadow-2xs"
+                  title="Put current cart on hold to serve next customer (F6)"
+                >
+                  <Pause className="w-3.5 h-3.5" />
+                  <span>Hold Bill (F6)</span>
+                </button>
+              )}
+
+              {/* Clear All Items Button */}
+              {cart.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearCart}
+                  className="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 px-2 py-1 rounded hover:bg-rose-50 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear</span>
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Quick Parked Carts Strip */}
+          {parkedCarts.length > 0 && (
+            <div className="bg-amber-50/70 border-b border-amber-200/80 px-3 py-1.5 flex items-center gap-2 overflow-x-auto text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1 shrink-0">
+                <Bookmark className="w-3 h-3 text-amber-600" />
+                On Hold:
+              </span>
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                {parkedCarts.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-1.5 bg-white border border-amber-200 rounded-md px-2 py-0.5 shadow-2xs text-[11px] shrink-0"
+                  >
+                    <span className="font-semibold text-slate-800">{p.label}</span>
+                    <span className="text-slate-400 font-mono">({p.items.length} pcs · ₹{p.grandTotal.toFixed(0)})</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRecallTicket(p.id)}
+                      className="ml-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.2 rounded cursor-pointer"
+                    >
+                      Resume
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Table Body */}
           <div className="overflow-x-auto flex-1 min-h-[340px]">
@@ -934,7 +1071,12 @@ export const POSBilling: React.FC = () => {
                     const gross = item.unitPrice * item.quantity;
                     const discount = (gross * item.discountPercent) / 100;
                     const net = gross - discount;
-                    const taxRate = activeCompany.type === 'billed' ? item.product.taxRate : 0;
+                    const netPerUnit = net / (item.quantity || 1);
+                    const isDynamicGstActive = activeCompany.type === 'billed' && activeCompany.enableDynamicGarmentGst !== false;
+                    let taxRate = activeCompany.type === 'billed' ? item.product.taxRate : 0;
+                    if (isDynamicGstActive) {
+                      taxRate = netPerUnit <= 1000 ? 5 : 12;
+                    }
                     const tax = (net * taxRate) / 100;
                     const lineTotal = net + tax;
 
@@ -1048,11 +1190,10 @@ export const POSBilling: React.FC = () => {
                               })
                             }
                             title="Attach in-store alteration instructions"
-                            className={`p-1.5 rounded transition-colors cursor-pointer ${
-                              item.alteration?.needed
+                            className={`p-1.5 rounded transition-colors cursor-pointer ${item.alteration?.needed
                                 ? 'bg-indigo-100 text-indigo-800'
                                 : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100'
-                            }`}
+                              }`}
                           >
                             <Scissors className="w-3.5 h-3.5" />
                           </button>
@@ -1062,7 +1203,21 @@ export const POSBilling: React.FC = () => {
                         {activeCompany.type === 'billed' && (
                           <td className="py-3 px-2 text-right font-mono text-[11px] text-slate-600">
                             <div>₹{tax.toFixed(2)}</div>
-                            <div className="text-[9px] text-slate-400">({taxRate}%)</div>
+                            <div className="flex items-center justify-end gap-1 text-[9px] text-slate-400 mt-0.5">
+                              <span>({taxRate}%)</span>
+                              {isDynamicGstActive && (
+                                <span
+                                  className={`px-1 py-0.2 rounded font-semibold ${
+                                    taxRate === 5
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : 'bg-indigo-100 text-indigo-800'
+                                  }`}
+                                  title={taxRate === 5 ? 'Item Net <= ₹1,000 (5% GST)' : 'Item Net > ₹1,000 (12% GST)'}
+                                >
+                                  {taxRate === 5 ? '≤₹1k' : '>₹1k'}
+                                </span>
+                              )}
+                            </div>
                           </td>
                         )}
 
@@ -1273,11 +1428,10 @@ export const POSBilling: React.FC = () => {
                     <button
                       key={mode.id}
                       onClick={() => setPaymentMode(mode.id as any)}
-                      className={`py-2 px-1 rounded-lg border text-xs font-semibold flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                        isSelected
+                      className={`py-2 px-1 rounded-lg border text-xs font-semibold flex flex-col items-center gap-1 transition-all cursor-pointer ${isSelected
                           ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
                           : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                      }`}
+                        }`}
                     >
                       <Icon className="w-3.5 h-3.5" />
                       <span className="text-[11px]">{mode.label}</span>
@@ -1846,6 +2000,282 @@ export const POSBilling: React.FC = () => {
           }
         }}
       />
+
+      {/* 12. HOLD CURRENT BILL PROMPT MODAL */}
+      {isHoldCartPromptOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 bg-indigo-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Pause className="w-5 h-5" />
+                <h3 className="font-bold text-sm">Hold Current Bill</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsHoldCartPromptOpen(false)}
+                className="text-white/80 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleHoldCart(parkTicketLabel);
+              }}
+              className="p-5 space-y-4"
+            >
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Put this customer's cart on hold to serve the next customer in line. You can resume this bill at any time.
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Ticket Label / Reference (Optional)
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder={selectedCustomer ? `${selectedCustomer.name} - ${selectedCustomer.phone}` : "e.g. Blue Sherwani / Waiting for Trial"}
+                  value={parkTicketLabel}
+                  onChange={(e) => setParkTicketLabel(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
+                <div className="flex justify-between text-slate-600">
+                  <span>Items to hold:</span>
+                  <strong className="font-mono text-slate-900">{cart.reduce((s, i) => s + i.quantity, 0)} Units</strong>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Cart Total:</span>
+                  <strong className="font-mono text-slate-900">₹{cartSummary.grandTotal.toFixed(2)}</strong>
+                </div>
+                {selectedCustomer && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Customer:</span>
+                    <strong className="text-indigo-700">{selectedCustomer.name}</strong>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsHoldCartPromptOpen(false)}
+                  className="px-3.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Pause className="w-3.5 h-3.5" />
+                  <span>Confirm Hold Bill</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 13. PARKED / HELD BILLS DIRECTORY MODAL */}
+      {isParkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-amber-400" />
+                <div>
+                  <h3 className="font-bold text-sm">Held Customer Bills Directory</h3>
+                  <p className="text-[11px] text-slate-400">
+                    {parkedCarts.length} {parkedCarts.length === 1 ? 'ticket' : 'tickets'} currently suspended on hold
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsParkModalOpen(false)}
+                className="text-white/80 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto flex-1 divide-y divide-slate-100 space-y-4">
+              {parkedCarts.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 space-y-2">
+                  <Bookmark className="w-10 h-10 stroke-1 mx-auto text-slate-300" />
+                  <p className="text-xs font-medium text-slate-600">No customer bills currently on hold.</p>
+                  <p className="text-[11px] text-slate-400">
+                    To hold a bill when a customer steps away, click <strong>Hold Bill (F6)</strong> during checkout.
+                  </p>
+                </div>
+              ) : (
+                parkedCarts.map((p) => {
+                  const parkedDate = new Date(p.parkedAt);
+                  const timeAgoMinutes = Math.max(0, Math.floor((Date.now() - parkedDate.getTime()) / 60000));
+                  const timeFormatted = `${parkedDate.getHours().toString().padStart(2, '0')}:${parkedDate.getMinutes().toString().padStart(2, '0')}`;
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="pt-4 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-900 font-bold rounded text-xs font-mono">
+                            #{p.ticketNumber}
+                          </span>
+                          <span className="font-bold text-slate-900 text-sm">{p.label}</span>
+                          <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {timeFormatted} ({timeAgoMinutes === 0 ? 'just now' : `${timeAgoMinutes}m ago`})
+                          </span>
+                        </div>
+
+                        <div className="text-xs text-slate-600 flex flex-wrap items-center gap-2">
+                          {p.customerName && (
+                            <span className="font-medium text-indigo-700">
+                              Client: {p.customerName} {p.customerPhone && `(+91 ${p.customerPhone})`}
+                            </span>
+                          )}
+                          <span>·</span>
+                          <span>Cashier: {p.cashierName}</span>
+                          <span>·</span>
+                          <span className="font-semibold text-slate-900 font-mono">
+                            Total: ₹{p.grandTotal.toFixed(2)}
+                          </span>
+                        </div>
+
+                        {/* Garments Preview */}
+                        <div className="text-[11px] text-slate-500 line-clamp-1">
+                          {p.items.map((i) => `${i.quantity}x ${i.product.name} (${i.product.size})`).join(', ')}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => deleteParkedCart(p.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Discard held bill"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRecallTicket(p.id)}
+                          className="px-3.5 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>Resume Bill →</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {parkedCarts.length > 0 && (
+              <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Are you sure you want to discard ALL held bills?')) {
+                      clearAllParkedCarts();
+                    }
+                  }}
+                  className="text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
+                >
+                  Clear All Held Bills
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsParkModalOpen(false)}
+                  className="px-3 py-1 bg-white border border-slate-200 rounded-md font-medium text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 14. ACTIVE BILL CONFLICT RESOLUTION MODAL */}
+      {ticketToRecall && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 bg-amber-500 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" />
+                <h3 className="font-bold text-sm">Active Bill in Progress</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTicketToRecall(null)}
+                className="text-white/80 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Your current counter already has <strong>{cart.length} items (₹{cartSummary.grandTotal.toFixed(0)})</strong> in the active bill. How would you like to handle it before resuming <strong>{ticketToRecall.label}</strong>?
+              </p>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={confirmRecallWithHold}
+                  className="w-full text-left p-3 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 transition-colors flex items-center justify-between cursor-pointer group"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-indigo-950 group-hover:text-indigo-600">
+                      Hold Current Bill & Resume #{ticketToRecall.ticketNumber}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Safely suspends current cart to a new ticket, then opens {ticketToRecall.label}.
+                    </div>
+                  </div>
+                  <Pause className="w-4 h-4 text-indigo-600 shrink-0 ml-2" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={confirmRecallWithDiscard}
+                  className="w-full text-left p-3 rounded-xl border border-rose-200 bg-rose-50/40 hover:bg-rose-50 transition-colors flex items-center justify-between cursor-pointer group"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-rose-950 group-hover:text-rose-600">
+                      Discard Current Items & Resume #{ticketToRecall.ticketNumber}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Clears current unsaved cart and restores {ticketToRecall.label}.
+                    </div>
+                  </div>
+                  <Trash2 className="w-4 h-4 text-rose-600 shrink-0 ml-2" />
+                </button>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTicketToRecall(null)}
+                  className="px-4 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -17,6 +17,7 @@ export const INITIAL_COMPANIES: Company[] = [
     accentColor: '#4f46e5',
     tagline: 'Premium Menswear & Contemporary Fashion',
     isDefault: true,
+    enableDynamicGarmentGst: true,
   },
   {
     id: 'comp_cash',
@@ -1340,6 +1341,17 @@ export const INITIAL_REGISTER: import('../types').DayEndRegister = {
       amount: 200,
       paidTo: 'Workshop Tailoring',
       notes: 'Advance for today alteration fittings',
+    },
+  ],
+  cashDrops: [
+    {
+      id: 'drop_1',
+      time: '14:30',
+      amount: 5000,
+      droppedBy: 'Aman Deep (Counter 1)',
+      witnessName: 'Kunal Malhotra (Admin)',
+      reason: 'Till float limit exceeded (₹15,000 threshold)',
+      notes: 'Transferred to main store safety vault envelope #102',
     },
   ],
   status: 'open',

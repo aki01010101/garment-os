@@ -22,6 +22,8 @@ import {
   SplitPaymentBreakdown,
   CodePrintType,
   QrPrintSize,
+  ParkedCart,
+  CashDrop,
 } from '../types';
 import {
   INITIAL_COMPANIES,
@@ -151,7 +153,15 @@ interface AppContextType {
   dayRegister: DayEndRegister;
   updateOpeningCash: (amount: number) => void;
   addPettyExpense: (expense: Omit<PettyExpense, 'id' | 'time'>) => void;
+  addCashDrop: (drop: Omit<CashDrop, 'id' | 'time'>) => void;
   closeDayRegister: (countedCash: number, notes?: string) => void;
+
+  // Parked Carts & Multi-Ticket Counter (Hold & Recall)
+  parkedCarts: ParkedCart[];
+  parkCurrentCart: (label?: string) => ParkedCart;
+  recallParkedCart: (id: string) => void;
+  deleteParkedCart: (id: string) => void;
+  clearAllParkedCarts: () => void;
 
   // Loyalty Config
   // Loyalty Config
@@ -236,6 +246,7 @@ const STORAGE_KEYS = {
   IS_LOCKED: 'verve_clothing_locked_v2',
   LOW_STOCK_THRESHOLD: 'verve_clothing_low_stock_threshold_v2',
   AUTO_LOCK_MINUTES: 'verve_clothing_autolock_minutes_v2',
+  PARKED_CARTS: 'garment_os_parked_carts_v1',
 };
 
 
@@ -671,6 +682,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeReceipt, setActiveReceipt] = useState<SaleTransaction | null>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
   const [lastCompletedSale, setLastCompletedSale] = useState<SaleTransaction | null>(null);
+
+  // Parked Carts (Multi-Ticket Counter Hold & Recall)
+  const [parkedCarts, setParkedCarts] = useState<ParkedCart[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PARKED_CARTS);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.PARKED_CARTS, JSON.stringify(parkedCarts));
+    } catch (e) {
+      console.warn('Failed to save parked carts to localStorage:', e);
+    }
+  }, [parkedCarts]);
+
+  const parkCurrentCart = (label?: string): ParkedCart => {
+    if (cart.length === 0) {
+      throw new Error('Cannot hold an empty cart');
+    }
+
+    let subtotal = 0;
+    let discounts = 0;
+    cart.forEach((item) => {
+      const gross = item.unitPrice * item.quantity;
+      const disc = (gross * item.discountPercent) / 100;
+      subtotal += gross;
+      discounts += disc;
+    });
+
+    const highestTicket = parkedCarts.reduce((max, p) => Math.max(max, p.ticketNumber || 0), 0);
+    const ticketNumber = highestTicket + 1;
+    const customer = customers.find((c) => c.id === selectedCustomerId);
+
+    const newParked: ParkedCart = {
+      id: `ticket_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      ticketNumber,
+      label: label?.trim() || `Ticket #${ticketNumber}${customer ? ` (${customer.name})` : ''}`,
+      parkedAt: new Date().toISOString(),
+      cashierName: currentUser.fullName,
+      customerId: selectedCustomerId,
+      customerName: customer?.name,
+      customerPhone: customer?.phone,
+      items: [...cart],
+      selectedAssociate,
+      appliedCoupon,
+      appliedCreditNote,
+      redeemedPoints,
+      subtotal,
+      grandTotal: Math.max(0, subtotal - discounts),
+    };
+
+    setParkedCarts((prev) => [newParked, ...prev]);
+    clearCart();
+    return newParked;
+  };
+
+  const recallParkedCart = (id: string) => {
+    const target = parkedCarts.find((p) => p.id === id);
+    if (!target) return;
+
+    setCart(target.items);
+    setSelectedCustomerId(target.customerId || null);
+    setSelectedAssociate(target.selectedAssociate || SALES_ASSOCIATES[0]);
+    setAppliedCoupon(target.appliedCoupon || null);
+    setAppliedCreditNote(target.appliedCreditNote || null);
+    setRedeemedPoints(target.redeemedPoints || 0);
+
+    setParkedCarts((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const deleteParkedCart = (id: string) => {
+    setParkedCarts((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const clearAllParkedCarts = () => {
+    setParkedCarts([]);
+  };
 
   const startNextSale = () => {
     clearCart();
@@ -1311,6 +1403,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const addCashDrop = (drop: Omit<CashDrop, 'id' | 'time'>) => {
+    const now = new Date();
+    const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const newDrop: CashDrop = {
+      ...drop,
+      id: `drop_${Date.now()}`,
+      time,
+    };
+    setDayRegister((prev) => {
+      const existingDrops = prev.cashDrops || [];
+      const updated = {
+        ...prev,
+        cashDrops: [...existingDrops, newDrop],
+      };
+      if (isSupabaseAutoSync) asyncSyncDayRegister(updated);
+      return updated;
+    });
+  };
+
   const closeDayRegister = (countedCash: number, notes?: string) => {
     const now = new Date();
     const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
@@ -1347,7 +1458,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const itemGross = item.unitPrice * item.quantity;
       const discount = (itemGross * item.discountPercent) / 100;
       const itemNet = itemGross - discount;
-      const taxRate = company.type === 'billed' ? item.product.taxRate : 0;
+
+      // Dynamic Indian Garment GST Slabs: 5% if net unit price <= 1000, 12% if > 1000
+      let taxRate = company.type === 'billed' ? item.product.taxRate : 0;
+      if (company.type === 'billed' && company.enableDynamicGarmentGst !== false) {
+        const netPerUnit = itemNet / (item.quantity || 1);
+        taxRate = netPerUnit <= 1000 ? 5 : 12;
+      }
+
       const tax = (itemNet * taxRate) / 100;
       const lineTotal = itemNet + tax;
 
@@ -1666,7 +1784,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dayRegister,
         updateOpeningCash,
         addPettyExpense,
+        addCashDrop,
         closeDayRegister,
+        // Parked Carts (Multi-Ticket Hold & Recall)
+        parkedCarts,
+        parkCurrentCart,
+        recallParkedCart,
+        deleteParkedCart,
+        clearAllParkedCarts,
         loyaltyConfig,
         updateLoyaltyConfig: setLoyaltyConfig,
         // Authentication & RBAC

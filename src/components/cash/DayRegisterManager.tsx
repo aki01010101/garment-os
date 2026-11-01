@@ -17,16 +17,22 @@ import {
   Lock,
   FileText,
   Sparkles,
+  ShieldAlert,
+  Vault,
+  X,
 } from 'lucide-react';
+import { CashDrop } from '../../types';
 
 export const DayRegisterManager: React.FC = () => {
   const {
     dayRegister,
     updateOpeningCash,
     addPettyExpense,
+    addCashDrop,
     closeDayRegister,
     sales,
     activeCompany,
+    currentUser,
   } = useApp();
 
   const [isZReportModalOpen, setIsZReportModalOpen] = useState(false);
@@ -36,6 +42,14 @@ export const DayRegisterManager: React.FC = () => {
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expensePaidTo, setExpensePaidTo] = useState('');
   const [expenseNotes, setExpenseNotes] = useState('');
+
+  // Cash Drop / Safe Skim State
+  const [isCashDropModalOpen, setIsCashDropModalOpen] = useState(false);
+  const [dropAmount, setDropAmount] = useState('');
+  const [droppedBy, setDroppedBy] = useState(currentUser?.fullName || 'Cashier');
+  const [witnessName, setWitnessName] = useState('');
+  const [dropReason, setDropReason] = useState('Drawer cash threshold exceeded (₹15,000 limit)');
+  const [dropNotes, setDropNotes] = useState('');
 
 
   // Day-End Closing State
@@ -86,7 +100,8 @@ export const DayRegisterManager: React.FC = () => {
   }, [todaySales]);
 
   const totalPettyExpenses = dayRegister.expenses.reduce((s, e) => s + e.amount, 0);
-  const expectedCashInDrawer = dayRegister.openingCash + salesTotals.cash - totalPettyExpenses;
+  const totalCashDrops = (dayRegister.cashDrops || []).reduce((s, d) => s + d.amount, 0);
+  const expectedCashInDrawer = dayRegister.openingCash + salesTotals.cash - totalPettyExpenses - totalCashDrops;
 
   // Compute counted cash
   const denominationTotal = Object.entries(denominations).reduce(
@@ -112,6 +127,54 @@ export const DayRegisterManager: React.FC = () => {
     setExpenseAmount('');
     setExpensePaidTo('');
     setExpenseNotes('');
+  };
+
+  const handleSaveCashDrop = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(dropAmount) || 0;
+    if (amt <= 0) return;
+
+    const newDrop: Omit<CashDrop, 'id' | 'time'> = {
+      amount: amt,
+      droppedBy: droppedBy.trim() || currentUser?.fullName || 'Cashier',
+      witnessName: witnessName.trim() || undefined,
+      reason: dropReason,
+      notes: dropNotes.trim() || undefined,
+    };
+
+    addCashDrop(newDrop);
+    setIsCashDropModalOpen(false);
+    setDropAmount('');
+    setWitnessName('');
+    setDropNotes('');
+  };
+
+  const handlePrintDropSlip = (drop: CashDrop) => {
+    const html = `
+      <div class="thermal-receipt-58mm thermal-receipt-50mm thermal-bold">
+        <div class="receipt-title">CASH DROP / SAFE SKIM</div>
+        <div class="receipt-sub">${activeCompany.name}</div>
+        <div class="receipt-sub">DATE: ${dayRegister.date} · TIME: ${drop.time}</div>
+        <hr />
+        <div style="font-size: 10px; line-height: 1.4; font-family: monospace;">
+          <div><strong>REF ID:</strong> ${drop.id}</div>
+          <div><strong>AMOUNT SKIMMED:</strong> ₹${drop.amount.toFixed(2)}</div>
+          <div><strong>DROPPED BY:</strong> ${drop.droppedBy}</div>
+          ${drop.witnessName ? `<div><strong>WITNESSED BY:</strong> ${drop.witnessName}</div>` : ''}
+          ${drop.reason ? `<div><strong>REASON:</strong> ${drop.reason}</div>` : ''}
+          ${drop.notes ? `<div><strong>NOTES:</strong> ${drop.notes}</div>` : ''}
+        </div>
+        <hr />
+        <div style="font-size: 8.5px; text-align: center; margin: 4px 0;">
+          * DEPOSIT ENVELOPE SLIP FOR SAFE *
+        </div>
+        <div style="padding-top: 18px; display: flex; justify-content: space-between; font-size: 8.5px; font-family: monospace;">
+          <div>Cashier: ________</div>
+          <div>Manager: ________</div>
+        </div>
+      </div>
+    `;
+    printThermalReceiptHtml(html, `Cash-Drop-${drop.id}`);
   };
 
   const handleConfirmClose = () => {
@@ -147,6 +210,7 @@ export const DayRegisterManager: React.FC = () => {
           <div class="receipt-row"><span>OPENING FLOAT:</span><span>₹${dayRegister.openingCash.toFixed(2)}</span></div>
           <div class="receipt-row"><span>(+) CASH INFLOW:</span><span>+₹${salesTotals.cash.toFixed(2)}</span></div>
           <div class="receipt-row"><span>(-) PETTY EXPENSES:</span><span>-₹${totalPettyExpenses.toFixed(2)}</span></div>
+          ${totalCashDrops > 0 ? `<div class="receipt-row"><span>(-) SAFE SKIMS:</span><span>-₹${totalCashDrops.toFixed(2)}</span></div>` : ''}
           <div class="receipt-row font-bold" style="border-top: 1px dashed #000; padding-top: 2px;">
             <span>EXPECTED IN DRAWER:</span><span>₹${expectedCashInDrawer.toFixed(2)}</span>
           </div>
@@ -164,6 +228,13 @@ export const DayRegisterManager: React.FC = () => {
           <div><strong>PETTY OUTLAYS TODAY:</strong></div>
           ${dayRegister.expenses.map((e) => `<div>• ${e.time} - ${e.category}: ₹${e.amount} (${e.notes})</div>`).join('')}
         </div>
+        ${(dayRegister.cashDrops && dayRegister.cashDrops.length > 0) ? `
+        <hr />
+        <div class="text-[9px]">
+          <div><strong>SAFE DROPS TODAY:</strong></div>
+          ${dayRegister.cashDrops.map((d) => `<div>• ${d.time} - ₹${d.amount} (By: ${d.droppedBy})</div>`).join('')}
+        </div>
+        ` : ''}
         <hr />
         <div style="text-align: center; font-size: 8px;">VERIFIED BY STORE CASHIER & MANAGER</div>
         <div style="text-align: center; font-size: 9px; font-weight: bold; margin-top: 4px;">*** END OF DAY REGISTER ***</div>
@@ -204,6 +275,15 @@ export const DayRegisterManager: React.FC = () => {
             <span>+ Petty Expense</span>
           </button>
 
+          <button
+            type="button"
+            onClick={() => setIsCashDropModalOpen(true)}
+            className="px-3.5 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Transfer excess cash from till to back-office safe"
+          >
+            <Vault className="w-4 h-4 text-amber-600" />
+            <span>+ Cash Drop (Safe Skim)</span>
+          </button>
 
           <button
             onClick={() => setIsZReportModalOpen(true)}
@@ -239,14 +319,14 @@ export const DayRegisterManager: React.FC = () => {
       </div>
 
       {/* KPI Cards Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         {/* Opening Float */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
             Opening Cash Float
           </span>
           <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-bold font-mono text-slate-900">
+            <span className="text-xl font-bold font-mono text-slate-900">
               ₹{dayRegister.openingCash.toLocaleString('en-IN')}
             </span>
             {dayRegister.status === 'open' && (
@@ -261,44 +341,58 @@ export const DayRegisterManager: React.FC = () => {
               </button>
             )}
           </div>
-          <div className="text-[11px] text-slate-400 mt-1">Small change loaded in till</div>
+          <div className="text-[10px] text-slate-400 mt-1">Small change loaded in till</div>
         </div>
 
         {/* Cash Inflow */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Today Cash Sales Inflow
+            Cash Sales Collected
           </span>
-          <div className="text-2xl font-bold font-mono text-emerald-600 mt-1">
+          <div className="text-xl font-bold font-mono text-emerald-600 mt-1">
             +₹{salesTotals.cash.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
-          <div className="text-[11px] text-slate-400 mt-1">
-            UPI: ₹{salesTotals.upi} · Card: ₹{salesTotals.card}
+          <div className="text-[10px] text-slate-400 mt-1">
+            Digital: ₹{(salesTotals.upi + salesTotals.card).toLocaleString('en-IN')}
           </div>
         </div>
 
         {/* Petty Expenses */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Today Petty Expenses Outlay
+            Petty Expenses Outlay
           </span>
-          <div className="text-2xl font-bold font-mono text-rose-600 mt-1">
+          <div className="text-xl font-bold font-mono text-rose-600 mt-1">
             -₹{totalPettyExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
-          <div className="text-[11px] text-slate-400 mt-1">
-            {dayRegister.expenses.length} shop expense vouchers
+          <div className="text-[10px] text-slate-400 mt-1">
+            {dayRegister.expenses.length} shop vouchers
+          </div>
+        </div>
+
+        {/* Safe Cash Drops */}
+        <div className="bg-white p-3.5 rounded-xl border border-amber-200 bg-amber-50/20 shadow-xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center justify-between">
+            <span>Dropped to Safe</span>
+            <Vault className="w-3.5 h-3.5 text-amber-600" />
+          </span>
+          <div className="text-xl font-bold font-mono text-amber-900 mt-1">
+            -₹{totalCashDrops.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            {(dayRegister.cashDrops || []).length} safe transfer skims
           </div>
         </div>
 
         {/* Expected Cash in Drawer */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Expected Cash in Drawer
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs bg-indigo-50/20">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-900">
+            Expected in Drawer Till
           </span>
-          <div className="text-2xl font-bold font-mono text-indigo-700 mt-1">
+          <div className="text-xl font-bold font-mono text-indigo-700 mt-1">
             ₹{expectedCashInDrawer.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
-          <div className="text-[11px] text-slate-400 mt-1">Float + Cash Sales - Expenses</div>
+          <div className="text-[10px] text-slate-400 mt-1">Float + Cash Sales - Outlays - Drops</div>
         </div>
       </div>
 
@@ -350,6 +444,73 @@ export const DayRegisterManager: React.FC = () => {
               </table>
             )}
           </div>
+
+          {/* Safe Cash Drops / Skimming Audit Table */}
+          <div className="border-t border-slate-200">
+            <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-amber-50/40">
+              <div className="flex items-center gap-2">
+                <Vault className="w-4 h-4 text-amber-700" />
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  Transfers to Store Safe / Anti-Theft Skims ({(dayRegister.cashDrops || []).length})
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCashDropModalOpen(true)}
+                className="text-xs font-semibold text-amber-800 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Record Safe Drop</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              {(!dayRegister.cashDrops || dayRegister.cashDrops.length === 0) ? (
+                <div className="p-8 text-center text-xs text-slate-400">
+                  No mid-day safe transfers recorded today. Click <strong>+ Record Safe Drop</strong> to skim excess till cash.
+                </div>
+              ) : (
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/70 border-b border-slate-200 text-slate-600 uppercase text-[10px] font-bold">
+                    <tr>
+                      <th className="py-2.5 px-3">Time</th>
+                      <th className="py-2.5 px-3">Transferred By</th>
+                      <th className="py-2.5 px-3">Witness / Manager</th>
+                      <th className="py-2.5 px-3">Reason / Envelope Ref</th>
+                      <th className="py-2.5 px-3 text-right">Amount (₹)</th>
+                      <th className="py-2.5 px-3 text-center">Slip</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-sans">
+                    {dayRegister.cashDrops.map((drop) => (
+                      <tr key={drop.id} className="hover:bg-amber-50/20">
+                        <td className="py-2.5 px-3 font-mono text-slate-500">{drop.time}</td>
+                        <td className="py-2.5 px-3 font-medium text-slate-800">{drop.droppedBy}</td>
+                        <td className="py-2.5 px-3 text-slate-500">{drop.witnessName || '—'}</td>
+                        <td className="py-2.5 px-3 text-slate-600">
+                          <div>{drop.reason}</div>
+                          {drop.notes && <div className="text-[10px] text-slate-400 font-mono mt-0.5">{drop.notes}</div>}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900">
+                          ₹{drop.amount.toFixed(2)}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handlePrintDropSlip(drop)}
+                            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                            title="Print 58mm Thermal Safe Deposit Voucher"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Closing Drawer Status Card */}
@@ -380,6 +541,12 @@ export const DayRegisterManager: React.FC = () => {
               <span>Petty Cash Paid Out:</span>
               <span>-₹{totalPettyExpenses.toFixed(2)}</span>
             </div>
+            {totalCashDrops > 0 && (
+              <div className="flex justify-between text-amber-800 font-semibold">
+                <span>Safe Drops Skimmed:</span>
+                <span>-₹{totalCashDrops.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-bold text-slate-900 pt-2 border-t border-slate-200 text-sm">
               <span>Expected Cash in Till:</span>
               <span>₹{expectedCashInDrawer.toFixed(2)}</span>
@@ -625,6 +792,125 @@ export const DayRegisterManager: React.FC = () => {
         </div>
       )}
 
+      {/* Record Safe Cash Drop / Skim Modal */}
+      {isCashDropModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-5 border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-amber-100 text-amber-800 rounded-lg">
+                  <Vault className="w-5 h-5 text-amber-700" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Transfer Cash to Safe (Till Skim)</h3>
+                  <p className="text-[11px] text-slate-500">Secure excess cash from counter till to main store vault</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCashDropModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-amber-50/70 p-3 rounded-lg border border-amber-200 text-xs space-y-1">
+              <div className="flex justify-between text-slate-600">
+                <span>Current Till Float In Hand:</span>
+                <strong className="font-mono text-slate-900">₹{expectedCashInDrawer.toFixed(2)}</strong>
+              </div>
+              <p className="text-[10.5px] text-amber-900 leading-tight">
+                Recommended: Skim cash when till drawer exceeds ₹15,000–₹20,000 to minimize robbery/loss risk.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveCashDrop} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Transfer Amount (₹) *</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  max={Math.max(1, expectedCashInDrawer)}
+                  value={dropAmount}
+                  onChange={(e) => setDropAmount(e.target.value)}
+                  placeholder="e.g. 5000"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg font-mono font-bold text-base text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Transferred By (Cashier) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={droppedBy}
+                    onChange={(e) => setDroppedBy(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Witness / Manager</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Store Manager"
+                    value={witnessName}
+                    onChange={(e) => setWitnessName(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Drop Reason *</label>
+                <select
+                  value={dropReason}
+                  onChange={(e) => setDropReason(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                >
+                  <option value="Drawer cash threshold exceeded (₹15,000 limit)">Till float limit exceeded (over ₹15,000)</option>
+                  <option value="Mid-day routine afternoon safe deposit">Routine afternoon safe deposit</option>
+                  <option value="Change of cashier shift handoff">Shift transition handoff</option>
+                  <option value="Advance supplier cash settlement preparation">Preparation for vendor cash payout</option>
+                  <option value="Other">Other security transfer</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Safe Envelope / Vault Reference</label>
+                <input
+                  type="text"
+                  value={dropNotes}
+                  onChange={(e) => setDropNotes(e.target.value)}
+                  placeholder="e.g. Placed in Tamper-evident Envelope #408"
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsCashDropModalOpen(false)}
+                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 text-xs font-bold text-white bg-amber-700 hover:bg-amber-800 rounded-lg flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Vault className="w-3.5 h-3.5" />
+                  <span>Confirm Safe Transfer</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* 58mm Thermal Z-Report Preview Modal */}
       <ZReportPreviewModal
         isOpen={isZReportModalOpen}
@@ -633,6 +919,7 @@ export const DayRegisterManager: React.FC = () => {
         salesTotals={salesTotals}
         todaySalesCount={todaySales.length}
         totalPettyExpenses={totalPettyExpenses}
+        totalCashDrops={totalCashDrops}
         expectedCashInDrawer={expectedCashInDrawer}
         countedCash={
           dayRegister.closingCashCounted !== undefined

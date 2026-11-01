@@ -190,6 +190,7 @@ export function mapCompanyToDb(c: Company) {
     accent_color: c.accentColor,
     tagline: c.tagline,
     is_default: c.isDefault || false,
+    enable_dynamic_garment_gst: c.enableDynamicGarmentGst ?? true,
     updated_at: new Date().toISOString(),
   };
 }
@@ -211,6 +212,7 @@ export function mapCompanyFromDb(row: any): Company {
     accentColor: row.accent_color || '#4f46e5',
     tagline: row.tagline || '',
     isDefault: row.is_default || false,
+    enableDynamicGarmentGst: row.enable_dynamic_garment_gst ?? true,
   };
 }
 
@@ -565,6 +567,7 @@ export function mapDayRegisterToDb(r: DayEndRegister) {
     company_id: r.companyId,
     opening_cash: r.openingCash || 0,
     expenses: r.expenses || [],
+    cash_drops: r.cashDrops || [],
     closing_cash_counted: r.closingCashCounted !== undefined ? r.closingCashCounted : null,
     closing_notes: r.closingNotes || null,
     closed_at: r.closedAt || null,
@@ -580,6 +583,7 @@ export function mapDayRegisterFromDb(row: any): DayEndRegister {
     companyId: row.company_id,
     openingCash: Number(row.opening_cash) || 0,
     expenses: row.expenses || [],
+    cashDrops: row.cash_drops || [],
     closingCashCounted: row.closing_cash_counted !== null ? Number(row.closing_cash_counted) : undefined,
     closingNotes: row.closing_notes || undefined,
     closedAt: row.closed_at || undefined,

@@ -23,6 +23,7 @@ export const CompanySettings: React.FC = () => {
     returnPolicy: 'Goods once sold can be exchanged within 7 days with original invoice.',
     accentColor: '#4f46e5',
     tagline: 'Retail Clothing Outlet',
+    enableDynamicGarmentGst: true,
   });
 
   const handleOpenAdd = () => {
@@ -41,13 +42,14 @@ export const CompanySettings: React.FC = () => {
       returnPolicy: 'Exchange within 7 days with original bill.',
       accentColor: '#4f46e5',
       tagline: 'Fashion Boutique',
+      enableDynamicGarmentGst: true,
     });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (comp: Company) => {
     setEditingCompany(comp);
-    setFormData({ ...comp });
+    setFormData({ ...comp, enableDynamicGarmentGst: comp.enableDynamicGarmentGst ?? true });
     setIsModalOpen(true);
   };
 
@@ -117,6 +119,11 @@ export const CompanySettings: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {isBilled && comp.enableDynamicGarmentGst !== false && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      Auto GST 5%/12%
+                    </span>
+                  )}
                   <span
                     className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
                       isBilled
@@ -317,6 +324,27 @@ export const CompanySettings: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {formData.type === 'billed' && (
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.enableDynamicGarmentGst ?? true}
+                      onChange={(e) => setFormData({ ...formData, enableDynamicGarmentGst: e.target.checked })}
+                      className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="font-semibold text-slate-900 block text-xs">
+                        Indian Garment Dynamic GST Slab Automation
+                      </span>
+                      <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
+                        Automatically recalculates tax rate per garment at checkout: <strong>5% GST</strong> if net unit price is ≤ ₹1,000, and <strong>12% GST</strong> if net unit price is &gt; ₹1,000 (compliant with Indian apparel tax laws).
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              )}
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
