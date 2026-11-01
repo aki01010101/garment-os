@@ -884,87 +884,96 @@ export async function pullAllFromSupabase(): Promise<{
 // REAL-TIME BACKGROUND SYNC HELPERS (FOR IMMEDIATE PAGE ACTIONS)
 // -----------------------------------------------------------------------------
 
-export function asyncSyncSale(sale: SaleTransaction) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  supabase
-    .from('sales')
-    .upsert(mapSaleToDb(sale))
-    .catch((err) => console.warn('Background Supabase sale sync network error:', err));
+export async function asyncSyncSale(sale: SaleTransaction) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('sales').upsert(mapSaleToDb(sale));
+  } catch (err) {
+    console.warn('Background Supabase sale sync network error:', err);
+  }
 }
 
-export function asyncSyncProduct(product: Product) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  supabase
-    .from('products')
-    .upsert(mapProductToDb(product))
-    .catch((err) => console.warn('Background Supabase product sync network error:', err));
+export async function asyncSyncProduct(product: Product) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('products').upsert(mapProductToDb(product));
+  } catch (err) {
+    console.warn('Background Supabase product sync network error:', err);
+  }
 }
 
-export function asyncSyncCustomer(customer: Customer) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  supabase
-    .from('customers')
-    .upsert(mapCustomerToDb(customer))
-    .catch((err) => console.warn('Background Supabase customer sync network error:', err));
+export async function asyncSyncCustomer(customer: Customer) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('customers').upsert(mapCustomerToDb(customer));
+  } catch (err) {
+    console.warn('Background Supabase customer sync network error:', err);
+  }
 }
 
-export function asyncSyncPurchase(purchase: PurchaseOrder) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  supabase
-    .from('purchases')
-    .upsert(mapPurchaseToDb(purchase))
-    .catch((err) => console.warn('Background Supabase purchase sync network error:', err));
+export async function asyncSyncPurchase(purchase: PurchaseOrder) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('purchases').upsert(mapPurchaseToDb(purchase));
+  } catch (err) {
+    console.warn('Background Supabase purchase sync network error:', err);
+  }
 }
 
-export function asyncSyncVendorPayment(payment: VendorPaymentRecord) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  supabase
-    .from('vendor_payments')
-    .upsert(mapVendorPaymentToDb(payment))
-    .catch((err) => console.warn('Background Supabase vendor payment sync network error:', err));
+export async function asyncSyncVendorPayment(payment: VendorPaymentRecord) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('vendor_payments').upsert(mapVendorPaymentToDb(payment));
+  } catch (err) {
+    console.warn('Background Supabase vendor payment sync network error:', err);
+  }
 }
 
-export function asyncSyncAlteration(alteration: AlterationRecord) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  supabase
-    .from('alterations')
-    .upsert(mapAlterationToDb(alteration))
-    .catch((err) => console.warn('Background Supabase alteration sync network error:', err));
+export async function asyncSyncAlteration(alteration: AlterationRecord) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('alterations').upsert(mapAlterationToDb(alteration));
+  } catch (err) {
+    console.warn('Background Supabase alteration sync network error:', err);
+  }
 }
 
-export function asyncSyncCreditNote(creditNote: CreditNote) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  supabase
-    .from('credit_notes')
-    .upsert(mapCreditNoteToDb(creditNote))
-    .catch((err) => console.warn('Background Supabase credit note sync network error:', err));
+export async function asyncSyncCreditNote(creditNote: CreditNote) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('credit_notes').upsert(mapCreditNoteToDb(creditNote));
+  } catch (err) {
+    console.warn('Background Supabase credit note sync network error:', err);
+  }
 }
 
-export function asyncSyncDayRegister(dayRegister: DayEndRegister) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  supabase
-    .from('day_registers')
-    .upsert(mapDayRegisterToDb(dayRegister))
-    .catch((err) => console.warn('Background Supabase day register sync network error:', err));
+export async function asyncSyncDayRegister(dayRegister: DayEndRegister) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('day_registers').upsert(mapDayRegisterToDb(dayRegister));
+  } catch (err) {
+    console.warn('Background Supabase day register sync network error:', err);
+  }
 }
 
-export function asyncSyncSetting(key: string, value: any) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  supabase
-    .from('app_settings')
-    .upsert({
+export async function asyncSyncSetting(key: string, value: any) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('app_settings').upsert({
       key,
       value,
       updated_at: new Date().toISOString(),
-    })
-    .catch((err) => console.warn(`Background Supabase setting sync (${key}) error:`, err));
+    });
+  } catch (err) {
+    console.warn(`Background Supabase setting sync (${key}) error:`, err);
+  }
 }
