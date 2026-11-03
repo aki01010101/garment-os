@@ -35,9 +35,11 @@ import {
   Database,
   Tag,
   Star,
+  ExternalLink,
 } from 'lucide-react';
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
+import { GoogleReviewQr } from '../common/GoogleReviewQr';
 import { SupabaseDatabaseSettings } from './SupabaseDatabaseSettings';
 import { FirstTimeSetupModal } from '../onboarding/FirstTimeSetupModal';
 import { PromotionsManager } from './PromotionsManager';
@@ -71,6 +73,10 @@ export const SettingsManager: React.FC = () => {
     setStoreUpiName,
     storeGoogleReviewUrl,
     setStoreGoogleReviewUrl,
+    googleReviewPromptText,
+    setGoogleReviewPromptText,
+    enableReceiptReviewQr,
+    setEnableReceiptReviewQr,
     enableEReceiptQr,
     setEnableEReceiptQr,
   } = useApp();
@@ -82,6 +88,7 @@ export const SettingsManager: React.FC = () => {
   const [upiIdInput, setUpiIdInput] = useState(storeUpiId);
   const [upiNameInput, setUpiNameInput] = useState(storeUpiName);
   const [reviewUrlInput, setReviewUrlInput] = useState(storeGoogleReviewUrl);
+  const [reviewPromptInput, setReviewPromptInput] = useState(googleReviewPromptText || 'Rate Us 5★ On Google');
 
   // Edit User Modal
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
@@ -835,76 +842,181 @@ export const SettingsManager: React.FC = () => {
             </div>
           </div>
 
-          {/* Digital E-Receipt & Google Reviews Gateway */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4 md:col-span-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+          {/* Google Business Profile & Bill Review QR Engine */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-5 md:col-span-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                  <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Digital E-Receipt Gateway & Google 5★ Review Link
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span>Google Business Profile & Bill Review QR</span>
+                    <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
+                      Increases 5★ Reviews
+                    </span>
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Configure your store's public Google Reviews link printed on thermal slips and embedded into mobile digital receipts.
+                    Automatically print a scannable Google Review QR code on every customer bill to boost 5-star Google reviews.
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 w-fit">
-                {enableEReceiptQr ? 'E-Receipt Enabled' : 'Disabled'}
+              <span className={`text-xs font-bold px-3 py-1 rounded-full border w-fit ${
+                enableReceiptReviewQr
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-slate-100 text-slate-600 border-slate-200'
+              }`}>
+                {enableReceiptReviewQr ? 'Review QR Active on Bills' : 'Review QR Disabled'}
               </span>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Store Google Review URL
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={reviewUrlInput}
-                    onChange={(e) => setReviewUrlInput(e.target.value)}
-                    placeholder="https://g.page/r/your-store/review"
-                    className="flex-1 px-3 py-2 text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStoreGoogleReviewUrl(reviewUrlInput.trim());
-                      showToast('Google Reviews URL saved successfully!');
-                    }}
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors shadow-xs"
-                  >
-                    Save URL
-                  </button>
-                  <a
-                    href={reviewUrlInput}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors"
-                  >
-                    Test Link
-                  </a>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left 2 Cols: Form Controls */}
+              <div className="lg:col-span-2 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Store Google Review / Profile URL *
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={reviewUrlInput}
+                      onChange={(e) => setReviewUrlInput(e.target.value)}
+                      placeholder="https://g.page/r/your-store/review or https://maps.app.goo.gl/..."
+                      className="flex-1 px-3 py-2 text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-semibold"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStoreGoogleReviewUrl(reviewUrlInput.trim());
+                        setGoogleReviewPromptText(reviewPromptInput.trim());
+                        showToast('Google Review link & bill QR settings saved!');
+                      }}
+                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors shadow-xs"
+                    >
+                      Save Settings
+                    </button>
+                    {reviewUrlInput && (
+                      <a
+                        href={reviewUrlInput}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors"
+                      >
+                        <span>Test Link</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Paste your direct review short-link from Google Business Profile or your Google Maps share link.
+                  </span>
                 </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Find your direct review link in your Google Business Profile dashboard under "Ask for reviews".
-                </span>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Bill Receipt Prompt Headline
+                  </label>
+                  <input
+                    type="text"
+                    value={reviewPromptInput}
+                    onChange={(e) => setReviewPromptInput(e.target.value)}
+                    placeholder="e.g. Rate Us 5★ On Google"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-medium"
+                  />
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    <span className="text-[10px] text-slate-400">Quick Presets:</span>
+                    {['Rate Us 5★ On Google', 'Rate Your Fit 5★', 'Loved Your Shopping? Review Us', 'Scan to Review on Google'].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          setReviewPromptInput(preset);
+                          setGoogleReviewPromptText(preset);
+                        }}
+                        className="text-[10px] px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium cursor-pointer transition-colors"
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Toggles */}
+                <div className="pt-2 space-y-2.5">
+                  <label className="flex items-start gap-2.5 cursor-pointer p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={enableReceiptReviewQr}
+                      onChange={(e) => {
+                        setEnableReceiptReviewQr(e.target.checked);
+                        showToast(e.target.checked ? 'Google Review QR enabled on thermal bills.' : 'Google Review QR disabled on thermal bills.');
+                      }}
+                      className="w-4 h-4 text-amber-500 rounded mt-0.5"
+                    />
+                    <div>
+                      <span className="font-bold text-xs text-slate-900 block">
+                        Print Google Review QR Code on Customer Thermal Bills
+                      </span>
+                      <span className="text-[11px] text-slate-500 leading-tight block">
+                        Appends a high-contrast vector QR code with 5-star rating header to the bottom of all 58mm/80mm printed receipts.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 cursor-pointer p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={enableEReceiptQr}
+                      onChange={(e) => {
+                        setEnableEReceiptQr(e.target.checked);
+                        showToast(e.target.checked ? 'Digital E-Receipt review link enabled.' : 'Digital E-Receipt review link disabled.');
+                      }}
+                      className="w-4 h-4 text-amber-500 rounded mt-0.5"
+                    />
+                    <div>
+                      <span className="font-bold text-xs text-slate-900 block">
+                        Include 5-Star Review Button in Digital WhatsApp Bills
+                      </span>
+                      <span className="text-[11px] text-slate-500 leading-tight block">
+                        Embeds direct 5-star Google review call-to-action buttons in mobile digital receipt links and WhatsApp shares.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* How to find Google link helper card */}
+                <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-1 text-xs text-amber-950">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>How to find your direct Google Review Link in 3 steps:</span>
+                  </div>
+                  <ol className="list-decimal list-inside text-[11px] text-amber-900/90 space-y-0.5 pl-1">
+                    <li>Go to Google Search on your phone or PC and search for your shop name.</li>
+                    <li>In your Google Business Profile manager panel, click <strong>"Ask for reviews"</strong>.</li>
+                    <li>Click <strong>Copy Link</strong> (format: <code>https://g.page/r/.../review</code>) and paste it into the field above!</li>
+                  </ol>
+                </div>
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer pt-1">
-                <input
-                  type="checkbox"
-                  checked={enableEReceiptQr}
-                  onChange={(e) => {
-                    setEnableEReceiptQr(e.target.checked);
-                    showToast(e.target.checked ? 'E-Receipt & review link enabled on receipts.' : 'E-Receipt disabled on receipts.');
-                  }}
-                  className="w-4 h-4 text-amber-500 rounded"
-                />
-                <span className="font-bold text-xs text-slate-800">
-                  Include 5-Star Review Prompt & Digital Bill Gateway on 58mm Thermal Printed Receipts
+              {/* Right 1 Col: Live Bill QR Preview */}
+              <div className="flex flex-col items-center justify-start p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider text-center">
+                  Live Bill QR Preview ({QR_SIZE_PIXELS[qrPrintSize]}px):
                 </span>
-              </label>
+                
+                <GoogleReviewQr
+                  reviewUrl={reviewUrlInput}
+                  size={QR_SIZE_PIXELS[qrPrintSize]}
+                  title={reviewPromptInput || 'Rate Us 5★ On Google'}
+                  subTitle="Scan with camera to review"
+                  className="w-full"
+                />
+
+                <div className="text-[10px] text-slate-400 text-center font-mono leading-tight">
+                  Point your mobile phone camera at this QR code right now to test live redirection!
+                </div>
+              </div>
             </div>
           </div>
 

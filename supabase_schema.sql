@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS companies (
   is_default BOOLEAN DEFAULT FALSE,
   enable_dynamic_garment_gst BOOLEAN DEFAULT TRUE,
   tax_inclusive BOOLEAN DEFAULT TRUE,
+  google_review_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -111,6 +112,7 @@ CREATE TABLE IF NOT EXISTS sales (
   cashier_name TEXT,
   sales_associate TEXT,
   tax_inclusive BOOLEAN DEFAULT TRUE,
+  google_review_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

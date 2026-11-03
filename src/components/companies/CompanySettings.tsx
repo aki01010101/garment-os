@@ -25,6 +25,7 @@ export const CompanySettings: React.FC = () => {
     tagline: 'Retail Clothing Outlet',
     enableDynamicGarmentGst: true,
     taxInclusive: true,
+    googleReviewUrl: '',
   });
 
   const handleOpenAdd = () => {
@@ -45,6 +46,7 @@ export const CompanySettings: React.FC = () => {
       tagline: 'Fashion Boutique',
       enableDynamicGarmentGst: true,
       taxInclusive: true,
+      googleReviewUrl: '',
     });
     setIsModalOpen(true);
   };
@@ -55,6 +57,7 @@ export const CompanySettings: React.FC = () => {
       ...comp,
       enableDynamicGarmentGst: comp.enableDynamicGarmentGst ?? true,
       taxInclusive: comp.taxInclusive ?? true,
+      googleReviewUrl: comp.googleReviewUrl || '',
     });
     setIsModalOpen(true);
   };
@@ -139,6 +142,11 @@ export const CompanySettings: React.FC = () => {
                   {isBilled && comp.enableDynamicGarmentGst !== false && (
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
                       Auto GST 5%/12%
+                    </span>
+                  )}
+                  {comp.googleReviewUrl && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                      <span>★ Review QR Configured</span>
                     </span>
                   )}
                   <span
@@ -421,6 +429,25 @@ export const CompanySettings: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Branch Google Review / Profile Link (Optional)</span>
+                  <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    Bill Review QR
+                  </span>
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://g.page/r/.../review or https://maps.app.goo.gl/..."
+                  value={formData.googleReviewUrl || ''}
+                  onChange={(e) => setFormData({ ...formData, googleReviewUrl: e.target.value })}
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Leave blank to inherit the global store Google review link configured in Settings.
+                </span>
+              </div>
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">

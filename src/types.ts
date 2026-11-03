@@ -24,6 +24,7 @@ export interface Company {
   isDefault?: boolean;
   enableDynamicGarmentGst?: boolean; // Indian Garment Rule: 5% if net <= 1000, 12% if net > 1000
   taxInclusive?: boolean; // true = prices are GST inclusive (MRP model), false = GST added separately on top
+  googleReviewUrl?: string; // Direct Google Profile / Reviews link for receipt QR
 }
 
 export interface Product {
@@ -209,6 +210,7 @@ export interface SaleTransaction {
   cashierName: string;
   salesAssociate?: string;
   taxInclusive?: boolean;
+  googleReviewUrl?: string;
 }
 
 export interface AlterationRecord {

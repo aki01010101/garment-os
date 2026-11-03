@@ -265,6 +265,10 @@ interface AppContextType {
   // Phase 4: Digital E-Receipt & Google Reviews
   storeGoogleReviewUrl: string;
   setStoreGoogleReviewUrl: (url: string) => void;
+  googleReviewPromptText: string;
+  setGoogleReviewPromptText: (text: string) => void;
+  enableReceiptReviewQr: boolean;
+  setEnableReceiptReviewQr: (enable: boolean) => void;
   enableEReceiptQr: boolean;
   setEnableEReceiptQr: (enable: boolean) => void;
 
@@ -304,6 +308,8 @@ const STORAGE_KEYS = {
   COMMISSION_CONFIGS: 'garment_os_commission_configs_v1',
   CAMPAIGN_TEMPLATES: 'garment_os_campaign_templates_v1',
   GOOGLE_REVIEW_URL: 'garment_os_google_review_url_v1',
+  GOOGLE_REVIEW_PROMPT: 'garment_os_google_review_prompt_v1',
+  ENABLE_RECEIPT_REVIEW_QR: 'garment_os_enable_receipt_review_qr_v1',
   ENABLE_E_RECEIPT_QR: 'garment_os_enable_ereceipt_qr_v1',
 };
 
@@ -1211,6 +1217,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const [googleReviewPromptText, setGoogleReviewPromptTextState] = useState<string>(() => {
+    return localStorage.getItem(STORAGE_KEYS.GOOGLE_REVIEW_PROMPT) || 'Rate Us 5★ On Google';
+  });
+
+  const setGoogleReviewPromptText = (text: string) => {
+    setGoogleReviewPromptTextState(text);
+    try {
+      localStorage.setItem(STORAGE_KEYS.GOOGLE_REVIEW_PROMPT, text);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const [enableReceiptReviewQr, setEnableReceiptReviewQrState] = useState<boolean>(() => {
+    return localStorage.getItem(STORAGE_KEYS.ENABLE_RECEIPT_REVIEW_QR) !== 'false';
+  });
+
+  const setEnableReceiptReviewQr = (enable: boolean) => {
+    setEnableReceiptReviewQrState(enable);
+    try {
+      localStorage.setItem(STORAGE_KEYS.ENABLE_RECEIPT_REVIEW_QR, String(enable));
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
   const [enableEReceiptQr, setEnableEReceiptQrState] = useState<boolean>(() => {
     return localStorage.getItem(STORAGE_KEYS.ENABLE_E_RECEIPT_QR) !== 'false';
   });
@@ -2099,6 +2131,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       splitBreakdown,
       notes,
       taxInclusive: defaultInclusive,
+      googleReviewUrl: company.googleReviewUrl || storeGoogleReviewUrl,
       cashierName: company.type === 'billed' ? 'Billing Clerk (Reg 1)' : 'Cashier (Counter 2)',
       salesAssociate: selectedAssociate,
     };
@@ -2399,6 +2432,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Phase 4: Digital E-Receipt & Google Reviews
         storeGoogleReviewUrl,
         setStoreGoogleReviewUrl,
+        googleReviewPromptText,
+        setGoogleReviewPromptText,
+        enableReceiptReviewQr,
+        setEnableReceiptReviewQr,
         enableEReceiptQr,
         setEnableEReceiptQr,
         resetToSampleData,

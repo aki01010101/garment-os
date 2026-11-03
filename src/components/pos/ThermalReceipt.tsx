@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { SaleTransaction, QR_SIZE_PIXELS } from '../../types';
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
+import { GoogleReviewQr } from '../common/GoogleReviewQr';
 import { useApp } from '../../context/AppContext';
 import { printThermalReceiptHtml } from '../../utils/printReceipt';
 import {
@@ -10,6 +11,7 @@ import {
   Barcode,
   QrCode,
   Smartphone,
+  Star,
   HelpCircle,
   CheckCircle,
   Copy,
@@ -49,14 +51,23 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     storeUpiId,
     storeUpiName,
     storeGoogleReviewUrl,
+    googleReviewPromptText,
+    enableReceiptReviewQr,
     enableEReceiptQr,
+    activeCompany,
   } = useApp();
+
+  const effectiveReviewUrl =
+    receipt?.googleReviewUrl || activeCompany?.googleReviewUrl || storeGoogleReviewUrl;
 
   const activeQrPixelSize = QR_SIZE_PIXELS[qrPrintSize] || 130;
 
   const [copied, setCopied] = useState(false);
   const [whatsAppPhone, setWhatsAppPhone] = useState<string>('');
   const [includeUpiQr, setIncludeUpiQr] = useState<boolean>(true);
+  const [includeReviewQr, setIncludeReviewQr] = useState<boolean>(() => {
+    return enableReceiptReviewQr !== false;
+  });
   const [isBoldThermal, setIsBoldThermal] = useState<boolean>(() => {
     try {
       return localStorage.getItem('thermal_bold_print') !== 'false';
@@ -253,11 +264,28 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                     <Smartphone className="w-3 h-3" />
                     <span>{includeUpiQr ? "UPI QR: ON" : "UPI QR: OFF"}</span>
                   </button>
+
+                  {/* Google Review QR Print Toggle */}
+                  {effectiveReviewUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setIncludeReviewQr(!includeReviewQr)}
+                      title="Toggle Google Profile / Review QR code on thermal bill to increase customer Google ratings"
+                      className={`px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+                        includeReviewQr
+                          ? "bg-amber-500 text-slate-950 border-amber-600 shadow-2xs font-extrabold"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Star className="w-3 h-3 fill-current text-amber-950" />
+                      <span>{includeReviewQr ? "Review QR: ON" : "Review QR: OFF"}</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* QR Print Size Selector (shows if UPI QR is active OR codePrintType is QR) */}
-              {(includeUpiQr || codePrintType === 'qr') && (
+              {/* QR Print Size Selector (shows if UPI QR is active OR codePrintType is QR OR Review QR is active) */}
+              {(includeUpiQr || codePrintType === 'qr' || includeReviewQr) && (
                 <div className="flex items-center justify-between bg-white px-2 py-1 rounded-lg border border-slate-200 text-xs shadow-2xs">
                   <span className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1">
                     <QrCode className="w-3 h-3 text-indigo-600" />
@@ -559,20 +587,18 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                   *** THANK YOU ***
                 </div>
 
-                {/* Digital E-Receipt & 5-Star Review Prompt */}
-                {enableEReceiptQr && (
-                  <div
-                    style={{
-                      textAlign: 'center',
-                      margin: '4px auto',
-                      width: '100%',
-                      borderTop: '1px dashed #777',
-                      paddingTop: '3px',
-                    }}
-                  >
-                    <div style={{ fontSize: '8px', fontWeight: 'bold' }}>RATE YOUR FIT 5★ ON GOOGLE</div>
-                    <div style={{ fontSize: '7px', color: '#444' }}>{storeGoogleReviewUrl}</div>
-                  </div>
+                {/* Google Review QR Code on Bill (Increases Google Business Reviews) */}
+                {includeReviewQr && effectiveReviewUrl && (
+                  <>
+                    <hr />
+                    <GoogleReviewQr
+                      reviewUrl={effectiveReviewUrl}
+                      size={activeQrPixelSize}
+                      isThermalReceipt={true}
+                      title={googleReviewPromptText || 'Rate Us 5★ On Google'}
+                      subTitle="Scan with camera to review us"
+                    />
+                  </>
                 )}
 
                 <div
