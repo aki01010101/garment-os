@@ -1134,7 +1134,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
         currentUserName={currentUser?.fullName || 'Store Manager'}
         onSaveAudit={(audit) => {
           saveStockAudit(audit);
-          setBulkFeedbackMsg(`Stock Audit "${audit.sessionName}" saved successfully.`);
+          setBulkFeedbackMsg(`Stock Audit "${audit.auditNumber}" saved successfully.`);
           setTimeout(() => setBulkFeedbackMsg(null), 3500);
         }}
         onApplyReconciliation={(auditId) => {

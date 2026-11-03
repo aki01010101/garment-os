@@ -4,7 +4,7 @@
  * Works seamlessly inside and outside iframes without layout distortion.
  * Supports high-density bold mode for faint thermal printer heads.
  */
-export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean) {
+export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | string) {
   try {
     const isZReport =
       receiptHtml.toLowerCase().includes('z-report') ||

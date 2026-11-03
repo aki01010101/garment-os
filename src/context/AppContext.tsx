@@ -309,21 +309,34 @@ const STORAGE_KEYS = {
 
 
 
+function safeLoad<T>(key: string, fallback: T): T {
+  try {
+    const saved = localStorage.getItem(key);
+    if (!saved || saved === 'undefined' || saved === 'null') return fallback;
+    return JSON.parse(saved);
+  } catch (err) {
+    console.warn(`Failed to parse localStorage key "${key}", falling back to default:`, err);
+    return fallback;
+  }
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [companies, setCompanies] = useState<Company[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.COMPANIES);
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.COMPANIES);
+      if (saved && saved !== 'undefined') {
         const parsed: Company[] = JSON.parse(saved);
-        return parsed.map((c) => ({
-          ...c,
-          name: c.name.replace(/Verve Threads/gi, 'Garment OS').replace(/Verve Street Counter/gi, 'Garment OS Counter'),
-          legalName: c.legalName.replace(/Verve Threads/gi, 'Garment OS').replace(/Verve Retail/gi, 'Garment OS'),
-          email: c.email.replace(/vervethreads\.in/gi, 'garmentos.in').replace(/vervestreet\.in/gi, 'garmentos.in'),
-        }));
-      } catch {
-        return INITIAL_COMPANIES;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((c) => ({
+            ...c,
+            name: c.name?.replace(/Verve Threads/gi, 'Garment OS')?.replace(/Verve Street Counter/gi, 'Garment OS Counter') || c.name,
+            legalName: c.legalName?.replace(/Verve Threads/gi, 'Garment OS')?.replace(/Verve Retail/gi, 'Garment OS') || c.legalName,
+            email: c.email?.replace(/vervethreads\.in/gi, 'garmentos.in')?.replace(/vervestreet\.in/gi, 'garmentos.in') || c.email,
+          }));
+        }
       }
+    } catch {
+      return INITIAL_COMPANIES;
     }
     return INITIAL_COMPANIES;
   });
@@ -333,76 +346,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved || 'comp_billed';
   });
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
-  });
-
-  const [vendors, setVendors] = useState<Vendor[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.VENDORS);
-    return saved ? JSON.parse(saved) : INITIAL_VENDORS;
-  });
-
-  const [purchases, setPurchases] = useState<PurchaseOrder[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PURCHASES);
-    return saved ? JSON.parse(saved) : INITIAL_PURCHASES;
-  });
-
-  const [vendorPayments, setVendorPayments] = useState<VendorPaymentRecord[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
-    return saved ? JSON.parse(saved) : INITIAL_PAYMENTS;
-  });
-
-  const [sales, setSales] = useState<SaleTransaction[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SALES);
-    return saved ? JSON.parse(saved) : INITIAL_SALES;
-  });
-
-  const [customers, setCustomers] = useState<Customer[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CUSTOMERS);
-    return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
-  });
-
-  const [loyaltyConfig, setLoyaltyConfig] = useState<LoyaltyConfig>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.LOYALTY);
-    return saved ? JSON.parse(saved) : DEFAULT_LOYALTY_CONFIG;
-  });
-
-  const [alterations, setAlterations] = useState<AlterationRecord[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.ALTERATIONS);
-    return saved ? JSON.parse(saved) : INITIAL_ALTERATIONS;
-  });
-
-  const [creditNotes, setCreditNotes] = useState<CreditNote[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CREDIT_NOTES);
-    return saved ? JSON.parse(saved) : INITIAL_CREDIT_NOTES;
-  });
-
-  const [dayRegister, setDayRegister] = useState<DayEndRegister>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.REGISTER);
-    return saved ? JSON.parse(saved) : INITIAL_REGISTER;
-  });
-
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SOUND);
-    return saved !== null ? JSON.parse(saved) : true;
-  });
+  const [products, setProducts] = useState<Product[]>(() => safeLoad(STORAGE_KEYS.PRODUCTS, INITIAL_PRODUCTS));
+  const [vendors, setVendors] = useState<Vendor[]>(() => safeLoad(STORAGE_KEYS.VENDORS, INITIAL_VENDORS));
+  const [purchases, setPurchases] = useState<PurchaseOrder[]>(() => safeLoad(STORAGE_KEYS.PURCHASES, INITIAL_PURCHASES));
+  const [vendorPayments, setVendorPayments] = useState<VendorPaymentRecord[]>(() => safeLoad(STORAGE_KEYS.PAYMENTS, INITIAL_PAYMENTS));
+  const [sales, setSales] = useState<SaleTransaction[]>(() => safeLoad(STORAGE_KEYS.SALES, INITIAL_SALES));
+  const [customers, setCustomers] = useState<Customer[]>(() => safeLoad(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS));
+  const [loyaltyConfig, setLoyaltyConfig] = useState<LoyaltyConfig>(() => safeLoad(STORAGE_KEYS.LOYALTY, DEFAULT_LOYALTY_CONFIG));
+  const [alterations, setAlterations] = useState<AlterationRecord[]>(() => safeLoad(STORAGE_KEYS.ALTERATIONS, INITIAL_ALTERATIONS));
+  const [creditNotes, setCreditNotes] = useState<CreditNote[]>(() => safeLoad(STORAGE_KEYS.CREDIT_NOTES, INITIAL_CREDIT_NOTES));
+  const [dayRegister, setDayRegister] = useState<DayEndRegister>(() => safeLoad(STORAGE_KEYS.REGISTER, INITIAL_REGISTER));
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => safeLoad(STORAGE_KEYS.SOUND, true));
 
   // Users & Staff Management State
-  const [users, setUsers] = useState<UserAccount[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.USERS);
-    return saved ? JSON.parse(saved) : DEFAULT_USERS;
-  });
+  const [users, setUsers] = useState<UserAccount[]>(() => safeLoad(STORAGE_KEYS.USERS, DEFAULT_USERS));
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
   }, [users]);
 
   // Authentication & RBAC State
-  const [currentUser, setCurrentUser] = useState<UserAccount>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    return saved ? JSON.parse(saved) : DEFAULT_USERS[0];
-  });
+  const [currentUser, setCurrentUser] = useState<UserAccount>(() => safeLoad(STORAGE_KEYS.CURRENT_USER, DEFAULT_USERS[0]));
 
   const [isLocked, setIsLocked] = useState<boolean>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.IS_LOCKED);

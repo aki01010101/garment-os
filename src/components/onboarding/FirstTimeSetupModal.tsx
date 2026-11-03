@@ -98,6 +98,7 @@ export const FirstTimeSetupModal: React.FC<FirstTimeSetupModalProps> = ({
       username: newStaffUsername.trim().toLowerCase(),
       password: newStaffPassword.trim(),
       role: newStaffRole,
+      designation: newStaffRole === 'admin' ? 'Store Administrator' : newStaffRole === 'store_manager' ? 'Store Manager' : newStaffRole === 'sales_cashier' ? 'Cashier / Billing Clerk' : 'Sales Floor Associate',
       avatar: newStaffName
         .split(' ')
         .map((n) => n[0])
@@ -147,6 +148,7 @@ export const FirstTimeSetupModal: React.FC<FirstTimeSetupModalProps> = ({
           username: st.username,
           password: st.password,
           role: st.role,
+          designation: st.designation || (st.role === 'admin' ? 'Store Administrator' : 'Staff'),
           avatar: st.avatar,
         });
       }

@@ -85,6 +85,7 @@ export const POSBilling: React.FC = () => {
     storeUpiName,
     lastCompletedSale,
     startNextSale,
+    activeReceipt,
     setActiveReceipt,
     setIsReceiptModalOpen,
     parkedCarts,

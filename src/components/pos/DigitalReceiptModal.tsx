@@ -241,7 +241,7 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
                         {item.alteration?.needed && (
                           <div className="text-[10px] text-indigo-600 flex items-center gap-1 mt-0.5 font-sans">
                             <Scissors className="w-3 h-3" />
-                            <span>Alteration: {item.alteration.type}</span>
+                            <span>Alteration: {item.alteration.notes || 'In progress'}</span>
                           </div>
                         )}
                       </td>
