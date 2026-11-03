@@ -362,6 +362,20 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                 )}
               </div>
 
+              {/* Invoice Barcode / QR (Below Phone Number & Above Items Table) */}
+              <div
+                className="invoice-barcode-top text-center my-1.5"
+                style={{ textAlign: 'center', margin: '4px auto 3px auto', width: '100%' }}
+              >
+                <BarcodeSvg
+                  value={receipt.invoiceNumber.replace(/[^0-9A-Z]/gi, '')}
+                  width={140}
+                  height={28}
+                  qrSize={activeQrPixelSize}
+                  showText={codePrintType === 'barcode'}
+                />
+              </div>
+
               <hr />
 
               {/* Items Table Header */}
@@ -562,18 +576,11 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
 
               <hr />
 
-              {/* Barcode & Footer Notice */}
+              {/* Footer Notice */}
               <div
                 className="receipt-footer text-center pt-1 space-y-1"
                 style={{ textAlign: 'center', margin: '4px auto 0 auto', width: '100%' }}
               >
-                <BarcodeSvg
-                  value={receipt.invoiceNumber.replace(/[^0-9A-Z]/gi, '')}
-                  width={140}
-                  height={28}
-                  qrSize={activeQrPixelSize}
-                  showText={codePrintType === 'barcode'}
-                />
                 <div
                   className="receipt-policy text-[7.5px] leading-tight px-1 text-neutral-600"
                   style={{ textAlign: 'center', margin: '4px auto 2px auto', width: '100%', display: 'block' }}

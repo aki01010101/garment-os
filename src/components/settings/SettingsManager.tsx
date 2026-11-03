@@ -339,8 +339,8 @@ export const SettingsManager: React.FC = () => {
           <button
             onClick={() => setActiveTab('staff')}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'staff'
-                ? 'bg-white text-slate-900 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             <Users className="w-3.5 h-3.5 text-indigo-600" />
@@ -350,8 +350,8 @@ export const SettingsManager: React.FC = () => {
           <button
             onClick={() => setActiveTab('entities')}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'entities'
-                ? 'bg-white text-slate-900 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             <Building2 className="w-3.5 h-3.5 text-indigo-600" />
@@ -361,8 +361,8 @@ export const SettingsManager: React.FC = () => {
           <button
             onClick={() => setActiveTab('promotions')}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'promotions'
-                ? 'bg-white text-slate-900 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             <Tag className="w-3.5 h-3.5 text-indigo-600" />
@@ -372,8 +372,8 @@ export const SettingsManager: React.FC = () => {
           <button
             onClick={() => setActiveTab('preferences')}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'preferences'
-                ? 'bg-white text-slate-900 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             <Sliders className="w-3.5 h-3.5 text-indigo-600" />
@@ -383,8 +383,8 @@ export const SettingsManager: React.FC = () => {
           <button
             onClick={() => setActiveTab('database')}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'database'
-                ? 'bg-white text-slate-900 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             <Database className="w-3.5 h-3.5 text-indigo-600" />
@@ -397,8 +397,8 @@ export const SettingsManager: React.FC = () => {
       {statusMsg && (
         <div
           className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 shadow-xs animate-in fade-in ${statusMsg.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              : 'bg-rose-50 border-rose-200 text-rose-900'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            : 'bg-rose-50 border-rose-200 text-rose-900'
             }`}
         >
           <span>{statusMsg.text}</span>
@@ -446,8 +446,8 @@ export const SettingsManager: React.FC = () => {
                 <div
                   key={user.id}
                   className={`bg-white rounded-2xl border transition-all p-5 flex flex-col justify-between shadow-xs ${isCurrent
-                      ? 'border-indigo-500/60 ring-2 ring-indigo-500/20'
-                      : 'border-slate-200 hover:border-slate-300'
+                    ? 'border-indigo-500/60 ring-2 ring-indigo-500/20'
+                    : 'border-slate-200 hover:border-slate-300'
                     }`}
                 >
                   <div>
@@ -599,8 +599,8 @@ export const SettingsManager: React.FC = () => {
                   showToast('Code print format set to 1D Barcode (Code 128).');
                 }}
                 className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${codePrintType === 'barcode'
-                    ? 'border-indigo-600 bg-indigo-50/40 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                  ? 'border-indigo-600 bg-indigo-50/40 shadow-xs'
+                  : 'border-slate-200 hover:border-slate-300 bg-white'
                   }`}
               >
                 <div>
@@ -613,8 +613,8 @@ export const SettingsManager: React.FC = () => {
                     </div>
                     <span
                       className={`w-4 h-4 rounded-full border flex items-center justify-center ${codePrintType === 'barcode'
-                          ? 'border-indigo-600 bg-indigo-600 text-white'
-                          : 'border-slate-300'
+                        ? 'border-indigo-600 bg-indigo-600 text-white'
+                        : 'border-slate-300'
                         }`}
                     >
                       {codePrintType === 'barcode' && <Check className="w-3 h-3 stroke-[3]" />}
@@ -648,8 +648,8 @@ export const SettingsManager: React.FC = () => {
                   showToast('Code print format set to 2D QR Code.');
                 }}
                 className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${codePrintType === 'qr'
-                    ? 'border-indigo-600 bg-indigo-50/40 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                  ? 'border-indigo-600 bg-indigo-50/40 shadow-xs'
+                  : 'border-slate-200 hover:border-slate-300 bg-white'
                   }`}
               >
                 <div>
@@ -662,8 +662,8 @@ export const SettingsManager: React.FC = () => {
                     </div>
                     <span
                       className={`w-4 h-4 rounded-full border flex items-center justify-center ${codePrintType === 'qr'
-                          ? 'border-indigo-600 bg-indigo-600 text-white'
-                          : 'border-slate-300'
+                        ? 'border-indigo-600 bg-indigo-600 text-white'
+                        : 'border-slate-300'
                         }`}
                     >
                       {codePrintType === 'qr' && <Check className="w-3 h-3 stroke-[3]" />}
@@ -716,8 +716,8 @@ export const SettingsManager: React.FC = () => {
                       showToast(`QR Print Size set to ${item.label} (${item.px}).`);
                     }}
                     className={`px-3 py-1.5 rounded-lg border text-left transition-all cursor-pointer ${qrPrintSize === item.key
-                        ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 font-bold shadow-2xs'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 font-bold shadow-2xs'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                   >
                     <div className="text-xs font-bold flex items-center justify-between gap-1">
@@ -1055,8 +1055,8 @@ export const SettingsManager: React.FC = () => {
                       );
                     }}
                     className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center ${autoLockMinutes === opt.value
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                   >
                     {opt.label}
@@ -1109,8 +1109,8 @@ export const SettingsManager: React.FC = () => {
                   showToast(`Scanner sound ${!soundEnabled ? 'enabled' : 'muted'}.`);
                 }}
                 className={`p-2 rounded-xl border transition-colors cursor-pointer ${soundEnabled
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-slate-100 text-slate-500 border-slate-200'
                   }`}
               >
                 {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
@@ -1404,8 +1404,8 @@ export const SettingsManager: React.FC = () => {
                       key={tab.id}
                       onClick={() => handleToggleTabPermission(tab.id)}
                       className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none ${isChecked
-                          ? 'bg-indigo-50/60 border-indigo-200'
-                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                        ? 'bg-indigo-50/60 border-indigo-200'
+                        : 'bg-white border-slate-200 hover:bg-slate-50'
                         }`}
                     >
                       <input
