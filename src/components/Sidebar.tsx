@@ -13,6 +13,7 @@ import {
   Users,
   BarChart3,
   Settings,
+  Sparkles,
   ChevronLeft,
   ChevronRight,
   X,
@@ -50,6 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'crm', label: 'CRM & Loyalty', icon: Users, short: 'CRM' },
     { id: 'reports', label: 'Reports & Taxes', icon: BarChart3, short: 'Reports' },
     { id: 'settings', label: 'Settings', icon: Settings, short: 'Config' },
+    { id: 'landing', label: 'Landing Page', icon: Sparkles, short: 'Tour' },
   ];
 
   // Filter links based on user's active role permissions

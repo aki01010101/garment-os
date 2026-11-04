@@ -9,6 +9,7 @@ import {
   Lock,
   PanelLeftClose,
   PanelLeftOpen,
+  Sparkles,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -21,6 +22,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
+  currentTab,
   onTabChange,
   onOpenPrinterGuide,
   isSidebarCollapsed = false,
@@ -264,6 +266,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
           </div>
+
+          {/* Landing Page Button */}
+          <button
+            onClick={() => onTabChange(currentTab === 'landing' ? 'pos' : 'landing')}
+            title="View Modern Clean Landing Page & Product Overview"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer border ${
+              currentTab === 'landing'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+            <span className="hidden md:inline">{currentTab === 'landing' ? 'Back to POS' : 'Landing Page'}</span>
+          </button>
 
           {/* Quick Lock Terminal Button */}
           <button

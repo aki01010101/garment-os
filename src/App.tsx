@@ -17,6 +17,7 @@ import { PrinterGuideModal } from './components/printer/PrinterGuideModal';
 import { LoginLockScreen } from './components/auth/LoginLockScreen';
 import { SettingsManager } from './components/settings/SettingsManager';
 import { FirstTimeSetupModal } from './components/onboarding/FirstTimeSetupModal';
+import { LandingPage } from './components/landing/LandingPage';
 import { ShieldAlert } from 'lucide-react';
 
 const AppContent: React.FC = () => {
@@ -135,6 +136,12 @@ const AppContent: React.FC = () => {
             {currentTab === 'reports' && hasPermission('reports') && <ReportsDashboard />}
             {(currentTab === 'settings' || currentTab === 'companies') && hasPermission('settings') && (
               <SettingsManager />
+            )}
+            {currentTab === 'landing' && (
+              <LandingPage
+                onNavigateToPOS={() => setCurrentTab('pos')}
+                onNavigateToTab={(t) => setCurrentTab(t)}
+              />
             )}
           </div>
         </main>

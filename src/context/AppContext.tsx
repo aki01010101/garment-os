@@ -619,6 +619,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const hasPermission = (tabKey: string): boolean => {
+    if (tabKey === 'landing' || tabKey === 'overview') return true;
     const active = users.find((u) => u.id === currentUser.id) || currentUser;
     // 1. Admin ALWAYS has unrestricted access to all tabs
     if (active.role === 'admin') return true;
