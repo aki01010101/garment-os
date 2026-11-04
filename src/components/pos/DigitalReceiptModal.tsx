@@ -283,6 +283,20 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
                 </div>
               )}
 
+              {receipt.couponDiscountAmount && receipt.couponDiscountAmount > 0 && (
+                <div className="flex justify-between text-indigo-700 font-semibold">
+                  <span>Coupon ({receipt.couponCodeApplied || 'Voucher'}):</span>
+                  <span>-₹{receipt.couponDiscountAmount.toFixed(2)}</span>
+                </div>
+              )}
+
+              {receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0 && (
+                <div className="flex justify-between text-emerald-700 font-semibold">
+                  <span>Credit Note ({receipt.creditNoteCodeApplied || 'Store Credit'}):</span>
+                  <span>-₹{receipt.creditNoteDiscountAmount.toFixed(2)}</span>
+                </div>
+              )}
+
               {receipt.taxTotal > 0 && (
                 <div className="flex justify-between text-slate-600">
                   <span>GST Tax (CGST + SGST):</span>

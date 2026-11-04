@@ -37,6 +37,7 @@ import {
   Layers,
   Bookmark,
   Clock,
+  Wallet,
 } from 'lucide-react';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 import { CustomerPurchasesModal } from '../crm/CustomerPurchasesModal';
@@ -44,6 +45,7 @@ import { CustomerProfileModal } from '../crm/CustomerProfileModal';
 import { computeCustomerSpendMetrics } from '../../utils/crmUtils';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
 import { DigitalReceiptModal } from './DigitalReceiptModal';
+import { StoreCreditNotesModal } from './StoreCreditNotesModal';
 
 export const POSBilling: React.FC = () => {
   const {
@@ -74,6 +76,7 @@ export const POSBilling: React.FC = () => {
     appliedCreditNote,
     applyCreditNoteCode,
     removeCreditNote,
+    creditNotes,
     selectedAssociate,
     setSelectedAssociate,
     salesAssociates,
@@ -135,6 +138,7 @@ export const POSBilling: React.FC = () => {
   const [creditNoteInput, setCreditNoteInput] = useState('');
   const [creditNoteError, setCreditNoteError] = useState<string | null>(null);
   const [isPromoOpen, setIsPromoOpen] = useState(false);
+  const [isCreditNoteModalOpen, setIsCreditNoteModalOpen] = useState(false);
 
   // Alteration Modal on cart item
   const [alterationModalItem, setAlterationModalItem] = useState<{
@@ -459,14 +463,87 @@ export const POSBilling: React.FC = () => {
     }
   };
 
+  // Phone normalization for reliable matching
+  const normalizePhone = (p?: string) => (p || '').replace(/[\s\-\+]/g, '').slice(-10);
+
+  // Active store credit notes with positive remaining balance
+  const activeCreditNotes = useMemo(() => {
+    return creditNotes.filter((cn) => cn.status === 'active' && cn.remainingAmount > 0);
+  }, [creditNotes]);
+
+  // Credit notes specifically belonging to selected customer
+  const customerCreditNotes = useMemo(() => {
+    if (!selectedCustomer) return [];
+    const cleanCustomerPhone = normalizePhone(selectedCustomer.phone);
+    const cleanCustomerName = selectedCustomer.name.trim().toLowerCase();
+
+    return activeCreditNotes.filter((cn) => {
+      const cnPhone = normalizePhone(cn.customerPhone);
+      const cnName = (cn.customerName || '').trim().toLowerCase();
+      const phoneMatches = Boolean(cleanCustomerPhone && cnPhone && cleanCustomerPhone === cnPhone);
+      const nameMatches = Boolean(cleanCustomerName && cnName && cleanCustomerName === cnName);
+      return phoneMatches || nameMatches;
+    });
+  }, [activeCreditNotes, selectedCustomer]);
+
+  const totalCustomerCredit = useMemo(() => {
+    return customerCreditNotes.reduce((sum, cn) => sum + cn.remainingAmount, 0);
+  }, [customerCreditNotes]);
+
+  const getCustomerCreditBalance = (cust: { name: string; phone?: string }) => {
+    const cleanPhone = normalizePhone(cust.phone);
+    const cleanName = cust.name.trim().toLowerCase();
+    return activeCreditNotes
+      .filter((cn) => {
+        const cnPhone = normalizePhone(cn.customerPhone);
+        const cnName = (cn.customerName || '').trim().toLowerCase();
+        return (cleanPhone && cnPhone && cleanPhone === cnPhone) || (cleanName && cnName && cleanName === cnName);
+      })
+      .reduce((sum, cn) => sum + cn.remainingAmount, 0);
+  };
+
+  const handleApplyCreditNoteDirect = (code: string) => {
+    setCreditNoteError(null);
+    const res = applyCreditNoteCode(code);
+    if (!res.success) {
+      setCreditNoteError(res.message);
+    } else {
+      setCreditNoteInput('');
+      setScanFeedback(`Credit Note ${code} Applied!`);
+    }
+  };
+
+  const handleSelectCreditNote = (cn: any) => {
+    const res = applyCreditNoteCode(cn.code);
+    if (res.success) {
+      if (!selectedCustomerId) {
+        const cnPhone = normalizePhone(cn.customerPhone);
+        const matched = customers.find(
+          (c) =>
+            (cnPhone && normalizePhone(c.phone) === cnPhone) ||
+            c.name.trim().toLowerCase() === cn.customerName.trim().toLowerCase()
+        );
+        if (matched) {
+          setSelectedCustomerId(matched.id);
+        }
+      }
+      setCreditNoteError(null);
+      setScanFeedback(`Credit Note ${cn.code} Applied (₹${cn.remainingAmount})`);
+    } else {
+      setCreditNoteError(res.message);
+    }
+  };
+
   const handleApplyCreditNote = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!creditNoteInput.trim()) return;
     setCreditNoteError(null);
     const res = applyCreditNoteCode(creditNoteInput);
     if (!res.success) {
       setCreditNoteError(res.message);
     } else {
       setCreditNoteInput('');
+      setScanFeedback('Credit Note Applied!');
     }
   };
 
@@ -667,6 +744,26 @@ export const POSBilling: React.FC = () => {
             </select>
           </div>
 
+          {/* Active Store Credit Notes Browser */}
+          <button
+            type="button"
+            onClick={() => setIsCreditNoteModalOpen(true)}
+            className={`px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              activeCreditNotes.length > 0
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 shadow-2xs'
+                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+            }`}
+            title="Browse & apply active store credit notes"
+          >
+            <Wallet className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="hidden sm:inline">Credit Notes</span>
+            {activeCreditNotes.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white font-mono">
+                {activeCreditNotes.length}
+              </span>
+            )}
+          </button>
+
           {/* Scanner Audio Beep Toggle */}
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
@@ -815,6 +912,58 @@ export const POSBilling: React.FC = () => {
                         (₹{selectedCustomer.loyaltyPoints * loyaltyConfig.pointRedemptionValue} value)
                       </span>
                     </div>
+
+                    {customerCreditNotes.length > 0 && (
+                      <div className="mt-2.5 pt-2.5 border-t border-indigo-200/60 flex flex-wrap items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
+                          <Wallet className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Store Credit Available:</span>
+                          <span className="font-mono font-extrabold text-emerald-950">
+                            ₹{totalCustomerCredit.toFixed(2)}
+                          </span>
+                        </span>
+
+                        {customerCreditNotes.map((cn) => {
+                          const isApplied = appliedCreditNote?.code === cn.code;
+                          return (
+                            <div key={cn.id} className="flex items-center gap-1">
+                              {isApplied ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-white border border-emerald-300 px-2 py-0.5 rounded shadow-2xs">
+                                  <Check className="w-3 h-3 text-emerald-700" />
+                                  <span className="font-mono">{cn.code}</span>
+                                  <span>Applied (-₹{cartSummary.creditNoteDiscountAmount.toFixed(2)})</span>
+                                  <button
+                                    type="button"
+                                    onClick={removeCreditNote}
+                                    className="text-rose-600 hover:text-rose-800 text-[10px] ml-1 font-bold underline cursor-pointer"
+                                    title="Remove this credit note"
+                                  >
+                                    Remove
+                                  </button>
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleApplyCreditNoteDirect(cn.code)}
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-0.5 rounded shadow-2xs transition-colors cursor-pointer"
+                                  title={`Redeem ${cn.code} (Remaining: ₹${cn.remainingAmount})`}
+                                >
+                                  <span>Apply {cn.code} (₹{cn.remainingAmount})</span>
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        <button
+                          type="button"
+                          onClick={() => setIsCreditNoteModalOpen(true)}
+                          className="text-[11px] text-indigo-700 hover:text-indigo-900 font-semibold underline cursor-pointer ml-1"
+                        >
+                          View Details →
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -885,26 +1034,37 @@ export const POSBilling: React.FC = () => {
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      {filteredCustomerList.map((cust) => (
-                        <div
-                          key={cust.id}
-                          onClick={() => {
-                            setSelectedCustomerId(cust.id);
-                            setIsCustomerSearchOpen(false);
-                            setCustomerSearch('');
-                          }}
-                          className="p-2.5 text-xs hover:bg-indigo-50/70 cursor-pointer flex items-center justify-between transition-colors"
-                        >
-                          <div>
-                            <span className="font-bold text-slate-800">{cust.name}</span>
-                            <span className="font-mono text-slate-500 ml-2">({cust.phone})</span>
+                      {filteredCustomerList.map((cust) => {
+                        const custCredit = getCustomerCreditBalance(cust);
+                        return (
+                          <div
+                            key={cust.id}
+                            onClick={() => {
+                              setSelectedCustomerId(cust.id);
+                              setIsCustomerSearchOpen(false);
+                              setCustomerSearch('');
+                            }}
+                            className="p-2.5 text-xs hover:bg-indigo-50/70 cursor-pointer flex items-center justify-between transition-colors"
+                          >
+                            <div>
+                              <span className="font-bold text-slate-800">{cust.name}</span>
+                              <span className="font-mono text-slate-500 ml-2">({cust.phone})</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {custCredit > 0 && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 font-mono shadow-2xs">
+                                  <Wallet className="w-2.5 h-2.5" />
+                                  <span>₹{custCredit.toFixed(0)} Credit</span>
+                                </span>
+                              )}
+                              <div className="text-[11px] font-mono text-indigo-700 flex items-center gap-1 font-semibold">
+                                <Sparkles className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                <span>{cust.loyaltyPoints} pts</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-[11px] font-mono text-indigo-700 flex items-center gap-1 font-semibold">
-                            <Sparkles className="w-3 h-3 text-amber-500 fill-amber-500" />
-                            <span>{cust.loyaltyPoints} pts</span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1489,16 +1649,91 @@ export const POSBilling: React.FC = () => {
               )}
             </div>
 
+            {/* Applied Credit Note Active Card */}
+            {appliedCreditNote && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-lg text-xs space-y-1.5 animate-in fade-in">
+                <div className="flex items-center justify-between font-bold text-emerald-950">
+                  <span className="flex items-center gap-1.5">
+                    <Wallet className="w-4 h-4 text-emerald-600" />
+                    <span>Credit Note Applied: <strong className="font-mono">{appliedCreditNote.code}</strong></span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={removeCreditNote}
+                    className="text-rose-600 hover:text-rose-800 text-[11px] font-semibold underline cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="flex justify-between text-emerald-800 text-[11px]">
+                  <span>Applied discount on this bill:</span>
+                  <span className="font-mono font-bold">-₹{cartSummary.creditNoteDiscountAmount.toFixed(2)}</span>
+                </div>
+                {appliedCreditNote.remainingAmount > cartSummary.creditNoteDiscountAmount && (
+                  <div className="text-[10px] text-emerald-700 italic border-t border-emerald-200/70 pt-1">
+                    ₹{(appliedCreditNote.remainingAmount - cartSummary.creditNoteDiscountAmount).toFixed(2)} balance will remain on voucher after this checkout.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Quick 1-Click Available Credit Note Alert (if customer has active notes and not yet applied) */}
+            {customerCreditNotes.length > 0 && !appliedCreditNote && (
+              <div className="p-2.5 bg-emerald-50/90 border border-emerald-300 rounded-lg flex items-center justify-between gap-2 text-xs animate-in fade-in">
+                <div>
+                  <div className="font-bold text-emerald-950 flex items-center gap-1.5">
+                    <Wallet className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Credit Note Available:</span>
+                    <strong className="font-mono text-emerald-700">₹{totalCustomerCredit.toFixed(2)}</strong>
+                  </div>
+                  <div className="text-[11px] text-emerald-800 font-mono mt-0.5">
+                    {customerCreditNotes[0].code} · Bal: ₹{customerCreditNotes[0].remainingAmount}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCreditNoteDirect(customerCreditNotes[0].code)}
+                    className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-md shadow-xs transition-colors cursor-pointer"
+                  >
+                    Apply (₹{customerCreditNotes[0].remainingAmount})
+                  </button>
+                  {customerCreditNotes.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCreditNoteModalOpen(true)}
+                      className="px-2 py-1 text-[11px] font-semibold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 rounded-md cursor-pointer"
+                      title="View all available vouchers"
+                    >
+                      +{customerCreditNotes.length - 1}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Promo Codes & Store Credit Voucher Input Toggle */}
             <div className="pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setIsPromoOpen(!isPromoOpen)}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
-              >
-                <Ticket className="w-3.5 h-3.5" />
-                <span>{isPromoOpen ? 'Hide Coupons & Vouchers' : '+ Apply Coupon or Credit Note'}</span>
-              </button>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setIsPromoOpen(!isPromoOpen)}
+                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                >
+                  <Ticket className="w-3.5 h-3.5" />
+                  <span>{isPromoOpen ? 'Hide Coupons & Vouchers' : '+ Apply Coupon or Credit Note'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCreditNoteModalOpen(true)}
+                  className="text-[11px] text-slate-500 hover:text-emerald-700 flex items-center gap-1 cursor-pointer font-medium"
+                  title="Browse all active credit notes across store"
+                >
+                  <Wallet className="w-3 h-3 text-emerald-600" />
+                  <span>Browse CN ({activeCreditNotes.length})</span>
+                </button>
+              </div>
 
               {isPromoOpen && (
                 <div className="mt-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2.5 text-xs">
@@ -1527,11 +1762,59 @@ export const POSBilling: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Store Credit Note Input */}
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Redeem Store Credit Note Code:
-                    </label>
+                  {/* Store Credit Note Section */}
+                  <div className="pt-1 border-t border-slate-200/60">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Wallet className="w-3 h-3 text-emerald-600" />
+                        <span>Redeem Store Credit Note:</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsCreditNoteModalOpen(true)}
+                        className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                      >
+                        Browse All ({activeCreditNotes.length}) →
+                      </button>
+                    </div>
+
+                    {/* Customer's matching credit notes list */}
+                    {customerCreditNotes.length > 0 && (
+                      <div className="space-y-1.5 mb-2 bg-emerald-50/70 p-2 rounded-lg border border-emerald-200">
+                        <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wide block">
+                          Available for {selectedCustomer?.name || 'Customer'}:
+                        </span>
+                        {customerCreditNotes.map((cn) => {
+                          const isApplied = appliedCreditNote?.code === cn.code;
+                          return (
+                            <div
+                              key={cn.id}
+                              className="flex items-center justify-between p-1.5 rounded bg-white border border-emerald-200 text-xs"
+                            >
+                              <div>
+                                <span className="font-mono font-bold text-indigo-700 mr-2">{cn.code}</span>
+                                <span className="font-mono text-emerald-700 font-bold">₹{cn.remainingAmount}</span>
+                                <span className="text-[10px] text-slate-400 ml-1">· Exp: {cn.expiryDate}</span>
+                              </div>
+                              {isApplied ? (
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                  Applied ✓
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleApplyCreditNoteDirect(cn.code)}
+                                  className="px-2 py-0.5 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded cursor-pointer shadow-2xs"
+                                >
+                                  Apply
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
                     <form onSubmit={handleApplyCreditNote} className="flex gap-1.5">
                       <input
                         type="text"
@@ -2428,6 +2711,16 @@ export const POSBilling: React.FC = () => {
         onClose={() => setIsDigitalReceiptModalOpen(false)}
         receipt={lastCompletedSale || activeReceipt}
         googleReviewUrl={storeGoogleReviewUrl}
+      />
+
+      {/* Store Credit Notes Browser & Redemption Modal */}
+      <StoreCreditNotesModal
+        isOpen={isCreditNoteModalOpen}
+        onClose={() => setIsCreditNoteModalOpen(false)}
+        selectedCustomer={selectedCustomer}
+        onSelectCreditNote={handleSelectCreditNote}
+        appliedCreditNoteCode={appliedCreditNote?.code}
+        onRemoveAppliedCreditNote={removeCreditNote}
       />
     </div>
   );
