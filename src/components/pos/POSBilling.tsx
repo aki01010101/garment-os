@@ -39,6 +39,8 @@ import {
   Clock,
   Wallet,
   ArrowDown,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 import { CustomerPurchasesModal } from '../crm/CustomerPurchasesModal';
@@ -124,6 +126,9 @@ export const POSBilling: React.FC = () => {
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
+
+  // Mobile cart view display mode ('tiles' by default for touch screens)
+  const [mobileCartView, setMobileCartView] = useState<'tiles' | 'table'>('tiles');
 
   // Rate GST Tax Mode override (null = inherit from activeCompany.taxInclusive)
   const [taxInclusiveOverride, setTaxInclusiveOverride] = useState<boolean | null>(null);
@@ -1198,7 +1203,39 @@ export const POSBilling: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Mobile View Mode Switcher: Tiles (Default) vs Table */}
+              {cart.length > 0 && (
+                <div className="flex items-center bg-slate-200/90 p-0.5 rounded-lg text-xs font-semibold md:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setMobileCartView('tiles')}
+                    title="Switch to Tile View"
+                    className={`px-2 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
+                      mobileCartView === 'tiles'
+                        ? 'bg-white text-indigo-700 font-bold shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span className="text-[11px]">Tiles</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileCartView('table')}
+                    title="Switch to Table View"
+                    className={`px-2 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
+                      mobileCartView === 'table'
+                        ? 'bg-white text-indigo-700 font-bold shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span className="text-[11px]">Table</span>
+                  </button>
+                </div>
+              )}
+
               {/* Held / Parked Carts Button */}
               <button
                 type="button"
@@ -1288,8 +1325,8 @@ export const POSBilling: React.FC = () => {
               </div>
             ) : (
               <>
-                {/* Desktop & Tablet Multi-Column Cart Table (>= md) */}
-                <div className="hidden md:block overflow-x-auto">
+                {/* Desktop & Tablet Multi-Column Cart Table (>= md, or when mobile user switches to table mode) */}
+                <div className={`overflow-x-auto ${mobileCartView === 'table' ? 'block' : 'hidden md:block'}`}>
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 uppercase text-[10px] font-bold tracking-wider">
                       <tr>
@@ -1502,19 +1539,30 @@ export const POSBilling: React.FC = () => {
                   </table>
                 </div>
 
-                {/* Mobile Cart Items Cards (< md screens) */}
-                <div className="md:hidden p-2.5 sm:p-3 space-y-2.5">
+                {/* Mobile Cart Items: Tile View (Default on mobile) */}
+                <div
+                  className={`p-2.5 sm:p-3 ${
+                    mobileCartView === 'tiles'
+                      ? 'grid grid-cols-1 sm:grid-cols-2 gap-2.5 md:hidden'
+                      : 'hidden'
+                  }`}
+                >
                   {cart.map((item, idx) => {
                     const gross = item.unitPrice * item.quantity;
                     const discount = (gross * item.discountPercent) / 100;
                     const net = gross - discount;
                     const netPerUnit = net / (item.quantity || 1);
-                    const isDynamicGstActive = activeCompany.type === 'billed' && activeCompany.enableDynamicGarmentGst !== false;
+                    const isDynamicGstActive =
+                      activeCompany.type === 'billed' &&
+                      activeCompany.enableDynamicGarmentGst !== false;
                     let taxRate = activeCompany.type === 'billed' ? item.product.taxRate : 0;
                     if (isDynamicGstActive) {
                       taxRate = netPerUnit <= 1000 ? 5 : 12;
                     }
-                    const itemIsInclusive = item.product.taxInclusive !== undefined ? item.product.taxInclusive : isTaxInclusive;
+                    const itemIsInclusive =
+                      item.product.taxInclusive !== undefined
+                        ? item.product.taxInclusive
+                        : isTaxInclusive;
                     let tax = 0;
                     let lineTotal = net;
 
@@ -1531,25 +1579,20 @@ export const POSBilling: React.FC = () => {
                     return (
                       <div
                         key={item.product.id}
-                        className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs space-y-2.5"
+                        className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs hover:border-indigo-300 hover:shadow-xs transition-all flex flex-col justify-between gap-2.5 relative overflow-hidden"
                       >
-                        {/* Top: Name, SKU, and Delete */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-slate-900 text-xs">
-                                {idx + 1}. {item.product.name}
-                              </span>
-                              <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 bg-slate-100 text-slate-800 rounded">
-                                {item.product.size}
-                              </span>
-                              <span className="text-[11px] text-slate-500 font-medium">
-                                {item.product.color}
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                              {item.product.sku} · {item.product.category}
-                            </div>
+                        {/* Top: Header badges & Delete */}
+                        <div className="flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                              #{idx + 1}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md font-mono font-bold text-xs bg-indigo-50 text-indigo-800 border border-indigo-200 shadow-2xs">
+                              Size {item.product.size}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700">
+                              {item.product.color}
+                            </span>
                           </div>
 
                           <button
@@ -1562,25 +1605,47 @@ export const POSBilling: React.FC = () => {
                           </button>
                         </div>
 
-                        {/* Price & Tax Tag */}
-                        <div className="flex items-center justify-between text-xs bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">
+                        {/* Garment Title & Details */}
+                        <div>
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-1">
+                            {item.product.name}
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-600">{item.product.sku}</span>
+                            <span>·</span>
+                            <span>{item.product.category}</span>
+                          </div>
+                        </div>
+
+                        {/* Pricing Tile Bar */}
+                        <div className="flex items-center justify-between text-xs bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100">
                           <div className="flex items-center gap-1.5 font-mono">
                             <span className="text-slate-500 text-[11px]">Unit:</span>
-                            <span className="font-bold text-slate-800">₹{item.unitPrice.toFixed(2)}</span>
+                            <span className="font-bold text-slate-800">
+                              ₹{item.unitPrice.toFixed(0)}
+                            </span>
                             {activeCompany.type === 'billed' && (
-                              <span className={`text-[9px] px-1 py-0.2 rounded font-semibold ${itemIsInclusive ? 'bg-slate-200 text-slate-700' : 'bg-indigo-100 text-indigo-800'}`}>
+                              <span
+                                className={`text-[9px] px-1 py-0.2 rounded font-semibold ${
+                                  itemIsInclusive
+                                    ? 'bg-slate-200 text-slate-700'
+                                    : 'bg-indigo-100 text-indigo-800'
+                                }`}
+                              >
                                 {itemIsInclusive ? `${taxRate}% inc` : `+${taxRate}%`}
                               </span>
                             )}
                           </div>
                           <div className="font-mono text-right">
                             <span className="text-slate-400 text-[10px] mr-1">Net:</span>
-                            <span className="font-black text-slate-900 text-sm">₹{lineTotal.toFixed(2)}</span>
+                            <span className="font-black text-slate-900 text-sm">
+                              ₹{lineTotal.toFixed(2)}
+                            </span>
                           </div>
                         </div>
 
                         {/* Controls: Stepper, Disc %, Tailoring */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-slate-100">
                           {/* Quantity Stepper */}
                           <div className="flex items-center gap-1">
                             <button
@@ -1606,7 +1671,7 @@ export const POSBilling: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => updateCartItemQty(item.product.id, item.quantity + 1)}
-                              className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 active:scale-95 transition-all cursor-pointer"
+                              className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 active:scale-95 transition-all cursor-pointer"
                               title="Increase quantity"
                             >
                               <Plus className="w-3.5 h-3.5" />
@@ -1627,7 +1692,7 @@ export const POSBilling: React.FC = () => {
                                   parseFloat(e.target.value) || 0
                                 )
                               }
-                              className="w-12 h-8 px-1 border border-slate-200 rounded-lg text-center font-mono text-xs font-semibold bg-white"
+                              className="w-11 h-8 px-1 border border-slate-200 rounded-lg text-center font-mono text-xs font-semibold bg-white"
                             />
                           </div>
 
@@ -1650,7 +1715,7 @@ export const POSBilling: React.FC = () => {
                                 },
                               })
                             }
-                            className={`h-8 px-2.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                            className={`h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer border ${
                               item.alteration?.needed
                                 ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                                 : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
