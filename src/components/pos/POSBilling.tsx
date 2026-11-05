@@ -127,8 +127,33 @@ export const POSBilling: React.FC = () => {
   const [newCustPhone, setNewCustPhone] = useState('');
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
 
-  // Mobile cart view display mode ('tiles' by default for touch screens)
-  const [mobileCartView, setMobileCartView] = useState<'tiles' | 'table'>('tiles');
+  // Cart display mode ('tiles' by default for mobile/tablet screens, 'table' for desktop)
+  const [cartDisplayMode, setCartDisplayMode] = useState<'tiles' | 'table'>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+        return 'table';
+      }
+    } catch {}
+    return 'tiles';
+  });
+
+  // Automatically switch to tile view when screen is resized across tablet/mobile boundary (< 1024px)
+  useEffect(() => {
+    let lastWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const handleResize = () => {
+      if (typeof window === 'undefined') return;
+      const currentWidth = window.innerWidth;
+      // When crossing from desktop into mobile/tablet (< 1024px)
+      if (lastWidth >= 1024 && currentWidth < 1024) {
+        setCartDisplayMode('tiles');
+      } else if (lastWidth < 1024 && currentWidth >= 1024) {
+        setCartDisplayMode('table');
+      }
+      lastWidth = currentWidth;
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Rate GST Tax Mode override (null = inherit from activeCompany.taxInclusive)
   const [taxInclusiveOverride, setTaxInclusiveOverride] = useState<boolean | null>(null);
@@ -1203,16 +1228,16 @@ export const POSBilling: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              {/* Mobile View Mode Switcher: Tiles (Default) vs Table */}
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+              {/* View Mode Switcher: Tiles (Default on Mobile) vs Table */}
               {cart.length > 0 && (
-                <div className="flex items-center bg-slate-200/90 p-0.5 rounded-lg text-xs font-semibold md:hidden">
+                <div className="flex items-center bg-slate-200/90 p-0.5 rounded-lg text-xs font-semibold shrink-0">
                   <button
                     type="button"
-                    onClick={() => setMobileCartView('tiles')}
+                    onClick={() => setCartDisplayMode('tiles')}
                     title="Switch to Tile View"
-                    className={`px-2 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
-                      mobileCartView === 'tiles'
+                    className={`px-2 sm:px-2.5 py-1 rounded-md flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
+                      cartDisplayMode === 'tiles'
                         ? 'bg-white text-indigo-700 font-bold shadow-2xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
@@ -1222,10 +1247,10 @@ export const POSBilling: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setMobileCartView('table')}
+                    onClick={() => setCartDisplayMode('table')}
                     title="Switch to Table View"
-                    className={`px-2 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
-                      mobileCartView === 'table'
+                    className={`px-2 sm:px-2.5 py-1 rounded-md flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
+                      cartDisplayMode === 'table'
                         ? 'bg-white text-indigo-700 font-bold shadow-2xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
@@ -1240,7 +1265,7 @@ export const POSBilling: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsParkModalOpen(true)}
-                className={`text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                className={`text-xs px-2 sm:px-2.5 py-1 rounded-md font-medium flex items-center gap-1 sm:gap-1.5 transition-colors cursor-pointer border shrink-0 ${
                   parkedCarts.length > 0
                     ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 shadow-2xs'
                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -1248,7 +1273,7 @@ export const POSBilling: React.FC = () => {
                 title="View held/parked customer bills"
               >
                 <Layers className="w-3.5 h-3.5 text-amber-600" />
-                <span>Held Bills</span>
+                <span>Held<span className="hidden sm:inline"> Bills</span></span>
                 {parkedCarts.length > 0 && (
                   <span className="px-1.5 py-0.2 bg-amber-500 text-white rounded-full text-[10px] font-bold">
                     {parkedCarts.length}
@@ -1261,11 +1286,11 @@ export const POSBilling: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsHoldCartPromptOpen(true)}
-                  className="text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer shadow-2xs"
+                  className="text-xs px-2 sm:px-2.5 py-1 rounded-md font-medium flex items-center gap-1 sm:gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer shadow-2xs shrink-0"
                   title="Put current cart on hold to serve next customer (F6)"
                 >
                   <Pause className="w-3.5 h-3.5" />
-                  <span>Hold Bill (F6)</span>
+                  <span>Hold<span className="hidden sm:inline"> Bill</span> (F6)</span>
                 </button>
               )}
 
@@ -1274,7 +1299,7 @@ export const POSBilling: React.FC = () => {
                 <button
                   type="button"
                   onClick={clearCart}
-                  className="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 px-2 py-1 rounded hover:bg-rose-50 cursor-pointer"
+                  className="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded hover:bg-rose-50 cursor-pointer shrink-0"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Clear</span>
@@ -1323,364 +1348,126 @@ export const POSBilling: React.FC = () => {
                   Scan a garment barcode with your barcode reader, or type garment name / SKU in the search bar above to add items.
                 </p>
               </div>
-            ) : (
-              <>
-                {/* Desktop & Tablet Multi-Column Cart Table (>= md, or when mobile user switches to table mode) */}
-                <div className={`overflow-x-auto ${mobileCartView === 'table' ? 'block' : 'hidden md:block'}`}>
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 uppercase text-[10px] font-bold tracking-wider">
-                      <tr>
-                        <th className="py-2.5 px-3 text-center w-8">#</th>
-                        <th className="py-2.5 px-3">Garment / SKU</th>
-                        <th className="py-2.5 px-2">Size / Color</th>
-                        <th className="py-2.5 px-3 text-right">{isTaxInclusive ? 'MRP (₹)' : 'Rate (₹)'}</th>
-                        <th className="py-2.5 px-2 text-center w-28">Quantity</th>
-                        <th className="py-2.5 px-2 text-center w-20">Disc %</th>
-                        <th className="py-2.5 px-2 text-center">Tailor</th>
-                        {activeCompany.type === 'billed' && (
-                          <th className="py-2.5 px-2 text-right">{isTaxInclusive ? 'GST (Inc)' : 'GST (+)'}</th>
-                        )}
-                        <th className="py-2.5 px-3 text-right">Net Amount</th>
-                        <th className="py-2.5 px-2 text-center w-10">Del</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {cart.map((item, idx) => {
-                        const gross = item.unitPrice * item.quantity;
-                        const discount = (gross * item.discountPercent) / 100;
-                        const net = gross - discount;
-                        const netPerUnit = net / (item.quantity || 1);
-                        const isDynamicGstActive = activeCompany.type === 'billed' && activeCompany.enableDynamicGarmentGst !== false;
-                        let taxRate = activeCompany.type === 'billed' ? item.product.taxRate : 0;
-                        if (isDynamicGstActive) {
-                          taxRate = netPerUnit <= 1000 ? 5 : 12;
+            ) : cartDisplayMode === 'table' ? (
+              /* Table View (Active when Table mode is selected) */
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 uppercase text-[10px] font-bold tracking-wider">
+                    <tr>
+                      <th className="py-2.5 px-3 text-center w-8">#</th>
+                      <th className="py-2.5 px-3">Garment / SKU</th>
+                      <th className="py-2.5 px-2">Size / Color</th>
+                      <th className="py-2.5 px-3 text-right">{isTaxInclusive ? 'MRP (₹)' : 'Rate (₹)'}</th>
+                      <th className="py-2.5 px-2 text-center w-28">Quantity</th>
+                      <th className="py-2.5 px-2 text-center w-20">Disc %</th>
+                      <th className="py-2.5 px-2 text-center">Tailor</th>
+                      {activeCompany.type === 'billed' && (
+                        <th className="py-2.5 px-2 text-right">{isTaxInclusive ? 'GST (Inc)' : 'GST (+)'}</th>
+                      )}
+                      <th className="py-2.5 px-3 text-right">Net Amount</th>
+                      <th className="py-2.5 px-2 text-center w-10">Del</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {cart.map((item, idx) => {
+                      const gross = item.unitPrice * item.quantity;
+                      const discount = (gross * item.discountPercent) / 100;
+                      const net = gross - discount;
+                      const netPerUnit = net / (item.quantity || 1);
+                      const isDynamicGstActive = activeCompany.type === 'billed' && activeCompany.enableDynamicGarmentGst !== false;
+                      let taxRate = activeCompany.type === 'billed' ? item.product.taxRate : 0;
+                      if (isDynamicGstActive) {
+                        taxRate = netPerUnit <= 1000 ? 5 : 12;
+                      }
+                      const itemIsInclusive = item.product.taxInclusive !== undefined ? item.product.taxInclusive : isTaxInclusive;
+                      let tax = 0;
+                      let lineTotal = net;
+
+                      if (activeCompany.type === 'billed') {
+                        if (itemIsInclusive) {
+                          tax = net - net / (1 + taxRate / 100);
+                          lineTotal = net;
+                        } else {
+                          tax = (net * taxRate) / 100;
+                          lineTotal = net + tax;
                         }
-                        const itemIsInclusive = item.product.taxInclusive !== undefined ? item.product.taxInclusive : isTaxInclusive;
-                        let tax = 0;
-                        let lineTotal = net;
+                      }
 
-                        if (activeCompany.type === 'billed') {
-                          if (itemIsInclusive) {
-                            tax = net - net / (1 + taxRate / 100);
-                            lineTotal = net;
-                          } else {
-                            tax = (net * taxRate) / 100;
-                            lineTotal = net + tax;
-                          }
-                        }
+                      return (
+                        <tr key={item.product.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3 px-3 text-center text-slate-400 font-mono text-[11px]">
+                            {idx + 1}
+                          </td>
 
-                        return (
-                          <tr key={item.product.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-3 px-3 text-center text-slate-400 font-mono text-[11px]">
-                              {idx + 1}
-                            </td>
-
-                            <td className="py-3 px-3">
-                              <div className="font-bold text-slate-900 text-xs">
-                                {item.product.name}
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-slate-900 text-xs">
+                              {item.product.name}
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5">
+                              <span className="font-semibold text-slate-700">{item.product.sku}</span>
+                              <span>·</span>
+                              <span>{item.product.category}</span>
+                            </div>
+                            {item.alteration?.needed && (
+                              <div className="text-[10px] text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded mt-1 font-medium flex items-center gap-1">
+                                <Scissors className="w-3 h-3" />
+                                <span>Alteration: {item.alteration.notes}</span>
                               </div>
-                              <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5">
-                                <span className="font-semibold text-slate-700">{item.product.sku}</span>
-                                <span>·</span>
-                                <span>{item.product.category}</span>
-                              </div>
-                              {item.alteration?.needed && (
-                                <div className="text-[10px] text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded mt-1 font-medium flex items-center gap-1">
-                                  <Scissors className="w-3 h-3" />
-                                  <span>Alteration: {item.alteration.notes}</span>
-                                </div>
-                              )}
-                            </td>
+                            )}
+                          </td>
 
-                            <td className="py-3 px-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold font-mono text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-800 rounded">
-                                  {item.product.size}
-                                </span>
-                                <span className="text-slate-600 truncate max-w-[90px]">
-                                  {item.product.color}
-                                </span>
-                              </div>
-                            </td>
+                          <td className="py-3 px-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold font-mono text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-800 rounded">
+                                {item.product.size}
+                              </span>
+                              <span className="text-slate-600 truncate max-w-[90px]">
+                                {item.product.color}
+                              </span>
+                            </div>
+                          </td>
 
-                            <td className="py-3 px-3 text-right font-mono text-slate-800">
-                              ₹{item.unitPrice.toFixed(2)}
-                            </td>
+                          <td className="py-3 px-3 text-right font-mono text-slate-800">
+                            ₹{item.unitPrice.toFixed(2)}
+                          </td>
 
-                            {/* Interactive Quantity Control */}
-                            <td className="py-3 px-2">
-                              <div className="flex items-center justify-center gap-1">
-                                <button
-                                  onClick={() => updateCartItemQty(item.product.id, item.quantity - 1)}
-                                  className="w-6 h-6 flex items-center justify-center border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
-                                >
-                                  <Minus className="w-3 h-3" />
-                                </button>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={item.quantity}
-                                  onChange={(e) =>
-                                    updateCartItemQty(
-                                      item.product.id,
-                                      Math.max(1, parseInt(e.target.value) || 1)
-                                    )
-                                  }
-                                  className="w-10 py-0.5 text-center font-mono font-bold text-xs border border-slate-200 rounded bg-white"
-                                />
-                                <button
-                                  onClick={() => updateCartItemQty(item.product.id, item.quantity + 1)}
-                                  className="w-6 h-6 flex items-center justify-center border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                </button>
-                              </div>
-                              {item.product.stock < item.quantity && (
-                                <div className="text-[9px] text-rose-600 text-center font-medium mt-0.5">
-                                  Stock: {item.product.stock}
-                                </div>
-                              )}
-                            </td>
-
-                            {/* Discount % */}
-                            <td className="py-3 px-2 text-center">
+                          {/* Interactive Quantity Control */}
+                          <td className="py-3 px-2">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => updateCartItemQty(item.product.id, item.quantity - 1)}
+                                className="w-6 h-6 flex items-center justify-center border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
                               <input
                                 type="number"
-                                min="0"
-                                max="100"
-                                value={item.discountPercent}
+                                min="1"
+                                value={item.quantity}
                                 onChange={(e) =>
-                                  updateCartItemDiscount(
+                                  updateCartItemQty(
                                     item.product.id,
-                                    parseFloat(e.target.value) || 0
+                                    Math.max(1, parseInt(e.target.value) || 1)
                                   )
                                 }
-                                className="w-14 px-1 py-0.5 border border-slate-200 rounded text-center font-mono text-xs font-semibold"
+                                className="w-10 py-0.5 text-center font-mono font-bold text-xs border border-slate-200 rounded bg-white"
                               />
-                            </td>
-
-                            {/* Tailoring Alteration Action */}
-                            <td className="py-3 px-2 text-center">
                               <button
-                                onClick={() =>
-                                  setAlterationModalItem({
-                                    productId: item.product.id,
-                                    productName: item.product.name,
-                                    size: item.product.size,
-                                    color: item.product.color,
-                                    details: item.alteration || {
-                                      needed: false,
-                                      notes: 'Shorten length by 1.5 inches',
-                                      tailorName: '',
-                                      promisedDate: new Date(Date.now() + 86400000)
-                                        .toISOString()
-                                        .split('T')[0],
-                                    },
-                                  })
-                                }
-                                title="Attach in-store alteration instructions"
-                                className={`p-1.5 rounded transition-colors cursor-pointer ${item.alteration?.needed
-                                    ? 'bg-indigo-100 text-indigo-800'
-                                    : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100'
-                                  }`}
+                                onClick={() => updateCartItemQty(item.product.id, item.quantity + 1)}
+                                className="w-6 h-6 flex items-center justify-center border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
                               >
-                                <Scissors className="w-3.5 h-3.5" />
+                                <Plus className="w-3 h-3" />
                               </button>
-                            </td>
-
-                            {/* GST Tax if billed */}
-                            {activeCompany.type === 'billed' && (
-                              <td className="py-3 px-2 text-right font-mono text-[11px] text-slate-600">
-                                <div>
-                                  {itemIsInclusive ? (
-                                    <span className="text-slate-500">₹{tax.toFixed(2)}</span>
-                                  ) : (
-                                    <span className="text-indigo-600 font-bold">+₹{tax.toFixed(2)}</span>
-                                  )}
-                                </div>
-                                <div className="flex items-center justify-end gap-1 text-[9px] text-slate-400 mt-0.5">
-                                  <span>({taxRate}%)</span>
-                                  <span className={`text-[8px] px-1 py-0.2 rounded font-semibold ${itemIsInclusive ? 'bg-slate-100 text-slate-600' : 'bg-indigo-50 text-indigo-700'}`}>
-                                    {itemIsInclusive ? 'inc' : 'add'}
-                                  </span>
-                                  {isDynamicGstActive && (
-                                    <span
-                                      className={`px-1 py-0.2 rounded font-semibold ${
-                                        taxRate === 5
-                                          ? 'bg-emerald-100 text-emerald-800'
-                                          : 'bg-indigo-100 text-indigo-800'
-                                      }`}
-                                      title={taxRate === 5 ? 'Item Net <= ₹1,000 (5% GST)' : 'Item Net > ₹1,000 (12% GST)'}
-                                    >
-                                      {taxRate === 5 ? '≤₹1k' : '>₹1k'}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
+                            </div>
+                            {item.product.stock < item.quantity && (
+                              <div className="text-[9px] text-rose-600 text-center font-medium mt-0.5">
+                                Stock: {item.product.stock}
+                              </div>
                             )}
+                          </td>
 
-                            {/* Net Amount */}
-                            <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 text-sm">
-                              ₹{lineTotal.toFixed(2)}
-                            </td>
-
-                            <td className="py-3 px-2 text-center">
-                              <button
-                                onClick={() => removeFromCart(item.product.id)}
-                                className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile Cart Items: Tile View (Default on mobile) */}
-                <div
-                  className={`p-2.5 sm:p-3 ${
-                    mobileCartView === 'tiles'
-                      ? 'grid grid-cols-1 sm:grid-cols-2 gap-2.5 md:hidden'
-                      : 'hidden'
-                  }`}
-                >
-                  {cart.map((item, idx) => {
-                    const gross = item.unitPrice * item.quantity;
-                    const discount = (gross * item.discountPercent) / 100;
-                    const net = gross - discount;
-                    const netPerUnit = net / (item.quantity || 1);
-                    const isDynamicGstActive =
-                      activeCompany.type === 'billed' &&
-                      activeCompany.enableDynamicGarmentGst !== false;
-                    let taxRate = activeCompany.type === 'billed' ? item.product.taxRate : 0;
-                    if (isDynamicGstActive) {
-                      taxRate = netPerUnit <= 1000 ? 5 : 12;
-                    }
-                    const itemIsInclusive =
-                      item.product.taxInclusive !== undefined
-                        ? item.product.taxInclusive
-                        : isTaxInclusive;
-                    let tax = 0;
-                    let lineTotal = net;
-
-                    if (activeCompany.type === 'billed') {
-                      if (itemIsInclusive) {
-                        tax = net - net / (1 + taxRate / 100);
-                        lineTotal = net;
-                      } else {
-                        tax = (net * taxRate) / 100;
-                        lineTotal = net + tax;
-                      }
-                    }
-
-                    return (
-                      <div
-                        key={item.product.id}
-                        className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs hover:border-indigo-300 hover:shadow-xs transition-all flex flex-col justify-between gap-2.5 relative overflow-hidden"
-                      >
-                        {/* Top: Header badges & Delete */}
-                        <div className="flex items-center justify-between gap-1.5">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                              #{idx + 1}
-                            </span>
-                            <span className="px-2 py-0.5 rounded-md font-mono font-bold text-xs bg-indigo-50 text-indigo-800 border border-indigo-200 shadow-2xs">
-                              Size {item.product.size}
-                            </span>
-                            <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700">
-                              {item.product.color}
-                            </span>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => removeFromCart(item.product.id)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0 cursor-pointer"
-                            title="Remove from cart"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        {/* Garment Title & Details */}
-                        <div>
-                          <div className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-1">
-                            {item.product.name}
-                          </div>
-                          <div className="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
-                            <span className="font-semibold text-slate-600">{item.product.sku}</span>
-                            <span>·</span>
-                            <span>{item.product.category}</span>
-                          </div>
-                        </div>
-
-                        {/* Pricing Tile Bar */}
-                        <div className="flex items-center justify-between text-xs bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100">
-                          <div className="flex items-center gap-1.5 font-mono">
-                            <span className="text-slate-500 text-[11px]">Unit:</span>
-                            <span className="font-bold text-slate-800">
-                              ₹{item.unitPrice.toFixed(0)}
-                            </span>
-                            {activeCompany.type === 'billed' && (
-                              <span
-                                className={`text-[9px] px-1 py-0.2 rounded font-semibold ${
-                                  itemIsInclusive
-                                    ? 'bg-slate-200 text-slate-700'
-                                    : 'bg-indigo-100 text-indigo-800'
-                                }`}
-                              >
-                                {itemIsInclusive ? `${taxRate}% inc` : `+${taxRate}%`}
-                              </span>
-                            )}
-                          </div>
-                          <div className="font-mono text-right">
-                            <span className="text-slate-400 text-[10px] mr-1">Net:</span>
-                            <span className="font-black text-slate-900 text-sm">
-                              ₹{lineTotal.toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Controls: Stepper, Disc %, Tailoring */}
-                        <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-slate-100">
-                          {/* Quantity Stepper */}
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => updateCartItemQty(item.product.id, item.quantity - 1)}
-                              className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 active:scale-95 transition-all cursor-pointer"
-                              title="Decrease quantity"
-                            >
-                              <Minus className="w-3.5 h-3.5" />
-                            </button>
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) =>
-                                updateCartItemQty(
-                                  item.product.id,
-                                  Math.max(1, parseInt(e.target.value) || 1)
-                                )
-                              }
-                              className="w-10 h-8 text-center font-mono font-bold text-xs border border-slate-200 rounded-lg bg-white"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => updateCartItemQty(item.product.id, item.quantity + 1)}
-                              className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 active:scale-95 transition-all cursor-pointer"
-                              title="Increase quantity"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
-                          {/* Discount % Input */}
-                          <div className="flex items-center gap-1 text-xs">
-                            <span className="text-slate-500 text-[11px] font-medium">Disc%:</span>
+                          {/* Discount % */}
+                          <td className="py-3 px-2 text-center">
                             <input
                               type="number"
                               min="0"
@@ -1692,65 +1479,303 @@ export const POSBilling: React.FC = () => {
                                   parseFloat(e.target.value) || 0
                                 )
                               }
-                              className="w-11 h-8 px-1 border border-slate-200 rounded-lg text-center font-mono text-xs font-semibold bg-white"
+                              className="w-14 px-1 py-0.5 border border-slate-200 rounded text-center font-mono text-xs font-semibold"
                             />
-                          </div>
+                          </td>
 
-                          {/* Tailoring Button */}
+                          {/* Tailoring Alteration Action */}
+                          <td className="py-3 px-2 text-center">
+                            <button
+                              onClick={() =>
+                                setAlterationModalItem({
+                                  productId: item.product.id,
+                                  productName: item.product.name,
+                                  size: item.product.size,
+                                  color: item.product.color,
+                                  details: item.alteration || {
+                                    needed: false,
+                                    notes: 'Shorten length by 1.5 inches',
+                                    tailorName: '',
+                                    promisedDate: new Date(Date.now() + 86400000)
+                                      .toISOString()
+                                      .split('T')[0],
+                                  },
+                                })
+                              }
+                              title="Attach in-store alteration instructions"
+                              className={`p-1.5 rounded transition-colors cursor-pointer ${item.alteration?.needed
+                                  ? 'bg-indigo-100 text-indigo-800'
+                                  : 'text-slate-400 hover:text-slate-800 hover:bg-slate-100'
+                                }`}
+                            >
+                              <Scissors className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+
+                          {/* GST Tax if billed */}
+                          {activeCompany.type === 'billed' && (
+                            <td className="py-3 px-2 text-right font-mono text-[11px] text-slate-600">
+                              <div>
+                                {itemIsInclusive ? (
+                                  <span className="text-slate-500">₹{tax.toFixed(2)}</span>
+                                ) : (
+                                  <span className="text-indigo-600 font-bold">+₹{tax.toFixed(2)}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-end gap-1 text-[9px] text-slate-400 mt-0.5">
+                                <span>({taxRate}%)</span>
+                                <span className={`text-[8px] px-1 py-0.2 rounded font-semibold ${itemIsInclusive ? 'bg-slate-100 text-slate-600' : 'bg-indigo-50 text-indigo-700'}`}>
+                                  {itemIsInclusive ? 'inc' : 'add'}
+                                </span>
+                                {isDynamicGstActive && (
+                                  <span
+                                    className={`px-1 py-0.2 rounded font-semibold ${
+                                      taxRate === 5
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : 'bg-indigo-100 text-indigo-800'
+                                    }`}
+                                    title={taxRate === 5 ? 'Item Net <= ₹1,000 (5% GST)' : 'Item Net > ₹1,000 (12% GST)'}
+                                  >
+                                    {taxRate === 5 ? '≤₹1k' : '>₹1k'}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          )}
+
+                          {/* Net Amount */}
+                          <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 text-sm">
+                            ₹{lineTotal.toFixed(2)}
+                          </td>
+
+                          <td className="py-3 px-2 text-center">
+                            <button
+                              onClick={() => removeFromCart(item.product.id)}
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              /* Tile View (Default for Mobile & Tablet screens) */
+              <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {cart.map((item, idx) => {
+                  const gross = item.unitPrice * item.quantity;
+                  const discount = (gross * item.discountPercent) / 100;
+                  const net = gross - discount;
+                  const netPerUnit = net / (item.quantity || 1);
+                  const isDynamicGstActive =
+                    activeCompany.type === 'billed' &&
+                    activeCompany.enableDynamicGarmentGst !== false;
+                  let taxRate = activeCompany.type === 'billed' ? item.product.taxRate : 0;
+                  if (isDynamicGstActive) {
+                    taxRate = netPerUnit <= 1000 ? 5 : 12;
+                  }
+                  const itemIsInclusive =
+                    item.product.taxInclusive !== undefined
+                      ? item.product.taxInclusive
+                      : isTaxInclusive;
+                  let tax = 0;
+                  let lineTotal = net;
+
+                  if (activeCompany.type === 'billed') {
+                    if (itemIsInclusive) {
+                      tax = net - net / (1 + taxRate / 100);
+                      lineTotal = net;
+                    } else {
+                      tax = (net * taxRate) / 100;
+                      lineTotal = net + tax;
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={item.product.id}
+                      className="bg-white rounded-2xl border-2 border-slate-200/90 hover:border-indigo-400 p-3.5 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between gap-3 relative overflow-hidden"
+                    >
+                      {/* Row 1: Badges & Delete */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                            #{idx + 1}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-md font-mono font-bold text-xs bg-indigo-50 text-indigo-800 border border-indigo-200 shadow-2xs">
+                            Size {item.product.size}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700">
+                            {item.product.color}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.product.id)}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0 cursor-pointer"
+                          title="Remove from cart"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Row 2: Garment Name & Category */}
+                      <div>
+                        <div className="font-bold text-slate-900 text-sm leading-snug line-clamp-2">
+                          {item.product.name}
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-700">{item.product.sku}</span>
+                          <span>·</span>
+                          <span>{item.product.category}</span>
+                        </div>
+                      </div>
+
+                      {/* Row 3: Pricing Strip */}
+                      <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/70 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                            {isTaxInclusive ? 'MRP (Incl. GST)' : 'Rate (+GST)'}
+                          </div>
+                          <div className="font-mono text-xs font-bold text-slate-700 flex items-center gap-1 mt-0.5">
+                            <span>₹{item.unitPrice.toFixed(0)}</span>
+                            {activeCompany.type === 'billed' && (
+                              <span
+                                className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${
+                                  itemIsInclusive
+                                    ? 'bg-slate-200 text-slate-700'
+                                    : 'bg-indigo-100 text-indigo-800'
+                                }`}
+                              >
+                                {itemIsInclusive ? `${taxRate}% inc` : `+${taxRate}%`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                            Line Total
+                          </div>
+                          <div className="text-base font-black text-slate-900 font-mono leading-tight mt-0.5">
+                            ₹{lineTotal.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Row 4: Controls - Stepper, Disc, Tailor */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                        {/* Stepper */}
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() =>
-                              setAlterationModalItem({
-                                productId: item.product.id,
-                                productName: item.product.name,
-                                size: item.product.size,
-                                color: item.product.color,
-                                details: item.alteration || {
-                                  needed: false,
-                                  notes: 'Shorten length by 1.5 inches',
-                                  tailorName: '',
-                                  promisedDate: new Date(Date.now() + 86400000)
-                                    .toISOString()
-                                    .split('T')[0],
-                                },
-                              })
-                            }
-                            className={`h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer border ${
-                              item.alteration?.needed
-                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                            }`}
+                            onClick={() => updateCartItemQty(item.product.id, item.quantity - 1)}
+                            className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 active:scale-95 transition-all cursor-pointer"
+                            title="Decrease quantity"
                           >
-                            <Scissors className="w-3.5 h-3.5 text-indigo-600" />
-                            <span>{item.alteration?.needed ? 'Tailored' : 'Alter'}</span>
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              updateCartItemQty(
+                                item.product.id,
+                                Math.max(1, parseInt(e.target.value) || 1)
+                              )
+                            }
+                            className="w-10 h-8 text-center font-mono font-bold text-xs border border-slate-200 rounded-lg bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateCartItemQty(item.product.id, item.quantity + 1)}
+                            className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 active:scale-95 transition-all cursor-pointer"
+                            title="Increase quantity"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
-                        {/* Alteration Details Preview if attached */}
-                        {item.alteration?.needed && (
-                          <div className="text-[10px] text-indigo-800 bg-indigo-50/70 border border-indigo-200 px-2 py-1 rounded-md flex items-center justify-between">
-                            <div className="flex items-center gap-1.5 truncate">
-                              <Scissors className="w-3 h-3 text-indigo-600 shrink-0" />
-                              <span className="truncate">Notes: {item.alteration.notes}</span>
-                            </div>
-                            <span className="font-mono text-slate-500 shrink-0 ml-1">
-                              Due: {item.alteration.promisedDate}
-                            </span>
-                          </div>
-                        )}
+                        {/* Discount % */}
+                        <div className="flex items-center gap-1 text-xs">
+                          <span className="text-slate-500 text-[11px] font-medium">Disc%:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={item.discountPercent}
+                            onChange={(e) =>
+                              updateCartItemDiscount(
+                                item.product.id,
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-11 h-8 px-1 border border-slate-200 rounded-lg text-center font-mono text-xs font-semibold bg-white"
+                          />
+                        </div>
 
-                        {/* Out of Stock Warning */}
-                        {item.product.stock < item.quantity && (
-                          <div className="text-[10px] text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-medium flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" />
-                            <span>Available stock: {item.product.stock} (Short by {item.quantity - item.product.stock})</span>
-                          </div>
-                        )}
+                        {/* Tailoring Button */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAlterationModalItem({
+                              productId: item.product.id,
+                              productName: item.product.name,
+                              size: item.product.size,
+                              color: item.product.color,
+                              details: item.alteration || {
+                                needed: false,
+                                notes: 'Shorten length by 1.5 inches',
+                                tailorName: '',
+                                promisedDate: new Date(Date.now() + 86400000)
+                                  .toISOString()
+                                  .split('T')[0],
+                              },
+                            })
+                          }
+                          className={`h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer border ${
+                            item.alteration?.needed
+                              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <Scissors className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>{item.alteration?.needed ? 'Tailored' : 'Alter'}</span>
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
-              </>
+
+                      {/* Row 5: Tailoring Notes Strip (if any) */}
+                      {item.alteration?.needed && (
+                        <div className="text-[10px] text-indigo-800 bg-indigo-50/70 border border-indigo-200 px-2.5 py-1.5 rounded-lg flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Scissors className="w-3 h-3 text-indigo-600 shrink-0" />
+                            <span className="truncate">Notes: {item.alteration.notes}</span>
+                          </div>
+                          <span className="font-mono text-slate-500 shrink-0 ml-1">
+                            Due: {item.alteration.promisedDate}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Out of Stock Warning */}
+                      {item.product.stock < item.quantity && (
+                        <div className="text-[10px] text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          <span>
+                            Available stock: {item.product.stock} (Short by{' '}
+                            {item.quantity - item.product.stock})
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
 
