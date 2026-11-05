@@ -6,6 +6,12 @@ import { GoogleReviewQr } from '../common/GoogleReviewQr';
 import { useApp } from '../../context/AppContext';
 import { printThermalReceiptHtml } from '../../utils/printReceipt';
 import {
+  formatSaleToEscPos,
+  printViaWebBluetooth,
+  printViaRawBT,
+  isWebBluetoothSupported,
+} from '../../utils/escpos';
+import {
   Printer,
   X,
   Barcode,
@@ -26,6 +32,10 @@ import {
   Calendar,
   FileText,
   Sparkles,
+  Bluetooth,
+  Zap,
+  ExternalLink,
+  Loader2,
 } from 'lucide-react';
 
 interface ThermalReceiptProps {
@@ -76,6 +86,44 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     }
   });
 
+  // Thermal Printer Method: 'bluetooth' (Web Bluetooth) | 'rawbt' (Android 1-Tap) | 'browser' (System Dialog)
+  const [printMethod, setPrintMethod] = useState<'bluetooth' | 'rawbt' | 'browser'>(() => {
+    try {
+      const saved = localStorage.getItem('thermal_print_method');
+      if (saved === 'bluetooth' || saved === 'rawbt' || saved === 'browser') return saved;
+      return isWebBluetoothSupported() ? 'bluetooth' : 'browser';
+    } catch {
+      return 'browser';
+    }
+  });
+
+  // Paper width: 32 columns (58mm / 2-inch) or 48 columns (80mm / 3-inch)
+  const [paperColumns, setPaperColumns] = useState<32 | 48>(() => {
+    try {
+      const saved = localStorage.getItem('thermal_paper_columns');
+      return saved === '48' ? 48 : 32;
+    } catch {
+      return 32;
+    }
+  });
+
+  const [bluetoothStatus, setBluetoothStatus] = useState<string | null>(null);
+  const [isBluetoothPrinting, setIsBluetoothPrinting] = useState<boolean>(false);
+
+  const setAndSavePrintMethod = (method: 'bluetooth' | 'rawbt' | 'browser') => {
+    setPrintMethod(method);
+    try {
+      localStorage.setItem('thermal_print_method', method);
+    } catch {}
+  };
+
+  const setAndSavePaperColumns = (cols: 32 | 48) => {
+    setPaperColumns(cols);
+    try {
+      localStorage.setItem('thermal_paper_columns', String(cols));
+    } catch {}
+  };
+
   const toggleBoldThermal = () => {
     setIsBoldThermal((prev) => {
       const next = !prev;
@@ -113,6 +161,62 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   const handlePrintTailorSlip = () => {
     if (tailorSlipRef.current) {
       printThermalReceiptHtml(tailorSlipRef.current.innerHTML, isBoldThermal);
+    }
+  };
+
+  const handlePrintBluetooth = async () => {
+    if (!receipt) return;
+    setIsBluetoothPrinting(true);
+    setBluetoothStatus('Connecting to Everycom / Bluetooth Printer...');
+    try {
+      const payload = formatSaleToEscPos(receipt, {
+        columns: paperColumns,
+        includeReviewQr,
+        reviewUrl: effectiveReviewUrl,
+        reviewPromptText: googleReviewPromptText,
+        storeUpiId,
+        storeUpiName,
+      });
+
+      const res = await printViaWebBluetooth(payload, (status) => setBluetoothStatus(status));
+      if (res.success) {
+        setBluetoothStatus(`✅ Printed to ${res.deviceName || 'Everycom Printer'}!`);
+      } else {
+        setBluetoothStatus(`❌ ${res.error || 'Print failed'}`);
+      }
+    } catch (err: any) {
+      setBluetoothStatus(`❌ ${err.message || 'Bluetooth error'}`);
+    } finally {
+      setIsBluetoothPrinting(false);
+    }
+  };
+
+  const handlePrintRawBT = () => {
+    if (!receipt) return;
+    setBluetoothStatus('Sending invoice to RawBT app...');
+    const payload = formatSaleToEscPos(receipt, {
+      columns: paperColumns,
+      includeReviewQr,
+      reviewUrl: effectiveReviewUrl,
+      reviewPromptText: googleReviewPromptText,
+      storeUpiId,
+      storeUpiName,
+    });
+    const res = printViaRawBT(payload);
+    if (res.success) {
+      setBluetoothStatus('⚡ Sent to RawBT! Printing directly to Everycom.');
+    } else {
+      setBluetoothStatus(`❌ RawBT error: ${res.error}`);
+    }
+  };
+
+  const handlePrimaryPrint = () => {
+    if (printMethod === 'bluetooth') {
+      handlePrintBluetooth();
+    } else if (printMethod === 'rawbt') {
+      handlePrintRawBT();
+    } else {
+      handlePrint();
     }
   };
 
@@ -211,10 +315,15 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
             {/* Quick Settings Bar: Format, Bold, UPI, & QR Size */}
             <div className="w-full flex flex-col gap-1.5 mb-2.5 px-0.5">
               <div className="flex items-center justify-between">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                  <Printer className="w-3.5 h-3.5 text-slate-500" />
-                  <span>58mm Roll</span>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setAndSavePaperColumns(paperColumns === 32 ? 48 : 32)}
+                  title="Click to toggle between 58mm (2-inch) and 80mm (3-inch) paper width"
+                  className="text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-white border border-slate-200 hover:border-slate-300 px-2 py-0.5 rounded-md flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <Printer className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>{paperColumns === 32 ? '58mm Roll' : '80mm Roll'}</span>
+                </button>
                 <div className="flex items-center gap-1.5">
                   {/* Code Format Toggle (Barcode / QR) */}
                   <button
@@ -781,6 +890,136 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                   </button>
                 </div>
               )}
+
+              {/* Everycom & Thermal Printer Connection Panel */}
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                    <Printer className="w-4 h-4 text-indigo-600" />
+                    <span>Printer Output Mode</span>
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      {paperColumns === 32 ? '58mm / 2"' : '80mm / 3"'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Paper Width Toggle */}
+                    <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-[10px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setAndSavePaperColumns(32)}
+                        className={`px-2 py-0.5 rounded-md cursor-pointer transition-all ${
+                          paperColumns === 32 ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-600'
+                        }`}
+                        title="58mm roll (Everycom EC-58 / 32 columns)"
+                      >
+                        58mm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAndSavePaperColumns(48)}
+                        className={`px-2 py-0.5 rounded-md cursor-pointer transition-all ${
+                          paperColumns === 48 ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-600'
+                        }`}
+                        title="80mm roll (Everycom EC-80 / 48 columns)"
+                      >
+                        80mm
+                      </button>
+                    </div>
+
+                    {onOpenPrinterGuide && (
+                      <button
+                        type="button"
+                        onClick={onOpenPrinterGuide}
+                        className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                        title="Open Everycom & Android Setup Guide"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                        <span>Setup Guide</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3 Print Method Selector Pills */}
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAndSavePrintMethod('bluetooth')}
+                    className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                      printMethod === 'bluetooth'
+                        ? 'border-indigo-600 bg-indigo-50/70 ring-1 ring-indigo-500 shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Bluetooth className={`w-4 h-4 ${printMethod === 'bluetooth' ? 'text-indigo-600' : 'text-slate-500'}`} />
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800">
+                        Zero-App
+                      </span>
+                    </div>
+                    <div className="mt-1.5">
+                      <div className="text-xs font-bold text-slate-900 leading-tight">Bluetooth</div>
+                      <div className="text-[10px] text-slate-500">Everycom Direct</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAndSavePrintMethod('rawbt')}
+                    className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                      printMethod === 'rawbt'
+                        ? 'border-amber-500 bg-amber-50/70 ring-1 ring-amber-400 shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Zap className={`w-4 h-4 ${printMethod === 'rawbt' ? 'text-amber-500 fill-current' : 'text-slate-500'}`} />
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900">
+                        1-Tap
+                      </span>
+                    </div>
+                    <div className="mt-1.5">
+                      <div className="text-xs font-bold text-slate-900 leading-tight">RawBT App</div>
+                      <div className="text-[10px] text-slate-500">Android Bridge</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAndSavePrintMethod('browser')}
+                    className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                      printMethod === 'browser'
+                        ? 'border-slate-800 bg-slate-100 ring-1 ring-slate-800 shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Printer className={`w-4 h-4 ${printMethod === 'browser' ? 'text-slate-900' : 'text-slate-500'}`} />
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
+                        System
+                      </span>
+                    </div>
+                    <div className="mt-1.5">
+                      <div className="text-xs font-bold text-slate-900 leading-tight">Browser</div>
+                      <div className="text-[10px] text-slate-500">PC / Mac Dialog</div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Status Message */}
+                {bluetoothStatus && (
+                  <div className="p-2 bg-white rounded-lg border border-slate-200 font-mono text-[11px] text-slate-700 flex items-center justify-between">
+                    <span className="truncate">{bluetoothStatus}</span>
+                    <button
+                      onClick={() => setBluetoothStatus(null)}
+                      className="text-slate-400 hover:text-slate-600 font-bold ml-1.5 text-xs shrink-0 cursor-pointer"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Bottom Primary Actions */}
@@ -795,11 +1034,37 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
 
               <button
                 type="button"
-                onClick={handlePrint}
-                className="w-full sm:w-auto px-6 py-2.5 text-xs font-extrabold text-white bg-slate-900 hover:bg-slate-800 active:bg-black rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20 transition-all cursor-pointer"
+                onClick={handlePrimaryPrint}
+                disabled={isBluetoothPrinting}
+                className={`w-full sm:w-auto px-6 py-2.5 text-xs font-extrabold text-white rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer disabled:opacity-50 ${
+                  printMethod === 'bluetooth'
+                    ? 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 shadow-indigo-600/25'
+                    : printMethod === 'rawbt'
+                    ? 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800 shadow-amber-600/25'
+                    : 'bg-slate-900 hover:bg-slate-800 active:bg-black shadow-slate-900/20'
+                }`}
               >
-                <Printer className="w-4 h-4" />
-                <span>Print Thermal Receipt</span>
+                {isBluetoothPrinting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Connecting Everycom...</span>
+                  </>
+                ) : printMethod === 'bluetooth' ? (
+                  <>
+                    <Bluetooth className="w-4 h-4 text-white" />
+                    <span>Print via Bluetooth (Everycom)</span>
+                  </>
+                ) : printMethod === 'rawbt' ? (
+                  <>
+                    <Zap className="w-4 h-4 text-white fill-current" />
+                    <span>Print via RawBT (Android)</span>
+                  </>
+                ) : (
+                  <>
+                    <Printer className="w-4 h-4" />
+                    <span>Print Thermal Receipt</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

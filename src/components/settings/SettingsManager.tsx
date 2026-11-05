@@ -36,6 +36,11 @@ import {
   Tag,
   Star,
   ExternalLink,
+  Printer,
+  Bluetooth,
+  Zap,
+  Loader2,
+  HelpCircle,
 } from 'lucide-react';
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
@@ -43,6 +48,13 @@ import { GoogleReviewQr } from '../common/GoogleReviewQr';
 import { SupabaseDatabaseSettings } from './SupabaseDatabaseSettings';
 import { FirstTimeSetupModal } from '../onboarding/FirstTimeSetupModal';
 import { PromotionsManager } from './PromotionsManager';
+import { PrinterGuideModal } from '../printer/PrinterGuideModal';
+import {
+  formatTestReceipt,
+  printViaWebBluetooth,
+  printViaRawBT,
+  isWebBluetoothSupported,
+} from '../../utils/escpos';
 
 export const SettingsManager: React.FC = () => {
   const {
@@ -140,6 +152,83 @@ export const SettingsManager: React.FC = () => {
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setStatusMsg({ type, text });
     setTimeout(() => setStatusMsg(null), 3500);
+  };
+
+  // Thermal Printer Settings
+  const [thermalPrintMethod, setThermalPrintMethod] = useState<'bluetooth' | 'rawbt' | 'browser'>(() => {
+    try {
+      const saved = localStorage.getItem('thermal_print_method');
+      if (saved === 'bluetooth' || saved === 'rawbt' || saved === 'browser') return saved;
+      return isWebBluetoothSupported() ? 'bluetooth' : 'browser';
+    } catch {
+      return 'browser';
+    }
+  });
+
+  const [thermalPaperColumns, setThermalPaperColumns] = useState<32 | 48>(() => {
+    try {
+      const saved = localStorage.getItem('thermal_paper_columns');
+      return saved === '48' ? 48 : 32;
+    } catch {
+      return 32;
+    }
+  });
+
+  const [printerTestStatus, setPrinterTestStatus] = useState<string | null>(null);
+  const [isPrinterTesting, setIsPrinterTesting] = useState(false);
+  const [isPrinterGuideModalOpen, setIsPrinterGuideModalOpen] = useState(false);
+
+  const updateThermalPrintMethod = (method: 'bluetooth' | 'rawbt' | 'browser') => {
+    setThermalPrintMethod(method);
+    try {
+      localStorage.setItem('thermal_print_method', method);
+    } catch {}
+    showToast(
+      `Thermal printer mode set to ${
+        method === 'bluetooth'
+          ? 'Web Bluetooth (Everycom Direct)'
+          : method === 'rawbt'
+          ? 'RawBT Android Bridge'
+          : 'Browser Print'
+      }.`
+    );
+  };
+
+  const updateThermalPaperColumns = (cols: 32 | 48) => {
+    setThermalPaperColumns(cols);
+    try {
+      localStorage.setItem('thermal_paper_columns', String(cols));
+    } catch {}
+    showToast(`Paper width set to ${cols === 32 ? '58mm (2-inch / 32 cols)' : '80mm (3-inch / 48 cols)'}.`);
+  };
+
+  const handleTestBluetoothPrinter = async () => {
+    setIsPrinterTesting(true);
+    setPrinterTestStatus('Connecting to Everycom / Bluetooth Printer...');
+    try {
+      const payload = formatTestReceipt({ columns: thermalPaperColumns });
+      const res = await printViaWebBluetooth(payload, (status) => setPrinterTestStatus(status));
+      if (res.success) {
+        setPrinterTestStatus(`✅ Success: Test printed to ${res.deviceName || 'Everycom Printer'}!`);
+      } else {
+        setPrinterTestStatus(`❌ ${res.error || 'Print failed.'}`);
+      }
+    } catch (err: any) {
+      setPrinterTestStatus(`❌ Error: ${err.message || 'Bluetooth error'}`);
+    } finally {
+      setIsPrinterTesting(false);
+    }
+  };
+
+  const handleTestRawBTPrinter = () => {
+    setPrinterTestStatus('Sending test receipt to RawBT app...');
+    const payload = formatTestReceipt({ columns: thermalPaperColumns });
+    const res = printViaRawBT(payload);
+    if (res.success) {
+      setPrinterTestStatus('⚡ Sent to RawBT! If RawBT is installed, Everycom will print immediately.');
+    } else {
+      setPrinterTestStatus(`❌ RawBT error: ${res.error}`);
+    }
   };
 
   // Open Edit User
@@ -729,6 +818,218 @@ export const SettingsManager: React.FC = () => {
                 ))}
               </div>
             </div>
+          </div>
+
+          {/* Everycom & Android Thermal Printer Configuration */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4 md:col-span-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span>Everycom & Android Thermal Printer Setup</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      ESC/POS
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Configure direct printing from your Android phone or PC to Everycom EC-58, EC-80, or any thermal receipt printer.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPrinterGuideModalOpen(true)}
+                  className="px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  <span>Open Setup Guide</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Print Method Selector Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Option 1: Web Bluetooth Direct */}
+              <div
+                onClick={() => updateThermalPrintMethod('bluetooth')}
+                className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                  thermalPrintMethod === 'bluetooth'
+                    ? 'border-indigo-600 bg-indigo-50/40 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bluetooth className="w-5 h-5 text-indigo-600" />
+                      <span className="font-extrabold text-sm text-slate-900">
+                        Web Bluetooth
+                      </span>
+                    </div>
+                    <span
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        thermalPrintMethod === 'bluetooth'
+                          ? 'border-indigo-600 bg-indigo-600 text-white'
+                          : 'border-slate-300'
+                      }`}
+                    >
+                      {thermalPrintMethod === 'bluetooth' && <Check className="w-3 h-3 stroke-[3]" />}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 mt-2 inline-block">
+                    Zero External App
+                  </span>
+                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                    Connects directly from Chrome or Edge on Android over HTTPS. Sends native ESC/POS commands directly to Everycom BLE.
+                  </p>
+                </div>
+              </div>
+
+              {/* Option 2: RawBT Android Bridge */}
+              <div
+                onClick={() => updateThermalPrintMethod('rawbt')}
+                className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                  thermalPrintMethod === 'rawbt'
+                    ? 'border-amber-500 bg-amber-50/40 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-amber-500 fill-current" />
+                      <span className="font-extrabold text-sm text-slate-900">
+                        RawBT Android
+                      </span>
+                    </div>
+                    <span
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        thermalPrintMethod === 'rawbt'
+                          ? 'border-amber-600 bg-amber-600 text-white'
+                          : 'border-slate-300'
+                      }`}
+                    >
+                      {thermalPrintMethod === 'rawbt' && <Check className="w-3 h-3 stroke-[3]" />}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 mt-2 inline-block">
+                    Instant 1-Tap SPP/USB
+                  </span>
+                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                    Deep-links via <code>rawbt:</code> URI scheme. Ideal for Classic Bluetooth (SPP) Everycom printers and USB OTG on Android.
+                  </p>
+                </div>
+              </div>
+
+              {/* Option 3: Browser Dialog */}
+              <div
+                onClick={() => updateThermalPrintMethod('browser')}
+                className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                  thermalPrintMethod === 'browser'
+                    ? 'border-slate-800 bg-slate-100 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Printer className="w-5 h-5 text-slate-800" />
+                      <span className="font-extrabold text-sm text-slate-900">
+                        Browser Dialog
+                      </span>
+                    </div>
+                    <span
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        thermalPrintMethod === 'browser'
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-300'
+                      }`}
+                    >
+                      {thermalPrintMethod === 'browser' && <Check className="w-3 h-3 stroke-[3]" />}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-200 text-slate-800 mt-2 inline-block">
+                    PC / Mac System
+                  </span>
+                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                    Standard browser print dialog with zero-margin 58mm/80mm thermal CSS page layout for desktop cashier counters.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Paper Width & Live Test Strip */}
+            <div className="pt-4 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-800">
+                  Paper Roll Width:
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateThermalPaperColumns(32)}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                      thermalPaperColumns === 32
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    58mm (2-inch / Everycom EC-58)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateThermalPaperColumns(48)}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                      thermalPaperColumns === 48
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    80mm (3-inch / Everycom EC-80)
+                  </button>
+                </div>
+              </div>
+
+              {/* Test Action Buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleTestBluetoothPrinter}
+                  disabled={isPrinterTesting}
+                  className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  <Bluetooth className="w-3.5 h-3.5" />
+                  <span>{isPrinterTesting ? 'Connecting...' : 'Test Web Bluetooth Print'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleTestRawBTPrinter}
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400 fill-current" />
+                  <span>Test RawBT Print</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Test Status Banner */}
+            {printerTestStatus && (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-800 flex items-center justify-between">
+                <span>{printerTestStatus}</span>
+                <button
+                  onClick={() => setPrinterTestStatus(null)}
+                  className="text-slate-400 hover:text-slate-600 font-bold ml-2 cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Store UPI & Digital Payments (Dynamic QR Code) */}
@@ -1570,6 +1871,11 @@ export const SettingsManager: React.FC = () => {
           onClose={() => setIsSetupWizardOpen(false)}
         />
       )}
+      {/* Everycom & Thermal Printer Guide Modal */}
+      <PrinterGuideModal
+        isOpen={isPrinterGuideModalOpen}
+        onClose={() => setIsPrinterGuideModalOpen(false)}
+      />
     </div>
   );
 };
