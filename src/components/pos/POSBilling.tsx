@@ -19,11 +19,8 @@ import {
   Tag,
   X,
   UserCheck,
-  Volume2,
-  VolumeX,
   Scissors,
   Ticket,
-  User,
   Keyboard,
   Camera,
   Crown,
@@ -80,11 +77,6 @@ export const POSBilling: React.FC = () => {
     applyCreditNoteCode,
     removeCreditNote,
     creditNotes,
-    selectedAssociate,
-    setSelectedAssociate,
-    salesAssociates,
-    soundEnabled,
-    setSoundEnabled,
     checkoutSale,
     sales,
     storeUpiId,
@@ -756,26 +748,8 @@ export const POSBilling: React.FC = () => {
           )}
         </div>
 
-        {/* Staff Associate & Scanner Beep Sound Toggle */}
-        <div className="flex items-center gap-2 flex-wrap justify-between sm:justify-end">
-          {/* Sales Associate Tagging */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-2.5 py-1.5 min-h-[36px] rounded-lg border border-slate-200">
-            <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span className="font-medium hidden sm:inline">Associate:</span>
-            <select
-              value={selectedAssociate}
-              onChange={(e) => setSelectedAssociate(e.target.value)}
-              className="bg-transparent font-semibold text-slate-800 text-xs focus:outline-hidden cursor-pointer"
-            >
-              {salesAssociates.map((staff) => (
-                <option key={staff} value={staff}>
-                  {staff}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Active Store Credit Notes Browser */}
+        {/* Active Store Credit Notes Browser */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setIsCreditNoteModalOpen(true)}
@@ -793,18 +767,6 @@ export const POSBilling: React.FC = () => {
                 {activeCreditNotes.length}
               </span>
             )}
-          </button>
-
-          {/* Scanner Audio Beep Toggle */}
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            title={soundEnabled ? 'Scanner Beep: ON (Click to Mute)' : 'Scanner Beep: OFF (Click to Enable)'}
-            className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors cursor-pointer ${soundEnabled
-                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                : 'bg-slate-100 text-slate-400 border-slate-200'
-              }`}
-          >
-            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
         </div>
       </div>
