@@ -41,6 +41,7 @@ import {
   UserPlus,
   Unlink,
   MessageSquare,
+  ChevronLeft,
 } from 'lucide-react';
 import { RFMCampaignsManager } from './RFMCampaignsManager';
 
@@ -315,7 +316,7 @@ export const CustomerCRM: React.FC = () => {
       </div>
 
       {/* CRM Navigation Tabs: Directory vs RFM Campaigns */}
-      <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold w-fit">
+      <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold w-full sm:w-fit overflow-x-auto">
         <button
           onClick={() => setCrmView('directory')}
           className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
@@ -351,6 +352,25 @@ export const CustomerCRM: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Customer Directory */}
         <div className="lg:col-span-5 space-y-3">
+          {/* Mobile Jump to Selected Profile Bar */}
+          {selectedCustomer && (
+            <div className="lg:hidden flex items-center justify-between p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 shadow-2xs">
+              <span className="truncate">
+                Selected: <strong className="font-bold">{selectedCustomer.name}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById('customer-profile-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg font-bold text-[11px] shrink-0 cursor-pointer ml-2 hover:bg-indigo-700 transition-colors"
+              >
+                View Profile ↓
+              </button>
+            </div>
+          )}
+
           {/* Search Box & Tier Filter Tabs */}
           <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-2.5">
             <div className="relative">
@@ -535,9 +555,19 @@ export const CustomerCRM: React.FC = () => {
         </div>
 
         {/* Right Column: Detailed Customer Profile & Segregated Invoices */}
-        <div className="lg:col-span-7">
+        <div id="customer-profile-section" className="lg:col-span-7">
           {selectedCustomer && selectedMetrics ? (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 space-y-5">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 sm:p-5 space-y-5">
+              {/* Mobile Back to List Button */}
+              <button
+                type="button"
+                onClick={() => setSelectedCustomerId(null)}
+                className="lg:hidden px-3 py-1.5 min-h-[36px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 w-fit cursor-pointer transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>← Back to Customer Directory</span>
+              </button>
+
               {/* Profile Card Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                 <div className="space-y-1">

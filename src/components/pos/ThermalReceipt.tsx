@@ -163,36 +163,36 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-3 sm:p-4 md:p-6 overflow-y-auto no-print">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col my-auto max-h-[90vh] animate-in fade-in zoom-in-95">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-2 sm:p-4 md:p-6 overflow-y-auto no-print">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col my-auto max-h-[95vh] sm:max-h-[90vh] animate-in fade-in zoom-in-95">
         {/* Modal Top Header */}
-        <div className="px-6 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
-          <div className="flex items-center gap-2.5">
+        <div className="px-3.5 sm:px-6 py-3 sm:py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             <span className="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg">
               <CheckCircle className="w-4 h-4" />
             </span>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <h3 className="text-sm font-extrabold text-slate-900">Sale Completed</h3>
-                <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-800">
+                <span className="text-[10px] sm:text-[11px] font-mono font-bold px-1.5 sm:px-2 py-0.5 rounded bg-slate-200 text-slate-800">
                   {receipt.invoiceNumber}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[10px] sm:text-[11px] text-slate-500 truncate max-w-[200px] sm:max-w-none">
                 {receipt.companyName} • {formattedDate} {formattedTime}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {onOpenPrinterGuide && (
               <button
                 onClick={onOpenPrinterGuide}
                 title="58mm Thermal Printer Settings Guide"
-                className="text-xs text-indigo-700 hover:text-indigo-900 flex items-center gap-1 font-semibold px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors cursor-pointer"
+                className="text-xs text-indigo-700 hover:text-indigo-900 flex items-center gap-1 font-semibold px-2 sm:px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors cursor-pointer"
               >
                 <HelpCircle className="w-3.5 h-3.5" />
-                <span>58mm Guide</span>
+                <span className="hidden xs:inline">58mm Guide</span>
               </button>
             )}
             <button
@@ -207,7 +207,7 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
         {/* 2-Column Body: Left = Scrollable Receipt, Right = Controls & Actions */}
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-0">
           {/* LEFT COLUMN: Receipt Preview (Scrollable & Fully Visible) */}
-          <div className="w-full md:w-[380px] lg:w-[410px] bg-slate-100/90 border-b md:border-b-0 md:border-r border-slate-200 p-5 flex flex-col items-center overflow-y-auto shrink-0 select-text">
+          <div className="w-full md:w-[380px] lg:w-[410px] bg-slate-100/90 border-b md:border-b-0 md:border-r border-slate-200 p-3 sm:p-5 flex flex-col items-center overflow-y-auto shrink-0 select-text max-h-[45vh] md:max-h-none">
             {/* Quick Settings Bar: Format, Bold, UPI, & QR Size */}
             <div className="w-full flex flex-col gap-1.5 mb-2.5 px-0.5">
               <div className="flex items-center justify-between">

@@ -120,8 +120,8 @@ const AppContent: React.FC = () => {
         />
 
         {/* Main Workspace Viewport */}
-        <main className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 no-print">
-          <div className="max-w-7xl mx-auto">
+        <main className={`flex-1 min-w-0 overflow-y-auto no-print ${currentTab === 'landing' ? 'p-0' : 'p-2 sm:p-4 md:p-6'}`}>
+          <div className={currentTab === 'landing' ? 'w-full' : 'max-w-7xl mx-auto'}>
             {currentTab === 'pos' && <POSBilling />}
             {currentTab === 'sales-register' && hasPermission('sales-register') && <SalesRegister />}
             {currentTab === 'inventory' && hasPermission('inventory') && (
