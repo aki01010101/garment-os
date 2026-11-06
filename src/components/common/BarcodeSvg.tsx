@@ -28,7 +28,7 @@ export const BarcodeSvg: React.FC<BarcodeSvgProps> = ({
   showText = true,
   className = '',
   type,
-  qrSize = 76,
+  qrSize = 160,
 }) => {
   // Read global code print format setting from context if not explicitly overridden
   let globalType: CodePrintType = 'barcode';

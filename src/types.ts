@@ -473,10 +473,10 @@ export type CodePrintType = 'barcode' | 'qr';
 export type QrPrintSize = 'compact' | 'medium' | 'large' | 'xlarge';
 
 export const QR_SIZE_PIXELS: Record<QrPrintSize, number> = {
-  compact: 80,
-  medium: 105,
-  large: 130,
-  xlarge: 155,
+  compact: 130,
+  medium: 155,
+  large: 175,
+  xlarge: 195,
 };
 
 export interface AppTabDefinition {

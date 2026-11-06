@@ -32,7 +32,7 @@ export const INITIAL_COMPANIES: Company[] = [
     isDefault: true,
     enableDynamicGarmentGst: true,
     taxInclusive: true,
-    isCompositionScheme: false,
+    isCompositionScheme: true,
   },
   {
     id: 'comp_cash',

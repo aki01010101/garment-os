@@ -62,7 +62,7 @@ export const CompanySettings: React.FC = () => {
     tagline: 'Retail Clothing Outlet',
     enableDynamicGarmentGst: true,
     taxInclusive: true,
-    isCompositionScheme: false,
+    isCompositionScheme: true,
     googleReviewUrl: '',
   });
 
@@ -84,7 +84,7 @@ export const CompanySettings: React.FC = () => {
       tagline: 'Fashion Boutique',
       enableDynamicGarmentGst: true,
       taxInclusive: true,
-      isCompositionScheme: false,
+      isCompositionScheme: true,
       googleReviewUrl: '',
     });
     setIsModalOpen(true);

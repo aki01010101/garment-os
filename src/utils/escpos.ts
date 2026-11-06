@@ -157,7 +157,7 @@ export class EscPosBuilder {
   }
 
   // ESC/POS Native 2D QR Code (Model 2)
-  qrCode(data: string, sizeMultiplier: number = 4): this {
+  qrCode(data: string, sizeMultiplier: number = 7): this {
     if (!data) return this;
     const cleanData = this.sanitizeText(data);
     const len = cleanData.length + 3;
@@ -167,7 +167,7 @@ export class EscPosBuilder {
     // 1. Set QR Code Model (Model 2)
     this.buffer.push(0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00);
 
-    // 2. Set QR Code Size (1 to 16, default 4 for 58mm, 6 for 80mm)
+    // 2. Set QR Code Size (1 to 16, default 7 for 58mm ~32mm full-size, 10 for 80mm ~45mm)
     const validSize = Math.max(1, Math.min(16, sizeMultiplier));
     this.buffer.push(0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, validSize);
 
@@ -323,7 +323,7 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
     builder.line();
     if (isQr) {
       builder.align('center');
-      builder.qrCode(invoiceClean, columns === 48 ? 5 : 4);
+      builder.qrCode(invoiceClean, columns === 48 ? 10 : 7);
       builder.bold(true).line(receipt.invoiceNumber).bold(false);
     } else {
       builder.barcode128(invoiceClean, 44, true);
@@ -417,12 +417,8 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
   if (receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) {
     builder.twoColumnRow('Credit Note Used:', `-Rs. ${receipt.creditNoteDiscountAmount.toFixed(2)}`);
   }
-  if (options.isCompositionGst) {
-    builder.twoColumnRow('GST:', 'Included in Price');
-  } else if (receipt.taxTotal > 0) {
-    const taxNote = receipt.taxInclusive !== false ? '(Incl. in Price)' : '(Added separately)';
-    builder.twoColumnRow(`GST Tax ${taxNote}:`, `Rs. ${receipt.taxTotal.toFixed(2)}`);
-  }
+  // GST Notice (Never print tax breakdown amounts on consumer receipts)
+  builder.twoColumnRow('GST:', 'Included in Price');
 
   // 5. NET PAYABLE (HIGHLIGHTED)
   builder.doubleSeparator();
@@ -487,7 +483,7 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
         .bold(true)
         .line('SCAN & PAY VIA UPI')
         .bold(false)
-        .qrCode(upiUri, columns === 48 ? 6 : 4)
+        .qrCode(upiUri, columns === 48 ? 10 : 7)
         .bold(true)
         .line(`Rs. ${upiAmount.toFixed(2)} · ${upiId}`)
         .bold(false)
@@ -505,7 +501,7 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
       .line(options.reviewPromptText || 'RATE US 5 STARS ON GOOGLE!')
       .bold(false)
       .line('Scan QR with your phone camera:')
-      .qrCode(reviewUrl, columns === 48 ? 6 : 4);
+      .qrCode(reviewUrl, columns === 48 ? 10 : 7);
   }
 
   // 8. STORE POLICY & FOOTER
@@ -516,7 +512,7 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
     .bold(true)
     .line('Thank you for shopping with us!')
     .bold(false)
-    .line('Visit Again · Garment OS');
+    .line(`Visit Again · ${receipt.companyName || 'Store'}`);
 
   // Cut receipt
   if (options.autoCut !== false) {

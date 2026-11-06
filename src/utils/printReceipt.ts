@@ -309,15 +309,27 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
               width: 100% !important;
             }
             .qr-wrapper {
-              display: block !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
               text-align: center !important;
-              margin: 2px auto !important;
+              margin: 3px auto !important;
               padding: 0 !important;
               background: #ffffff !important;
               width: 100% !important;
             }
             .qr-wrapper svg,
             .upi-receipt-qr-block svg,
+            .google-review-receipt-block svg {
+              display: block !important;
+              margin: 0 auto !important;
+              width: 38mm !important;
+              height: 38mm !important;
+              max-width: 90% !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
             .invoice-barcode-top svg,
             .code-container svg,
             svg {

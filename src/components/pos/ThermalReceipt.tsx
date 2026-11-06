@@ -79,7 +79,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   const effectiveReviewUrl =
     receipt?.googleReviewUrl || activeCompany?.googleReviewUrl || storeGoogleReviewUrl;
 
-  const activeQrPixelSize = QR_SIZE_PIXELS[qrPrintSize] || 130;
+  const activeQrPixelSize = QR_SIZE_PIXELS[qrPrintSize] || 165;
 
   const [copied, setCopied] = useState(false);
   const [whatsAppPhone, setWhatsAppPhone] = useState<string>('');
@@ -326,10 +326,12 @@ ${receipt.items.map((i) => `* ${i.qty}x ${i.name} [Size: ${i.size}, ${i.color}] 
 --------------------------------
 *Subtotal:* Rs. ${receipt.subtotal.toFixed(2)}
 *Total Items:* ${totalItemsCount} pcs
-${receipt.itemDiscountsTotal > 0 ? `*Discount:* -Rs. ${receipt.itemDiscountsTotal.toFixed(2)}\n` : ''}${Boolean(receipt.promoDiscountAmount && receipt.promoDiscountAmount > 0) ? `*Offer/Promo (${receipt.promoTitleApplied || 'Special Deal'}):* -Rs. ${receipt.promoDiscountAmount!.toFixed(2)}\n` : ''}${receipt.loyaltyDiscountAmount > 0 ? `*Loyalty Redeemed:* -Rs. ${receipt.loyaltyDiscountAmount.toFixed(2)}\n` : ''}${Boolean(receipt.couponDiscountAmount && receipt.couponDiscountAmount > 0) ? `*Coupon:* -Rs. ${receipt.couponDiscountAmount!.toFixed(2)}\n` : ''}${Boolean(receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) ? `*Credit Note:* -Rs. ${receipt.creditNoteDiscountAmount!.toFixed(2)}\n` : ''}${isCompositionGst ? '*GST:* Included in Price\n' : receipt.taxTotal > 0 ? `*GST (${receipt.taxInclusive !== false ? 'Included in Price' : 'Added Separately'}):* Rs. ${receipt.taxTotal.toFixed(2)}\n` : ''}*NET PAID:* Rs. ${receipt.grandTotal.toFixed(2)} (${paymentModeLabel})
+${receipt.itemDiscountsTotal > 0 ? `*Discount:* -Rs. ${receipt.itemDiscountsTotal.toFixed(2)}\n` : ''}${Boolean(receipt.promoDiscountAmount && receipt.promoDiscountAmount > 0) ? `*Offer/Promo (${receipt.promoTitleApplied || 'Special Deal'}):* -Rs. ${receipt.promoDiscountAmount!.toFixed(2)}\n` : ''}${receipt.loyaltyDiscountAmount > 0 ? `*Loyalty Redeemed:* -Rs. ${receipt.loyaltyDiscountAmount.toFixed(2)}\n` : ''}${Boolean(receipt.couponDiscountAmount && receipt.couponDiscountAmount > 0) ? `*Coupon:* -Rs. ${receipt.couponDiscountAmount!.toFixed(2)}\n` : ''}${Boolean(receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) ? `*Credit Note:* -Rs. ${receipt.creditNoteDiscountAmount!.toFixed(2)}\n` : ''}*GST:* Included in Price
+*NET PAID:* Rs. ${receipt.grandTotal.toFixed(2)} (${paymentModeLabel})
 --------------------------------
 ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n--------------------------------\n' : ''}*Return Policy:* ${receipt.companyReturnPolicy}
 *Thank you for shopping with us!*
+*Visit Again · ${receipt.companyName || 'Store'}*
 ================================
     `.trim();
   };
@@ -675,25 +677,11 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                   </div>
                 )}
 
-                {isCompositionGst ? (
-                  <div className="receipt-row text-[9px] font-bold text-black py-0.5">
-                    <span>GST:</span>
-                    <span>INCLUDED IN PRICE</span>
-                  </div>
-                ) : (
-                  receipt.taxTotal > 0 && (
-                    <>
-                      <div className="receipt-row text-[8px] text-neutral-600">
-                        <span>CGST ({receipt.taxInclusive !== false ? 'Included' : 'Added'}):</span>
-                        <span>₹{(receipt.taxTotal / 2).toFixed(2)}</span>
-                      </div>
-                      <div className="receipt-row text-[8px] text-neutral-600">
-                        <span>SGST ({receipt.taxInclusive !== false ? 'Included' : 'Added'}):</span>
-                        <span>₹{(receipt.taxTotal / 2).toFixed(2)}</span>
-                      </div>
-                    </>
-                  )
-                )}
+                {/* GST Notice (GST is included in price; no separate tax breakdown amount printed) */}
+                <div className="receipt-row text-[9px] font-bold text-black py-0.5">
+                  <span>GST:</span>
+                  <span>INCLUDED IN PRICE</span>
+                </div>
 
                 <hr />
 
@@ -829,10 +817,10 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                 )}
 
                 <div
-                  className="receipt-brand text-[7.5px] text-neutral-500"
+                  className="receipt-brand text-[7.5px] font-semibold text-neutral-600"
                   style={{ textAlign: 'center', margin: '1px auto 0 auto', width: '100%', display: 'block' }}
                 >
-                  Visit Again · Garment OS Retail POS
+                  Visit Again · {receipt.companyName || 'Store'}
                 </div>
               </div>
             </div>
