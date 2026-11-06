@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { SaleTransaction, QR_SIZE_PIXELS } from '../../types';
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
@@ -9,9 +9,13 @@ import {
   formatSaleToEscPos,
   printViaWebBluetooth,
   printViaWebUsb,
+  printViaWebSerial,
+  printViaLocalBridge,
   printViaRawBT,
   isWebBluetoothSupported,
   isWebUsbSupported,
+  isWebSerialSupported,
+  detectLocalPrinters,
   disconnectBluetoothPrinter,
   disconnectUsbPrinter,
 } from '../../utils/escpos';
@@ -133,6 +137,20 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
   const [bluetoothStatus, setBluetoothStatus] = useState<string | null>(null);
   const [isBluetoothPrinting, setIsBluetoothPrinting] = useState<boolean>(false);
+  const [detectedPrinters, setDetectedPrinters] = useState<{
+    printers: Array<{ Name: string; DriverName: string; PortName: string }>;
+    ports: Array<{ DeviceID: string; Name: string; Description: string }>;
+  }>({ printers: [], ports: [] });
+
+  useEffect(() => {
+    if (isOpen) {
+      detectLocalPrinters().then((data) => {
+        if (data && (data.printers?.length || data.ports?.length)) {
+          setDetectedPrinters(data);
+        }
+      }).catch(() => {});
+    }
+  }, [isOpen]);
 
   const setAndSavePrintMethod = (method: 'bluetooth' | 'usb' | 'rawbt' | 'browser') => {
     setPrintMethod(method);
@@ -1120,6 +1138,26 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                     </div>
                   </button>
                 </div>
+
+                {/* Detected Hardware Auto-Discovery Bar */}
+                {(detectedPrinters.printers.length > 0 || detectedPrinters.ports.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg bg-emerald-50/80 border border-emerald-200 text-[10px] text-emerald-900">
+                    <span className="font-bold flex items-center gap-1 text-emerald-800 shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Ready Hardware:
+                    </span>
+                    {detectedPrinters.printers.map((p, idx) => (
+                      <span key={idx} className="bg-white px-1.5 py-0.2 rounded border border-emerald-200 font-mono text-[9.5px] font-bold text-emerald-950">
+                        🖨️ USB: {p.Name}
+                      </span>
+                    ))}
+                    {detectedPrinters.ports.map((port, idx) => (
+                      <span key={idx} className="bg-white px-1.5 py-0.2 rounded border border-emerald-200 font-mono text-[9.5px] font-bold text-indigo-950">
+                        📶 BT: {port.DeviceID}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {/* Helpful tips & disconnect option */}
                 <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5 px-0.5">
