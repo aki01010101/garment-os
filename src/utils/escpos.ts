@@ -358,7 +358,7 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
     builder.twoColumnRow('Credit Note Used:', `-Rs. ${receipt.creditNoteDiscountAmount.toFixed(2)}`);
   }
   if (receipt.taxTotal > 0) {
-    const taxNote = receipt.taxInclusive !== false ? '(Incl. in MRP)' : '(Added separately)';
+    const taxNote = receipt.taxInclusive !== false ? '(Incl. in Price)' : '(Added separately)';
     builder.twoColumnRow(`GST Tax ${taxNote}:`, `Rs. ${receipt.taxTotal.toFixed(2)}`);
   }
 

@@ -341,6 +341,24 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
               margin: 1px auto 0 auto !important;
               width: 100% !important;
             }
+            .thermal-tag-roll {
+              width: 50mm !important;
+              height: 32mm !important;
+              max-width: 50mm !important;
+              max-height: 32mm !important;
+              padding: 1.5mm !important;
+              background: white !important;
+              border: 1px dashed #777 !important;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+              overflow: hidden !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: space-between !important;
+              box-sizing: border-box !important;
+              page-break-after: always !important;
+              break-after: page !important;
+              margin: 0 auto 2.5mm auto !important;
+            }
             .no-print {
               display: none !important;
             }

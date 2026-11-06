@@ -399,7 +399,7 @@ export const MatrixProductModal: React.FC<MatrixProductModalProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Selling Price / MRP (₹) *
+                    Selling Price (₹) *
                   </label>
                   <input
                     type="number"
@@ -432,7 +432,7 @@ export const MatrixProductModal: React.FC<MatrixProductModalProps> = ({
                     onChange={(e) => setTaxInclusive(e.target.value === 'inclusive')}
                     className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold"
                   >
-                    <option value="inclusive">GST Included (MRP)</option>
+                    <option value="inclusive">GST Included in Price</option>
                     <option value="exclusive">GST Added Separately</option>
                   </select>
                 </div>
@@ -695,7 +695,7 @@ export const MatrixProductModal: React.FC<MatrixProductModalProps> = ({
                   </strong>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px] uppercase">MRP Retail Value:</span>
+                  <span className="text-slate-500 block text-[10px] uppercase">Retail Value:</span>
                   <strong className="text-emerald-700 text-sm font-mono">
                     ₹{stats.totalRetailValue.toLocaleString('en-IN')}
                   </strong>

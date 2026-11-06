@@ -173,7 +173,7 @@ export const CompanySettings: React.FC = () => {
                           : 'bg-amber-50 text-amber-800 border-amber-200'
                       }`}
                     >
-                      {comp.taxInclusive !== false ? 'GST Included (MRP)' : 'GST Added on Top'}
+                      {comp.taxInclusive !== false ? 'GST Included in Price' : 'GST Added on Top'}
                     </span>
                   )}
                   {isBilled && comp.enableDynamicGarmentGst !== false && (
@@ -563,7 +563,7 @@ export const CompanySettings: React.FC = () => {
                               className="mt-0.5 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                             />
                             <div>
-                              <div className="font-extrabold text-xs text-slate-900">GST Included in Price (MRP)</div>
+                              <div className="font-extrabold text-xs text-slate-900">GST Included in Price</div>
                               <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
                                 Retail Standard: Customer pays price on clothing tag. GST is back-calculated and itemized.
                               </p>

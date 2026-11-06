@@ -417,7 +417,7 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Update stock & prices or add new apparel with Name, Category, Size, Color, MRP, Cost, Rack, and more
+                Update stock & prices or add new apparel with Name, Category, Size, Color, Price, Cost, Rack, and more
               </p>
             </div>
           </div>
@@ -503,7 +503,7 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
                 'Size',
                 'Color',
                 'Stock',
-                'SellingPrice (MRP)',
+                'SellingPrice / Rate',
                 'CostPrice',
                 'SKU',
                 'Barcode',
@@ -622,7 +622,7 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
                       <th className="py-2.5 px-3">Category / Variant</th>
                       <th className="py-2.5 px-3">SKU / Barcode</th>
                       <th className="py-2.5 px-3 text-right">Stock</th>
-                      <th className="py-2.5 px-3 text-right">MRP (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Price (₹)</th>
                       <th className="py-2.5 px-3 text-right">Cost (₹)</th>
                       <th className="py-2.5 px-3">Rack / Season</th>
                     </tr>

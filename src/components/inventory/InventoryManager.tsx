@@ -392,7 +392,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
 
         <div className="bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Retail Value (MRP)
+            Retail Value
           </span>
           <div className="text-lg sm:text-xl font-bold font-mono text-emerald-600 mt-1 truncate">
             ₹{totalRetailValuation.toLocaleString('en-IN')}
@@ -621,7 +621,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
               <th className="py-3 px-3">Category</th>
               <th className="py-3 px-3">Size & Color</th>
               <th className="py-3 px-3 text-right">Cost (₹)</th>
-              <th className="py-3 px-3 text-right">MRP (₹)</th>
+              <th className="py-3 px-3 text-right">Price (₹)</th>
               <th className="py-3 px-3 text-right">Tax (%)</th>
               <th className="py-3 px-3 text-right">Stock</th>
               <th className="py-3 px-4 text-center">Actions</th>
@@ -834,7 +834,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
                     <span className="text-slate-700">₹{p.costPrice.toFixed(0)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 text-[10px]">MRP: </span>
+                    <span className="text-slate-400 text-[10px]">Price: </span>
                     <span className="font-bold text-slate-900">₹{p.sellingPrice.toFixed(0)}</span>
                     <span className="text-[10px] text-slate-400 font-sans ml-1">
                       ({p.taxRate}% {p.taxInclusive === false ? '+GST' : 'inc'})
@@ -1026,7 +1026,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">MRP Selling (₹)</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Selling Price (₹)</label>
                   <input
                     type="number"
                     min="0"
@@ -1069,7 +1069,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
                   >
                     <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${formData.taxInclusive !== false ? 'bg-emerald-600' : 'bg-slate-300'}`} />
                     <div>
-                      <div className="text-xs font-bold">GST Included (MRP)</div>
+                      <div className="text-xs font-bold">GST Included in Price</div>
                       <div className="text-[10px] text-slate-500 font-normal">Customer pays selling price; tax extracted</div>
                     </div>
                   </button>

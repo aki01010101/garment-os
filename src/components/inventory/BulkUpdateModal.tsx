@@ -195,7 +195,7 @@ export const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({
             }`}
           >
             <DollarSign className="w-3.5 h-3.5" />
-            <span>2. Selling Prices (MRP)</span>
+            <span>2. Selling Prices</span>
           </button>
           <button
             onClick={() => setActiveTab('season')}
@@ -325,7 +325,7 @@ export const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Set Fixed MRP (₹)
+                    Set Fixed Price (₹)
                   </button>
                 </div>
               </div>
@@ -333,7 +333,7 @@ export const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({
               {priceMode === 'percent' && (
                 <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-100 flex flex-wrap items-center gap-3">
                   <span className="text-xs font-medium text-emerald-950">
-                    Adjust MRP prices by percentage:
+                    Adjust selling prices by percentage:
                   </span>
                   <div className="flex items-center gap-1.5">
                     <input
@@ -362,7 +362,7 @@ export const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({
               {priceMode === 'flat' && (
                 <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-100 flex items-center gap-3">
                   <span className="text-xs font-medium text-emerald-950">
-                    Adjust MRP by flat rupee amount:
+                    Adjust price by flat rupee amount:
                   </span>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold text-emerald-900">₹</span>
@@ -379,7 +379,7 @@ export const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({
               {priceMode === 'exact' && (
                 <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-100 flex items-center gap-3">
                   <span className="text-xs font-medium text-emerald-950">
-                    Set all selected garments MRP to:
+                    Set all selected garments price to:
                   </span>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold text-emerald-900">₹</span>
@@ -436,7 +436,7 @@ export const BulkUpdateModal: React.FC<BulkUpdateModalProps> = ({
                     <th className="py-2 px-3">Garment / SKU</th>
                     <th className="py-2 px-3">Size / Color</th>
                     <th className="py-2 px-3 text-right">Stock</th>
-                    <th className="py-2 px-3 text-right">Selling MRP</th>
+                    <th className="py-2 px-3 text-right">Selling Price</th>
                     <th className="py-2 px-3 text-center">Season</th>
                   </tr>
                 </thead>

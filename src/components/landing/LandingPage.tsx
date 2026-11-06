@@ -113,7 +113,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [tagBarcode, setTagBarcode] = useState('890124890042');
   const [tagSize, setTagSize] = useState('XL / 42');
   const [tagColor, setTagColor] = useState('Wine Maroon');
-  const [tagMrp, setTagMrp] = useState(1499);
+  const [tagPrice, setTagPrice] = useState(1499);
   const [tagHsn, setTagHsn] = useState('6204');
 
   // Sandbox 2: Alterations Workflow States
@@ -451,13 +451,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                             : 'bg-indigo-950 text-indigo-300 border-indigo-800'
                         }`}
                       >
-                        {demoIsInclusive ? 'Tax Included in MRP' : 'Tax Added Separately'}
+                        {demoIsInclusive ? 'Tax Included in Price' : 'Tax Added Separately'}
                       </button>
                     </div>
 
                     <div className="space-y-1.5 pt-3 text-slate-300">
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Garment Tag MRP:</span>
+                        <span className="text-slate-400">Garment Tag Price:</span>
                         <span className="font-bold text-white">₹{demoPrice.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
@@ -563,11 +563,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block font-medium text-slate-600 mb-1">Tag MRP (₹):</label>
+                    <label className="block font-medium text-slate-600 mb-1">Tag Price (₹):</label>
                     <input
                       type="number"
-                      value={tagMrp}
-                      onChange={(e) => setTagMrp(parseInt(e.target.value) || 0)}
+                      value={tagPrice}
+                      onChange={(e) => setTagPrice(parseInt(e.target.value) || 0)}
                       className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-mono font-bold"
                     />
                   </div>
@@ -632,8 +632,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </div>
 
                   <div className="flex justify-between items-center pt-0.5">
-                    <span className="text-[9px] text-slate-400 font-sans">MRP (Incl. All Taxes)</span>
-                    <span className="text-sm font-black text-slate-950 font-mono">₹{tagMrp.toFixed(2)}</span>
+                    <span className="text-[9px] text-slate-400 font-sans">Price (Incl. All Taxes)</span>
+                    <span className="text-sm font-black text-slate-950 font-mono">₹{tagPrice.toFixed(2)}</span>
                   </div>
                 </div>
               ) : (
@@ -647,7 +647,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     </div>
                     <div className="w-8 h-1 bg-slate-300 mx-1"></div>
                     <div className="w-24 text-center border-l border-slate-200 pl-1.5">
-                      <div className="font-black text-xs">₹{tagMrp}</div>
+                      <div className="font-black text-xs">₹{tagPrice}</div>
                       <div className="text-[8px]">SIZE: {tagSize}</div>
                       <div className="text-[8px] text-slate-400">NET WT / HSN</div>
                     </div>

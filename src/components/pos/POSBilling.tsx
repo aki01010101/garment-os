@@ -734,7 +734,7 @@ export const POSBilling: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setTaxInclusiveOverride(!isTaxInclusive)}
-                title={isTaxInclusive ? "Rate includes GST (MRP). Click to switch to GST Added Separately (+Tax)" : "Rate excludes GST (Added on top). Click to switch to GST Included in MRP"}
+                title={isTaxInclusive ? "Price includes GST. Click to switch to GST Added Separately (+Tax)" : "Price excludes GST (Added on top). Click to switch to GST Included in Price"}
                 className={`px-2.5 py-1.5 min-h-[36px] rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
                   isTaxInclusive
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-2xs'
@@ -742,7 +742,7 @@ export const POSBilling: React.FC = () => {
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full shrink-0 ${isTaxInclusive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                <span>{isTaxInclusive ? 'GST Inc (MRP)' : 'GST Added (+Tax)'}</span>
+                <span>{isTaxInclusive ? 'GST Inc' : 'GST Added (+Tax)'}</span>
               </button>
             </div>
           )}
@@ -1319,7 +1319,7 @@ export const POSBilling: React.FC = () => {
                       <th className="py-2.5 px-3 text-center w-8">#</th>
                       <th className="py-2.5 px-3">Garment / SKU</th>
                       <th className="py-2.5 px-2">Size / Color</th>
-                      <th className="py-2.5 px-3 text-right">{isTaxInclusive ? 'MRP (₹)' : 'Rate (₹)'}</th>
+                      <th className="py-2.5 px-3 text-right">{isTaxInclusive ? 'Price (₹)' : 'Rate (₹)'}</th>
                       <th className="py-2.5 px-2 text-center w-28">Quantity</th>
                       <th className="py-2.5 px-2 text-center w-20">Disc %</th>
                       <th className="py-2.5 px-2 text-center">Tailor</th>
@@ -1601,7 +1601,7 @@ export const POSBilling: React.FC = () => {
                       <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/70 flex items-center justify-between">
                         <div>
                           <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
-                            {isTaxInclusive ? 'MRP (Incl. GST)' : 'Rate (+GST)'}
+                            {isTaxInclusive ? 'Price (Incl. GST)' : 'Rate (+GST)'}
                           </div>
                           <div className="font-mono text-xs font-bold text-slate-700 flex items-center gap-1 mt-0.5">
                             <span>₹{item.unitPrice.toFixed(0)}</span>
@@ -1859,7 +1859,7 @@ export const POSBilling: React.FC = () => {
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           : 'bg-indigo-50 text-indigo-700 border-indigo-200'
                       }`}>
-                        {isTaxInclusive ? 'Included in MRP' : 'Added Separately'}
+                        {isTaxInclusive ? 'Included in Price' : 'Added Separately'}
                       </span>
                     </span>
                     <span className={`font-mono ${isTaxInclusive ? 'text-slate-600' : 'text-indigo-600 font-bold'}`}>

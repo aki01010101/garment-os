@@ -412,7 +412,7 @@ export const ReportsDashboard: React.FC = () => {
             {stockValuation.grossMargin}% Margin
           </div>
           <div className="text-xs text-slate-400 mt-1 font-mono">
-            ₹{stockValuation.totalCost.toLocaleString('en-IN')} cost / ₹{stockValuation.totalRetail.toLocaleString('en-IN')} MRP
+            ₹{stockValuation.totalCost.toLocaleString('en-IN')} cost / ₹{stockValuation.totalRetail.toLocaleString('en-IN')} retail
           </div>
         </div>
       </div>
