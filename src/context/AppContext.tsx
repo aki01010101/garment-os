@@ -2,6 +2,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   Company,
   Product,
+  ClothingCategory,
+  ClothingSize,
+  Season,
   Vendor,
   Customer,
   SaleTransaction,
@@ -94,7 +97,12 @@ interface AppContextType {
   bulkDeleteProducts: (ids: string[]) => void;
   adjustStock: (productId: string, adjustment: number, reason?: string) => void;
   bulkUpdateProducts: (updates: BulkProductUpdate[]) => void;
-  bulkImportProducts: (items: BulkCsvImportRow[]) => { updatedCount: number; notFoundCount: number; errors: string[] };
+  bulkImportProducts: (items: BulkCsvImportRow[]) => {
+    updatedCount: number;
+    createdCount?: number;
+    notFoundCount: number;
+    errors: string[];
+  };
   addMatrixProducts: (input: MatrixBatchProductInput) => Product[];
 
   // Physical Stock Take Audit
@@ -1468,59 +1476,200 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const bulkImportProducts = (
     items: BulkCsvImportRow[]
-  ): { updatedCount: number; notFoundCount: number; errors: string[] } => {
+  ): { updatedCount: number; createdCount: number; notFoundCount: number; errors: string[] } => {
     let updatedCount = 0;
+    let createdCount = 0;
     let notFoundCount = 0;
     const errors: string[] = [];
 
+    const normalizeCategory = (val?: string): ClothingCategory => {
+      if (!val) return 'Men';
+      const v = val.toLowerCase().trim();
+      if (/women|female|ladies|saree|kurti|lehenga|top|dress/i.test(v)) return 'Women';
+      if (/kid|child|boy|girl|baby|toddler/i.test(v)) return 'Kids';
+      if (/acc|bag|belt|wallet|jewel|scarf|socks|tie|perfume|cap/i.test(v)) return 'Accessories';
+      if (/men|male|gent/i.test(v)) return 'Men';
+      return 'Men';
+    };
+
+    const normalizeSeason = (val?: string): Season => {
+      if (!val) return 'All-Season';
+      const v = val.toLowerCase().trim();
+      if (/summer|spring|ss/i.test(v)) return 'Summer';
+      if (/winter|fall|fw/i.test(v)) return 'Winter';
+      if (/fest|autumn|diwali|puja|wedding/i.test(v)) return 'Festive / Autumn';
+      return 'All-Season';
+    };
+
     setProducts((prev) => {
       const copy = [...prev];
+      const newlyAdded: Product[] = [];
+
       items.forEach((row, idx) => {
         const skuQ = (row.sku || '').trim().toLowerCase();
         const barcodeQ = (row.barcode || '').trim().toLowerCase();
+        const nameQ = (row.name || '').trim().toLowerCase();
 
-        if (!skuQ && !barcodeQ) {
-          errors.push(`Row ${idx + 1}: Missing SKU and Barcode`);
-          return;
+        // Check if row is completely blank
+        const hasAnyData =
+          Boolean(skuQ || barcodeQ || nameQ) ||
+          typeof row.stock === 'number' ||
+          typeof row.stockDelta === 'number' ||
+          typeof row.sellingPrice === 'number' ||
+          typeof row.costPrice === 'number' ||
+          Boolean(row.category || row.size || row.color);
+
+        if (!hasAnyData) {
+          return; // Ignore empty blank rows
         }
 
-        const foundIdx = copy.findIndex(
-          (p) =>
-            (skuQ && p.sku.toLowerCase() === skuQ) ||
-            (barcodeQ && p.barcode.toLowerCase() === barcodeQ)
-        );
-
-        if (foundIdx === -1) {
-          notFoundCount++;
-          errors.push(`Row ${idx + 1}: SKU/Barcode "${row.sku || row.barcode}" not found in catalog`);
-          return;
+        // 1. Try to find match in catalog
+        let foundIdx = -1;
+        if (skuQ) {
+          foundIdx = copy.findIndex((p) => p.sku.toLowerCase() === skuQ);
+        }
+        if (foundIdx === -1 && barcodeQ) {
+          foundIdx = copy.findIndex((p) => p.barcode.toLowerCase() === barcodeQ);
+        }
+        if (foundIdx === -1 && nameQ) {
+          // If name matches, match same size/color if provided
+          foundIdx = copy.findIndex((p) => {
+            if (p.name.toLowerCase() !== nameQ) return false;
+            if (row.size && p.size.toLowerCase() !== row.size.toLowerCase().trim()) return false;
+            if (row.color && p.color.toLowerCase() !== row.color.toLowerCase().trim()) return false;
+            return true;
+          });
+          // Fallback to name-only match if still not found
+          if (foundIdx === -1) {
+            foundIdx = copy.findIndex((p) => p.name.toLowerCase() === nameQ);
+          }
         }
 
-        const current = copy[foundIdx];
-        let stock = current.stock;
-        if (typeof row.stock === 'number') {
-          stock = Math.max(0, row.stock);
-        } else if (typeof row.stockDelta === 'number') {
-          stock = Math.max(0, stock + row.stockDelta);
+        if (foundIdx !== -1) {
+          // UPDATE EXISTING PRODUCT (only update fields that were provided)
+          const current = copy[foundIdx];
+
+          let stock = current.stock;
+          if (typeof row.stock === 'number' && !isNaN(row.stock)) {
+            stock = Math.max(0, row.stock);
+          } else if (typeof row.stockDelta === 'number' && !isNaN(row.stockDelta)) {
+            stock = Math.max(0, stock + row.stockDelta);
+          }
+
+          const sellingPrice =
+            typeof row.sellingPrice === 'number' && !isNaN(row.sellingPrice)
+              ? Math.max(0, row.sellingPrice)
+              : current.sellingPrice;
+
+          const costPrice =
+            typeof row.costPrice === 'number' && !isNaN(row.costPrice)
+              ? Math.max(0, row.costPrice)
+              : current.costPrice;
+
+          const taxRate =
+            typeof row.taxRate === 'number' && !isNaN(row.taxRate)
+              ? Math.max(0, row.taxRate)
+              : current.taxRate;
+
+          const minStockAlert =
+            typeof row.minStockAlert === 'number' && !isNaN(row.minStockAlert)
+              ? Math.max(0, row.minStockAlert)
+              : current.minStockAlert;
+
+          const updatedProduct: Product = {
+            ...current,
+            name: row.name?.trim() ? row.name.trim() : current.name,
+            category: row.category ? normalizeCategory(String(row.category)) : current.category,
+            subCategory: row.subCategory?.trim() ? row.subCategory.trim() : current.subCategory,
+            size: row.size?.trim() ? (row.size.trim() as ClothingSize) : current.size,
+            color: row.color?.trim() ? row.color.trim() : current.color,
+            season: row.season ? normalizeSeason(String(row.season)) : current.season,
+            brand: row.brand?.trim() ? row.brand.trim() : current.brand,
+            rack: row.rack?.trim() ? row.rack.trim() : current.rack,
+            description: row.description?.trim() ? row.description.trim() : current.description,
+            stock,
+            sellingPrice,
+            costPrice,
+            taxRate,
+            minStockAlert,
+          };
+
+          copy[foundIdx] = updatedProduct;
+          if (isSupabaseAutoSync) asyncSyncProduct(updatedProduct);
+          updatedCount++;
+        } else {
+          // CREATE NEW PRODUCT IF NAME, SKU OR BARCODE IS PRESENT
+          if (nameQ || skuQ || barcodeQ) {
+            const timestamp = Date.now() + idx;
+            const category = normalizeCategory(row.category ? String(row.category) : undefined);
+            const season = normalizeSeason(row.season ? String(row.season) : undefined);
+
+            const catPrefix = category === 'Women' ? 'W' : category === 'Kids' ? 'K' : category === 'Accessories' ? 'ACC' : 'M';
+            const autoSku = (row.sku || '').trim() || `VT-${catPrefix}-${String(timestamp).slice(-6)}`;
+            const autoBarcode = (row.barcode || '').trim() || `890${Math.floor(100000000 + Math.random() * 900000000)}`;
+
+            const stock =
+              typeof row.stock === 'number' && !isNaN(row.stock)
+                ? Math.max(0, row.stock)
+                : typeof row.stockDelta === 'number' && !isNaN(row.stockDelta)
+                ? Math.max(0, row.stockDelta)
+                : 0;
+
+            const sellingPrice =
+              typeof row.sellingPrice === 'number' && !isNaN(row.sellingPrice)
+                ? Math.max(0, row.sellingPrice)
+                : 0;
+
+            const costPrice =
+              typeof row.costPrice === 'number' && !isNaN(row.costPrice)
+                ? Math.max(0, row.costPrice)
+                : 0;
+
+            const taxRate =
+              typeof row.taxRate === 'number' && !isNaN(row.taxRate)
+                ? Math.max(0, row.taxRate)
+                : 5;
+
+            const minStockAlert =
+              typeof row.minStockAlert === 'number' && !isNaN(row.minStockAlert)
+                ? Math.max(0, row.minStockAlert)
+                : 5;
+
+            const newProduct: Product = {
+              id: `prod_${timestamp}`,
+              sku: autoSku,
+              barcode: autoBarcode,
+              name: (row.name || '').trim() || `Garment ${autoSku}`,
+              category,
+              subCategory: (row.subCategory || '').trim() || 'General',
+              size: ((row.size || '').trim() || 'Free Size') as ClothingSize,
+              color: (row.color || '').trim() || 'Standard',
+              season,
+              stock,
+              sellingPrice,
+              costPrice,
+              taxRate,
+              minStockAlert,
+              brand: row.brand?.trim(),
+              rack: row.rack?.trim(),
+              description: row.description?.trim(),
+            };
+
+            copy.unshift(newProduct);
+            newlyAdded.push(newProduct);
+            if (isSupabaseAutoSync) asyncSyncProduct(newProduct);
+            createdCount++;
+          } else {
+            notFoundCount++;
+            errors.push(`Row ${idx + 1}: Skipped (missing garment name, SKU, or barcode)`);
+          }
         }
-
-        const sellingPrice =
-          typeof row.sellingPrice === 'number' ? Math.max(0, row.sellingPrice) : current.sellingPrice;
-        const costPrice =
-          typeof row.costPrice === 'number' ? Math.max(0, row.costPrice) : current.costPrice;
-
-        copy[foundIdx] = {
-          ...current,
-          stock,
-          sellingPrice,
-          costPrice,
-        };
-        updatedCount++;
       });
+
       return copy;
     });
 
-    return { updatedCount, notFoundCount, errors };
+    return { updatedCount, createdCount, notFoundCount, errors };
   };
 
   const addMatrixProducts = (input: MatrixBatchProductInput): Product[] => {

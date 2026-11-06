@@ -233,7 +233,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
 
   const handleCsvImportCommit = (rows: BulkCsvImportRow[]) => {
     const result = bulkImportProducts(rows);
-    setBulkFeedbackMsg(`CSV Import: ${result.updatedCount} garments updated!`);
+    const addedText = result.createdCount ? `, ${result.createdCount} new items added` : '';
+    setBulkFeedbackMsg(`CSV Import: ${result.updatedCount} garments updated${addedText}!`);
     setTimeout(() => setBulkFeedbackMsg(null), 3500);
     return result;
   };

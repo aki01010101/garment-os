@@ -46,6 +46,8 @@ export interface Product {
   purchaseSource?: 'billed' | 'cash' | 'mixed';
   description?: string;
   taxInclusive?: boolean; // Optional per-item override (default inherits from activeCompany)
+  brand?: string;
+  rack?: string;
 }
 
 export interface BulkProductUpdate {
@@ -63,10 +65,21 @@ export interface BulkCsvImportRow {
   sku?: string;
   barcode?: string;
   name?: string;
+  category?: ClothingCategory | string;
+  subCategory?: string;
+  size?: ClothingSize | string;
+  color?: string;
+  season?: Season | string;
+  brand?: string;
   stock?: number;
   stockDelta?: number;
   sellingPrice?: number;
   costPrice?: number;
+  taxRate?: number;
+  minStockAlert?: number;
+  rack?: string;
+  description?: string;
+  purchaseSource?: 'billed' | 'cash' | 'mixed';
   rawLine?: string;
 }
 
