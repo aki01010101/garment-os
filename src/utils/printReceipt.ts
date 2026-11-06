@@ -15,15 +15,20 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
       isBold !== false &&
       (typeof localStorage === 'undefined' || localStorage.getItem('thermal_bold_print') !== 'false');
 
-    // 1. Also update the DOM print mount point if present
-    const printMount = document.getElementById('print-mount-point');
-    if (printMount) {
-      printMount.innerHTML = receiptHtml;
-      if (boldActive) {
-        printMount.classList.add('thermal-bold');
-      } else {
-        printMount.classList.remove('thermal-bold');
-      }
+    // 1. Also update or create the DOM print mount point
+    let printMount = document.getElementById('print-mount-point');
+    if (!printMount) {
+      printMount = document.createElement('div');
+      printMount.id = 'print-mount-point';
+      printMount.className = 'no-print';
+      printMount.style.display = 'none';
+      document.body.appendChild(printMount);
+    }
+    printMount.innerHTML = receiptHtml;
+    if (boldActive) {
+      printMount.classList.add('thermal-bold');
+    } else {
+      printMount.classList.remove('thermal-bold');
     }
 
     // 2. Create or reuse hidden print iframe
@@ -51,7 +56,7 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
 
     const boldCss = boldActive
       ? `
-        * {
+        body, p, span, div, td, th {
           font-weight: 800 !important;
           color: #000000 !important;
           -webkit-text-stroke: 0.35px #000000;
@@ -294,15 +299,29 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
               width: 100% !important;
             }
             .qr-wrapper {
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              margin: 0 auto !important;
+              display: block !important;
               text-align: center !important;
+              margin: 2px auto !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              width: 100% !important;
             }
-            .qr-wrapper svg {
+            .qr-wrapper svg,
+            .upi-receipt-qr-block svg,
+            .invoice-barcode-top svg,
+            .code-container svg,
+            svg {
               display: block !important;
               margin: 0 auto !important;
+              max-width: 100% !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
+            svg rect, svg path {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
             }
             .code-label {
               display: block !important;
@@ -391,7 +410,7 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
         window.focus();
         window.print();
       }
-    }, 200);
+    }, 350);
   } catch (error) {
     console.error('Print utility error:', error);
     window.focus();

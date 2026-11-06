@@ -385,6 +385,18 @@
     visibility: visible !important;
   }
 
+  #print-mount-point svg,
+  #print-mount-point svg * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #print-mount-point .qr-wrapper svg,
+  #print-mount-point .code-container svg {
+    display: block !important;
+    margin: 0 auto !important;
+  }
+
   .no-print {
     display: none !important;
   }

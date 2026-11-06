@@ -171,11 +171,14 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     try {
       const payload = formatSaleToEscPos(receipt, {
         columns: paperColumns,
+        codePrintType,
+        includeInvoiceCode: true,
+        includeUpiQr,
+        storeUpiId,
+        storeUpiName,
         includeReviewQr,
         reviewUrl: effectiveReviewUrl,
         reviewPromptText: googleReviewPromptText,
-        storeUpiId,
-        storeUpiName,
       });
 
       const res = await printViaWebBluetooth(payload, (status) => setBluetoothStatus(status));
@@ -196,11 +199,14 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     setBluetoothStatus('Sending invoice to RawBT app...');
     const payload = formatSaleToEscPos(receipt, {
       columns: paperColumns,
+      codePrintType,
+      includeInvoiceCode: true,
+      includeUpiQr,
+      storeUpiId,
+      storeUpiName,
       includeReviewQr,
       reviewUrl: effectiveReviewUrl,
       reviewPromptText: googleReviewPromptText,
-      storeUpiId,
-      storeUpiName,
     });
     const res = printViaRawBT(payload);
     if (res.success) {

@@ -56,7 +56,12 @@ export const UpiPaymentQr: React.FC<UpiPaymentQrProps> = ({
           errorCorrectionLevel: 'M',
         },
         (err, str) => {
-          if (!err && str) svgOutput = str;
+          if (!err && str) {
+            svgOutput = str.replace(
+              '<svg',
+              `<svg width="${size}" height="${size}" style="display:block;margin:0 auto;width:100%;height:100%;max-width:${size}px;max-height:${size}px;-webkit-print-color-adjust:exact;print-color-adjust:exact;"`
+            );
+          }
         }
       );
     } catch (err) {

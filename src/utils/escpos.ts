@@ -8,14 +8,19 @@
  */
 
 import { SaleTransaction } from '../types';
+import { buildUpiPaymentUri } from './upi';
 
 export interface EscPosOptions {
   columns?: 32 | 48; // 32 for 58mm (2-inch), 48 for 80mm (3-inch)
+  codePrintType?: 'barcode' | 'qr'; // invoice code format (default: 'barcode')
+  includeInvoiceCode?: boolean; // whether to print invoice barcode or QR (default: true)
+  includeUpiQr?: boolean; // whether to print UPI payment QR (default: true)
+  storeUpiId?: string;
+  storeUpiName?: string;
+  upiAmount?: number;
   includeReviewQr?: boolean;
   reviewUrl?: string;
   reviewPromptText?: string;
-  storeUpiId?: string;
-  storeUpiName?: string;
   autoCut?: boolean;
   kickDrawer?: boolean;
 }
@@ -180,6 +185,39 @@ export class EscPosBuilder {
     return this;
   }
 
+  // ESC/POS Code 128 1D Barcode
+  barcode128(data: string, height: number = 44, showText: boolean = true): this {
+    if (!data) return this;
+    const cleanData = data.replace(/[^0-9A-Za-z_-]/g, '').trim();
+    if (!cleanData) return this;
+
+    this.align('center');
+
+    // 1. Set barcode height (1 to 255 dots)
+    this.buffer.push(0x1d, 0x68, Math.min(255, Math.max(20, height)));
+
+    // 2. Set barcode module width (2 = standard for 58mm, 3 for 80mm)
+    this.buffer.push(0x1d, 0x77, this.columns === 48 ? 0x03 : 0x02);
+
+    // 3. Set HRI characters print position (0 = none, 2 = below)
+    this.buffer.push(0x1d, 0x48, showText ? 0x02 : 0x00);
+
+    // 4. Set HRI font (1 = Font B, clean smaller mono)
+    this.buffer.push(0x1d, 0x66, 0x01);
+
+    // 5. Print Code 128 (GS k 73 len {B data)
+    const codeSetB = [0x7B, 0x42]; // '{B' selects Code 128 subset B (alphanumeric)
+    const dataBytes: number[] = [];
+    for (let i = 0; i < cleanData.length; i++) {
+      dataBytes.push(cleanData.charCodeAt(i));
+    }
+
+    const payload = [...codeSetB, ...dataBytes];
+    this.buffer.push(0x1d, 0x6b, 0x49, payload.length, ...payload);
+    this.buffer.push(0x0a);
+    return this;
+  }
+
   // Feed n lines
   feed(lines: number = 3): this {
     for (let i = 0; i < lines; i++) {
@@ -268,6 +306,21 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
 
   if (receipt.customerPhone && receipt.customerPhone !== 'N/A') {
     builder.twoColumnRow('Phone:', receipt.customerPhone);
+  }
+
+  // 2b. INVOICE CODE (BARCODE / QR)
+  if (options.includeInvoiceCode !== false && receipt.invoiceNumber) {
+    const isQr = options.codePrintType === 'qr';
+    const invoiceClean = receipt.invoiceNumber.replace(/[^0-9A-Za-z_-]/gi, '');
+
+    builder.line();
+    if (isQr) {
+      builder.align('center');
+      builder.qrCode(invoiceClean, columns === 48 ? 5 : 4);
+      builder.bold(true).line(receipt.invoiceNumber).bold(false);
+    } else {
+      builder.barcode128(invoiceClean, 44, true);
+    }
   }
 
   // 3. ITEMS TABLE
@@ -396,6 +449,41 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
       .bold(true)
       .line(`*** YOU SAVED Rs. ${totalSavings.toFixed(2)} ON THIS BILL! ***`)
       .bold(false);
+  }
+
+  // 6b. DYNAMIC UPI PAYMENT QR CODE
+  const upiId = (options.storeUpiId || '').trim();
+  const shouldPrintUpi = options.includeUpiQr !== false && Boolean(upiId);
+
+  if (shouldPrintUpi && upiId) {
+    const payeeName = (options.storeUpiName || receipt.companyName || 'Store Merchant').trim();
+    const upiAmount =
+      options.upiAmount !== undefined
+        ? options.upiAmount
+        : receipt.paymentMode === 'UPI'
+        ? receipt.grandTotal
+        : (receipt.splitBreakdown?.upi || receipt.grandTotal);
+
+    const upiUri = buildUpiPaymentUri({
+      upiId,
+      payeeName,
+      amount: upiAmount,
+      transactionNote: `Bill ${receipt.invoiceNumber}`,
+    });
+
+    if (upiUri) {
+      builder.separator('-');
+      builder
+        .align('center')
+        .bold(true)
+        .line('SCAN & PAY VIA UPI')
+        .bold(false)
+        .qrCode(upiUri, columns === 48 ? 6 : 4)
+        .bold(true)
+        .line(`Rs. ${upiAmount.toFixed(2)} · ${upiId}`)
+        .bold(false)
+        .line('GPay · PhonePe · Paytm · BHIM');
+    }
   }
 
   // 7. GOOGLE REVIEW QR / PROMPT

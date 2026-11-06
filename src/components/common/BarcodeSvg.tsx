@@ -108,7 +108,12 @@ export const BarcodeSvg: React.FC<BarcodeSvgProps> = ({
           errorCorrectionLevel: 'M',
         },
         (err, str) => {
-          if (!err && str) svgOutput = str;
+          if (!err && str) {
+            svgOutput = str.replace(
+              '<svg',
+              `<svg width="${qrSize}" height="${qrSize}" style="display:block;margin:0 auto;width:100%;height:100%;max-width:${qrSize}px;max-height:${qrSize}px;-webkit-print-color-adjust:exact;print-color-adjust:exact;"`
+            );
+          }
         }
       );
     } catch (err) {
@@ -154,11 +159,13 @@ export const BarcodeSvg: React.FC<BarcodeSvgProps> = ({
     >
       <svg
         viewBox={`0 0 ${totalModules} ${height}`}
-        style={{ width: `${targetWidth}px`, height: `${height}px`, display: 'block', margin: '0 auto' }}
+        width={targetWidth}
+        height={height}
+        style={{ width: `${targetWidth}px`, height: `${height}px`, display: 'block', margin: '0 auto', maxWidth: '100%', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
         className="shape-rendering-crispEdges block"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <rect width={totalModules} height={height} fill="#ffffff" />
+        <rect width={totalModules} height={height} fill="#ffffff" style={{ fill: '#ffffff' }} />
         {rects.map((bar, idx) => (
           <rect
             key={idx}
@@ -167,6 +174,7 @@ export const BarcodeSvg: React.FC<BarcodeSvgProps> = ({
             width={bar.width}
             height={height}
             fill="#000000"
+            style={{ fill: '#000000', shapeRendering: 'crispEdges', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
           />
         ))}
       </svg>
