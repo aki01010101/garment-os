@@ -1062,3 +1062,114 @@ export function disconnectUsbPrinter(): void {
   cachedUsbDevice = null;
   cachedUsbEndpointNumber = null;
 }
+
+export interface PriceTagItem {
+  product: {
+    id: string;
+    name: string;
+    sku: string;
+    barcode?: string;
+    category?: string;
+    subCategory?: string;
+    size?: string;
+    color?: string;
+    sellingPrice: number;
+  };
+  brandTitle?: string;
+  contactNumber?: string;
+  codeType?: 'barcode' | 'qr';
+  saleOfferPercentage?: number;
+}
+
+/**
+ * Format apparel price tags to native ESC/POS binary commands (50x32mm tag roll)
+ * Prints directly via USB or Bluetooth at 203 DPI pitch-black quality with zero Windows halftoning.
+ * Prints size normally as regular text matching other details on the tag.
+ */
+export function formatPriceTagsToEscPos(
+  tags: PriceTagItem[],
+  options?: { columns?: 32 | 48 }
+): Uint8Array {
+  const columns = options?.columns || 32;
+  const builder = new EscPosBuilder(columns);
+  builder.initialize();
+
+  tags.forEach((tag, idx) => {
+    const {
+      product,
+      brandTitle = 'FANTASY',
+      contactNumber = '+919416109928',
+      codeType = 'qr',
+      saleOfferPercentage = 0,
+    } = tag;
+
+    const price =
+      saleOfferPercentage > 0
+        ? Math.round(product.sellingPrice * (1 - saleOfferPercentage / 100))
+        : product.sellingPrice;
+
+    const displayPrice = price % 1 === 0 ? price.toFixed(0) : price.toFixed(2);
+
+    // Reset printer state per tag
+    builder.initialize();
+
+    // 1. Header: Brand (Bold) + Contact Number
+    builder.bold(true);
+    builder.twoColumnRow((brandTitle || 'FANTASY').toUpperCase(), contactNumber, true);
+    builder.bold(false);
+    builder.separator('-');
+
+    // 2. Article / Garment Name (Bold)
+    builder.bold(true).line(product.name).bold(false);
+
+    // 3. Category
+    const catParts = [product.category, product.subCategory].filter((c) => c && c !== 'General');
+    if (catParts.length > 0) {
+      builder.line(`Category: ${catParts.join(' · ')}`);
+    }
+
+    // 4. Size & Color (Normal text size as other text lines)
+    const sizeColorParts = [
+      product.size ? `Size: ${product.size}` : '',
+      product.color ? `Color: ${product.color}` : '',
+    ].filter(Boolean);
+    if (sizeColorParts.length > 0) {
+      builder.line(sizeColorParts.join('  |  '));
+    }
+
+    // 5. QR Code or Barcode
+    const codeValue = (product.barcode || product.sku || '').trim();
+    if (codeValue) {
+      if (codeType === 'qr') {
+        builder.align('center');
+        builder.qrCode(codeValue, columns === 48 ? 8 : 6);
+        builder.bold(true).line(codeValue).bold(false);
+      } else {
+        builder.barcode128(codeValue, 36, true);
+      }
+    }
+
+    // 6. Selling Price (Just the amount, prominent, no MRP)
+    builder
+      .align('center')
+      .bold(true)
+      .line(
+        saleOfferPercentage > 0
+          ? `OFFER: Rs. ${displayPrice} (Was Rs. ${product.sellingPrice})`
+          : `Rs. ${displayPrice}`
+      )
+      .bold(false)
+      .align('left');
+
+    builder.separator('-');
+
+    // Feed gap between tags
+    if (idx < tags.length - 1) {
+      builder.feed(2);
+    } else {
+      builder.feed(3);
+    }
+  });
+
+  return builder.build();
+}

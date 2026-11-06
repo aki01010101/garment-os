@@ -1,8 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { printThermalReceiptHtml } from '../../utils/printReceipt';
 import { CodePrintType } from '../../types';
+import {
+  formatPriceTagsToEscPos,
+  printViaWebUsb,
+  printViaWebBluetooth,
+  detectLocalPrinters,
+  PriceTagItem,
+} from '../../utils/escpos';
 import {
   Tag,
   Printer,
@@ -15,6 +22,12 @@ import {
   QrCode,
   Phone,
   RotateCcw,
+  Bluetooth,
+  Usb,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 
 export const PriceTagGenerator: React.FC = () => {
@@ -35,7 +48,29 @@ export const PriceTagGenerator: React.FC = () => {
   const [layoutMode, setLayoutMode] = useState<'roll' | 'sheet'>('roll');
   const [saleOfferPercentage, setSaleOfferPercentage] = useState<number>(0);
 
+  // Printing mode & hardware detection state
+  const [printMethod, setPrintMethod] = useState<'usb' | 'bluetooth' | 'browser'>(() => {
+    return (localStorage.getItem('tag_print_method') as any) || 'usb';
+  });
+  const [printStatus, setPrintStatus] = useState<string | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [detectedHardware, setDetectedHardware] = useState<{ printers: any[]; ports: any[] }>({
+    printers: [],
+    ports: [],
+  });
+
   const printRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    detectLocalPrinters().then((hw) => {
+      setDetectedHardware(hw);
+    });
+  }, []);
+
+  const setAndSavePrintMethod = (method: 'usb' | 'bluetooth' | 'browser') => {
+    setPrintMethod(method);
+    localStorage.setItem('tag_print_method', method);
+  };
 
   const filteredProducts = products.filter((p) => {
     const matchQuery =
@@ -84,12 +119,56 @@ export const PriceTagGenerator: React.FC = () => {
     }
   });
 
-  const handlePrintTags = () => {
-    if (printRef.current) {
-      printThermalReceiptHtml(printRef.current.innerHTML);
-    } else {
-      window.focus();
-      window.print();
+  const handlePrintTags = async () => {
+    if (tagsToPrint.length === 0) return;
+
+    if (printMethod === 'browser') {
+      if (printRef.current) {
+        printThermalReceiptHtml(printRef.current.innerHTML);
+      } else {
+        window.focus();
+        window.print();
+      }
+      return;
+    }
+
+    setIsPrinting(true);
+    setPrintStatus(
+      printMethod === 'usb'
+        ? 'Connecting to USB Thermal Printer (203 DPI Dark)...'
+        : 'Connecting to Bluetooth Printer (COM4 / SPP)...'
+    );
+
+    try {
+      const tagItems: PriceTagItem[] = tagsToPrint.map(({ product }) => ({
+        product,
+        brandTitle,
+        contactNumber,
+        codeType: tagCodeType,
+        saleOfferPercentage,
+      }));
+
+      const payload = formatPriceTagsToEscPos(tagItems, { columns: 32 });
+
+      if (printMethod === 'usb') {
+        const res = await printViaWebUsb(payload, (status) => setPrintStatus(status));
+        if (res.success) {
+          setPrintStatus(`✅ Printed ${tagsToPrint.length} tag(s) via USB (203 DPI Pitch-Black)!`);
+        } else {
+          setPrintStatus(`❌ USB Print Error: ${res.error}`);
+        }
+      } else if (printMethod === 'bluetooth') {
+        const res = await printViaWebBluetooth(payload, (status) => setPrintStatus(status));
+        if (res.success) {
+          setPrintStatus(`✅ Printed ${tagsToPrint.length} tag(s) via Bluetooth!`);
+        } else {
+          setPrintStatus(`❌ Bluetooth Print Error: ${res.error}`);
+        }
+      }
+    } catch (err: any) {
+      setPrintStatus(`❌ ${err.message || 'Printing failed'}`);
+    } finally {
+      setIsPrinting(false);
     }
   };
 
@@ -119,11 +198,29 @@ export const PriceTagGenerator: React.FC = () => {
           </div>
           <button
             onClick={handlePrintTags}
-            disabled={tagsToPrint.length === 0}
-            className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-lg flex items-center gap-2 shadow-sm transition-colors cursor-pointer"
+            disabled={tagsToPrint.length === 0 || isPrinting}
+            className={`px-4 py-2 text-xs font-semibold text-white rounded-lg flex items-center gap-2 shadow-sm transition-colors cursor-pointer ${
+              printMethod === 'usb'
+                ? 'bg-cyan-700 hover:bg-cyan-800 disabled:bg-slate-300'
+                : printMethod === 'bluetooth'
+                ? 'bg-indigo-700 hover:bg-indigo-800 disabled:bg-slate-300'
+                : 'bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300'
+            }`}
           >
-            <Printer className="w-4 h-4" />
-            <span>Print {tagsToPrint.length} Tags</span>
+            {isPrinting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : printMethod === 'usb' ? (
+              <Usb className="w-4 h-4" />
+            ) : printMethod === 'bluetooth' ? (
+              <Bluetooth className="w-4 h-4" />
+            ) : (
+              <Printer className="w-4 h-4" />
+            )}
+            <span>
+              {isPrinting
+                ? 'Printing...'
+                : `Print ${tagsToPrint.length} Tags (${printMethod === 'usb' ? 'USB 203 DPI' : printMethod === 'bluetooth' ? 'Bluetooth' : 'System'})`}
+            </span>
           </button>
         </div>
       </div>
@@ -369,6 +466,132 @@ export const PriceTagGenerator: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              {/* Printer Output Mode: USB Direct, Bluetooth, Browser */}
+              <div className="pt-2.5 border-t border-slate-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-700 font-bold flex items-center gap-1 text-xs">
+                    <Printer className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Printer Connection:</span>
+                  </label>
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    50x32mm Thermal Roll
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setAndSavePrintMethod('usb')}
+                    className={`p-2 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                      printMethod === 'usb'
+                        ? 'border-cyan-600 bg-cyan-50/80 ring-1 ring-cyan-500 shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Usb className={`w-3.5 h-3.5 ${printMethod === 'usb' ? 'text-cyan-600' : 'text-slate-500'}`} />
+                      <span className="text-[8.5px] font-bold px-1 rounded bg-cyan-100 text-cyan-800">
+                        203 DPI
+                      </span>
+                    </div>
+                    <div className="mt-1">
+                      <div className="text-[11px] font-bold text-slate-900 leading-tight">USB Direct</div>
+                      <div className="text-[9px] text-slate-500">Everycom Dark</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAndSavePrintMethod('bluetooth')}
+                    className={`p-2 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                      printMethod === 'bluetooth'
+                        ? 'border-indigo-600 bg-indigo-50/80 ring-1 ring-indigo-500 shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Bluetooth className={`w-3.5 h-3.5 ${printMethod === 'bluetooth' ? 'text-indigo-600' : 'text-slate-500'}`} />
+                      <span className="text-[8.5px] font-bold px-1 rounded bg-indigo-100 text-indigo-800">
+                        SPP COM
+                      </span>
+                    </div>
+                    <div className="mt-1">
+                      <div className="text-[11px] font-bold text-slate-900 leading-tight">Bluetooth</div>
+                      <div className="text-[9px] text-slate-500">COM4 / BLE</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAndSavePrintMethod('browser')}
+                    className={`p-2 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                      printMethod === 'browser'
+                        ? 'border-slate-800 bg-slate-100 ring-1 ring-slate-800 shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Printer className={`w-3.5 h-3.5 ${printMethod === 'browser' ? 'text-slate-900' : 'text-slate-500'}`} />
+                      <span className="text-[8.5px] font-bold px-1 rounded bg-slate-200 text-slate-700">
+                        Dialog
+                      </span>
+                    </div>
+                    <div className="mt-1">
+                      <div className="text-[11px] font-bold text-slate-900 leading-tight">Browser</div>
+                      <div className="text-[9px] text-slate-500">System Print</div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Detected Hardware Auto-Discovery Bar */}
+                {(detectedHardware.printers.length > 0 || detectedHardware.ports.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg bg-emerald-50/80 border border-emerald-200 text-[10px] text-emerald-900">
+                    <span className="font-bold flex items-center gap-1 text-emerald-800 shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Ready Hardware:
+                    </span>
+                    {detectedHardware.printers.map((p, idx) => (
+                      <span key={idx} className="bg-white px-1.5 py-0.2 rounded border border-emerald-200 font-mono text-[9px] font-bold text-emerald-950">
+                        🖨️ USB: {p.Name}
+                      </span>
+                    ))}
+                    {detectedHardware.ports.map((port, idx) => (
+                      <span key={idx} className="bg-white px-1.5 py-0.2 rounded border border-emerald-200 font-mono text-[9px] font-bold text-indigo-950">
+                        📶 BT: {port.DeviceID}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Print Feedback Banner */}
+                {printStatus && (
+                  <div className={`p-2 rounded-lg border text-[11px] flex items-center justify-between gap-2 ${
+                    printStatus.startsWith('✅')
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900 font-semibold'
+                      : printStatus.startsWith('❌')
+                      ? 'bg-rose-50 border-rose-200 text-rose-800'
+                      : 'bg-indigo-50 border-indigo-200 text-indigo-900 animate-pulse'
+                  }`}>
+                    <span className="flex items-center gap-1.5 truncate">
+                      {printStatus.startsWith('✅') ? (
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      ) : printStatus.startsWith('❌') ? (
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                      ) : (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600 shrink-0" />
+                      )}
+                      <span className="truncate">{printStatus}</span>
+                    </span>
+                    <button
+                      onClick={() => setPrintStatus(null)}
+                      className="p-0.5 hover:bg-black/5 rounded text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -522,33 +745,17 @@ export const PriceTagGenerator: React.FC = () => {
                               justifyContent: 'center',
                             }}
                           >
-                            {/* Size Box */}
+                            {/* Size (Normal clean text display, no badge) */}
                             <div
                               style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '3px',
+                                fontSize: '8px',
+                                fontWeight: 700,
+                                color: '#000000',
                                 marginBottom: '2px',
+                                lineHeight: '1.1',
                               }}
                             >
-                              <span style={{ fontSize: '7.5px', fontWeight: 700, color: '#334155' }}>
-                                SIZE:
-                              </span>
-                              <span
-                                style={{
-                                  border: '1px solid #000000',
-                                  padding: '1px 3.5px',
-                                  fontSize: '9.5px',
-                                  fontWeight: 900,
-                                  borderRadius: '2px',
-                                  backgroundColor: '#000000',
-                                  color: '#ffffff',
-                                  fontFamily: 'monospace',
-                                  lineHeight: '1',
-                                }}
-                              >
-                                {product.size}
-                              </span>
+                              SIZE: <span style={{ fontFamily: 'monospace', fontWeight: 800 }}>{product.size}</span>
                             </div>
 
                             {/* Selling Price (Just the amount) */}
