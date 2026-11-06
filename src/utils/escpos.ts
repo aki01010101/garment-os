@@ -23,6 +23,7 @@ export interface EscPosOptions {
   reviewPromptText?: string;
   autoCut?: boolean;
   kickDrawer?: boolean;
+  isCompositionGst?: boolean;
 }
 
 // Common Bluetooth GATT Services for ESC/POS Thermal Printers (Everycom, TVS, Epson, MPT-II, POS-58)
@@ -290,7 +291,13 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
   if (receipt.companyPhone) {
     builder.line(`Tel: ${receipt.companyPhone}`);
   }
-  if (receipt.companyTaxId && receipt.companyTaxId !== 'RETAIL-CASH-UNREG') {
+  if (options.isCompositionGst) {
+    if (receipt.companyTaxId && receipt.companyTaxId !== 'RETAIL-CASH-UNREG') {
+      builder.line(`GSTIN: ${receipt.companyTaxId}`);
+    }
+    builder.bold(true).line('BILL OF SUPPLY').bold(false);
+    builder.line('(Composition Scheme - Tax Not Charged)');
+  } else if (receipt.companyTaxId && receipt.companyTaxId !== 'RETAIL-CASH-UNREG') {
     builder.line(`GSTIN: ${receipt.companyTaxId}`);
   } else {
     builder.line('Retail Cash Memo');
@@ -410,7 +417,9 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
   if (receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) {
     builder.twoColumnRow('Credit Note Used:', `-Rs. ${receipt.creditNoteDiscountAmount.toFixed(2)}`);
   }
-  if (receipt.taxTotal > 0) {
+  if (options.isCompositionGst) {
+    builder.twoColumnRow('GST:', 'Included in Price');
+  } else if (receipt.taxTotal > 0) {
     const taxNote = receipt.taxInclusive !== false ? '(Incl. in Price)' : '(Added separately)';
     builder.twoColumnRow(`GST Tax ${taxNote}:`, `Rs. ${receipt.taxTotal.toFixed(2)}`);
   }
@@ -595,6 +604,11 @@ export function printViaRawBT(payload: Uint8Array): { success: boolean; error?: 
 let cachedBluetoothDevice: any = null;
 let cachedWriteCharacteristic: any = null;
 
+// In-memory cache for WebUSB printer device
+let cachedUsbDevice: any = null;
+let cachedUsbEndpointNumber: number | null = null;
+let cachedUsbInterfaceNumber: number = 0;
+
 /**
  * Check if Web Bluetooth API is supported in the current browser
  */
@@ -603,8 +617,51 @@ export function isWebBluetoothSupported(): boolean {
 }
 
 /**
+ * Check if WebUSB API is supported in the current browser
+ */
+export function isWebUsbSupported(): boolean {
+  return typeof navigator !== 'undefined' && 'usb' in navigator;
+}
+
+/**
+ * Helper to inspect primary services and locate a writable ESC/POS characteristic
+ */
+async function findWritableCharacteristic(server: any): Promise<any> {
+  // Try known printer services first
+  for (const serviceUuid of THERMAL_PRINTER_BLUETOOTH_SERVICES) {
+    try {
+      const service = await server.getPrimaryService(serviceUuid);
+      const chars = await service.getCharacteristics();
+      for (const char of chars) {
+        if (char.properties.write || char.properties.writeWithoutResponse) {
+          return char;
+        }
+      }
+    } catch {}
+  }
+
+  // Fallback: scan all available primary services
+  try {
+    const services = await server.getPrimaryServices();
+    for (const service of services) {
+      try {
+        const chars = await service.getCharacteristics();
+        for (const char of chars) {
+          if (char.properties.write || char.properties.writeWithoutResponse) {
+            return char;
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+
+  return null;
+}
+
+/**
  * Direct Web Bluetooth Print (Zero external apps needed on Chrome/Edge on Android/PC)
  * Connects directly to Everycom Bluetooth thermal printer and streams ESC/POS byte chunks.
+ * Reconnects seamlessly for subsequent bills without showing the browser device picker dialog again.
  */
 export async function printViaWebBluetooth(
   payload: Uint8Array,
@@ -613,22 +670,35 @@ export async function printViaWebBluetooth(
   if (!isWebBluetoothSupported()) {
     return {
       success: false,
-      error: 'Web Bluetooth API is not supported in this browser. Please use Google Chrome or Edge on Android/PC over HTTPS, or use the RawBT Print option.',
+      error: 'Web Bluetooth API is not supported in this browser. Please use Google Chrome or Edge on Android/PC over HTTPS, or use USB / RawBT.',
     };
   }
 
+  const navBluetooth = (navigator as any).bluetooth;
+  let device = cachedBluetoothDevice;
+  let server: any = null;
+
   try {
-    onStatusUpdate?.('Requesting Everycom / Bluetooth Printer...');
+    // 1. If device was previously paired in this session, reconnect directly without prompting user dialog
+    if (device) {
+      try {
+        if (!device.gatt?.connected) {
+          onStatusUpdate?.(`Reconnecting to paired printer (${device.name || 'Bluetooth Printer'})...`);
+          server = await device.gatt.connect();
+        } else {
+          server = device.gatt;
+        }
+      } catch (reconnectErr) {
+        console.warn('Reconnecting to cached Bluetooth device failed, asking user to select:', reconnectErr);
+        device = null;
+        cachedBluetoothDevice = null;
+        cachedWriteCharacteristic = null;
+      }
+    }
 
-    let device = cachedBluetoothDevice;
-    let writeChar = cachedWriteCharacteristic;
-
-    // Check if previous connection is still active and writable
-    const isDeviceConnected = device && device.gatt && device.gatt.connected;
-
-    if (!isDeviceConnected || !writeChar) {
-      // Prompt user to select Everycom or any thermal printer
-      const navBluetooth = (navigator as any).bluetooth;
+    // 2. If no cached device or reconnection failed, prompt user to select printer
+    if (!device) {
+      onStatusUpdate?.('Requesting Everycom / Bluetooth Printer...');
       device = await navBluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: THERMAL_PRINTER_BLUETOOTH_SERVICES,
@@ -638,60 +708,64 @@ export async function printViaWebBluetooth(
         return { success: false, error: 'No printer device selected.' };
       }
 
-      onStatusUpdate?.(`Connecting to ${device.name || 'Everycom Printer'}...`);
-      const server = await device.gatt.connect();
-
-      // Find primary service and writable characteristic
-      onStatusUpdate?.('Discovering printer communication channel...');
-      writeChar = null;
-
-      // Try known services first, then fall back to scanning all services
-      const services = await server.getPrimaryServices();
-
-      for (const service of services) {
-        try {
-          const chars = await service.getCharacteristics();
-          for (const char of chars) {
-            if (char.properties.write || char.properties.writeWithoutResponse) {
-              writeChar = char;
-              break;
-            }
-          }
-        } catch {}
-        if (writeChar) break;
-      }
-
-      if (!writeChar) {
-        return {
-          success: false,
-          deviceName: device.name,
-          error: `Could not find a writable ESC/POS channel on ${device.name || 'printer'}. Ensure printer is in ESC/POS mode or use RawBT.`,
-        };
-      }
-
-      // Cache device and characteristic
       cachedBluetoothDevice = device;
-      cachedWriteCharacteristic = writeChar;
 
-      // Handle disconnects
+      // When GATT disconnects (idle or printer sleep), DO NOT wipe cachedBluetoothDevice!
+      // This allows subsequent bills to reconnect directly via device.gatt.connect() without re-prompting!
       device.addEventListener('gattserverdisconnected', () => {
-        cachedBluetoothDevice = null;
+        console.log('Printer GATT disconnected; retaining paired device reference for instant auto-reconnect on next bill');
         cachedWriteCharacteristic = null;
       });
+
+      onStatusUpdate?.(`Connecting to ${device.name || 'Everycom Printer'}...`);
+      server = await device.gatt.connect();
     }
+
+    // 3. Always obtain a fresh writable characteristic on the active GATT server
+    // (Previous characteristic objects are invalidated upon GATT reconnection in Web Bluetooth)
+    onStatusUpdate?.('Discovering printer communication channel...');
+    let writeChar = await findWritableCharacteristic(server);
+
+    if (!writeChar && (!server || !server.connected)) {
+      server = await device.gatt.connect();
+      writeChar = await findWritableCharacteristic(server);
+    }
+
+    if (!writeChar) {
+      return {
+        success: false,
+        deviceName: device.name,
+        error: `Could not find a writable ESC/POS channel on ${device.name || 'printer'}. Ensure printer is powered on and in ESC/POS mode.`,
+      };
+    }
+
+    cachedWriteCharacteristic = writeChar;
 
     onStatusUpdate?.(`Printing to ${device.name || 'Everycom Printer'}...`);
 
-    // Stream ESC/POS packets in chunks of 64 bytes (safe for BLE MTU buffers on thermal microcontrollers)
+    // Stream ESC/POS packets in chunks of 64 bytes with 20ms delay (safe for BLE MTU buffers on thermal microcontrollers)
     const CHUNK_SIZE = 64;
     for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
       const chunk = payload.slice(i, i + CHUNK_SIZE);
-      if (writeChar.properties.writeWithoutResponse) {
-        await writeChar.writeValueWithoutResponse(chunk);
-      } else {
-        await writeChar.writeValue(chunk);
+      try {
+        if (writeChar.properties.writeWithoutResponse) {
+          await writeChar.writeValueWithoutResponse(chunk);
+        } else {
+          await writeChar.writeValue(chunk);
+        }
+      } catch (writeErr: any) {
+        console.warn('GATT write failed, attempting auto-reconnect & resume...', writeErr);
+        server = await device.gatt.connect();
+        writeChar = await findWritableCharacteristic(server);
+        cachedWriteCharacteristic = writeChar;
+        if (!writeChar) throw writeErr;
+
+        if (writeChar.properties.writeWithoutResponse) {
+          await writeChar.writeValueWithoutResponse(chunk);
+        } else {
+          await writeChar.writeValue(chunk);
+        }
       }
-      // Small pause to prevent buffer overrun
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
 
@@ -699,14 +773,120 @@ export async function printViaWebBluetooth(
     return { success: true, deviceName: device.name || 'Everycom Printer' };
   } catch (err: any) {
     console.error('Web Bluetooth print error:', err);
-    // Clear cache if connection failed
-    cachedBluetoothDevice = null;
+    // Clear characteristic cache but retain device unless cancelled
     cachedWriteCharacteristic = null;
 
     if (err.name === 'NotFoundError' || err.message?.includes('cancelled')) {
+      cachedBluetoothDevice = null;
       return { success: false, error: 'Printer connection was cancelled.' };
     }
-    return { success: false, error: err.message || 'Bluetooth printing failed.' };
+    return { success: false, error: err.message || 'Bluetooth printing failed. Ensure printer is turned on and in range.' };
+  }
+}
+
+/**
+ * Direct WebUSB Print (Raw ESC/POS at 203 DPI pitch-black quality over USB cable)
+ * Bypasses Windows GDI spooler halftoning so USB print quality is identical to Bluetooth!
+ */
+export async function printViaWebUsb(
+  payload: Uint8Array,
+  onStatusUpdate?: (status: string) => void
+): Promise<{ success: boolean; deviceName?: string; error?: string }> {
+  if (!isWebUsbSupported()) {
+    return {
+      success: false,
+      error: 'WebUSB API is not supported in this browser. Please use Google Chrome or Edge.',
+    };
+  }
+
+  const navUsb = (navigator as any).usb;
+  let device = cachedUsbDevice;
+
+  try {
+    // 1. If device not already opened, request or open
+    if (!device || !device.opened) {
+      onStatusUpdate?.('Connecting to USB Thermal Printer...');
+      // Empty filters allow picking any connected USB printer (Everycom, POS-58, POS-80, TVS, Epson, Xprinter, etc.)
+      device = await navUsb.requestDevice({ filters: [] });
+      if (!device) {
+        return { success: false, error: 'No USB printer device selected.' };
+      }
+
+      onStatusUpdate?.(`Opening ${device.productName || 'USB Thermal Printer'}...`);
+      await device.open();
+    }
+
+    // 2. Select USB Configuration
+    if (device.configuration === null) {
+      await device.selectConfiguration(1);
+    }
+
+    // 3. Find OUT bulk or interrupt endpoint
+    let interfaceNumber = cachedUsbInterfaceNumber;
+    let endpointNumber = cachedUsbEndpointNumber;
+
+    if (endpointNumber === null) {
+      const interfaces = device.configuration?.interfaces || [];
+      for (const iface of interfaces) {
+        for (const alt of iface.alternates || []) {
+          const outEp = alt.endpoints?.find(
+            (ep: any) => ep.direction === 'out' && (ep.type === 'bulk' || ep.type === 'interrupt')
+          );
+          if (outEp) {
+            interfaceNumber = iface.interfaceNumber;
+            endpointNumber = outEp.endpointNumber;
+            break;
+          }
+        }
+        if (endpointNumber !== null) break;
+      }
+    }
+
+    if (endpointNumber === null) {
+      return {
+        success: false,
+        deviceName: device.productName,
+        error: 'No USB OUT data channel found on printer. Ensure the printer is plugged in and switched on.',
+      };
+    }
+
+    // 4. Claim the interface
+    try {
+      await device.claimInterface(interfaceNumber);
+    } catch (claimErr: any) {
+      console.warn('USB interface already claimed or warning:', claimErr);
+    }
+
+    cachedUsbDevice = device;
+    cachedUsbInterfaceNumber = interfaceNumber;
+    cachedUsbEndpointNumber = endpointNumber;
+
+    onStatusUpdate?.(`Streaming ESC/POS to ${device.productName || 'USB Printer'}...`);
+
+    // Stream chunks of 512 bytes over USB bulk endpoint
+    const CHUNK_SIZE = 512;
+    for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
+      const chunk = payload.slice(i, i + CHUNK_SIZE);
+      await device.transferOut(endpointNumber, chunk);
+    }
+
+    onStatusUpdate?.('USB print complete!');
+    return { success: true, deviceName: device.productName || 'USB Thermal Printer' };
+  } catch (err: any) {
+    console.error('WebUSB print error:', err);
+    cachedUsbDevice = null;
+    cachedUsbEndpointNumber = null;
+
+    if (err.name === 'NotFoundError' || err.message?.includes('cancelled') || err.message?.includes('No device selected')) {
+      return { success: false, error: 'USB printer selection was cancelled.' };
+    }
+    if (err.message?.includes('Access denied') || err.message?.includes('Unable to claim interface')) {
+      return {
+        success: false,
+        error: 'USB Port Locked by Windows Driver. To print via USB, switch to "System / Browser" print mode or use WinUSB driver for direct WebUSB.',
+      };
+    }
+    return { success: false, error: err.message || 'USB printing failed.' };
   }
 }
 
@@ -721,4 +901,21 @@ export function disconnectBluetoothPrinter(): void {
   } catch {}
   cachedBluetoothDevice = null;
   cachedWriteCharacteristic = null;
+}
+
+export function forgetBluetoothPrinter(): void {
+  disconnectBluetoothPrinter();
+}
+
+/**
+ * Disconnect and close cached USB printer
+ */
+export function disconnectUsbPrinter(): void {
+  try {
+    if (cachedUsbDevice && cachedUsbDevice.opened) {
+      cachedUsbDevice.close();
+    }
+  } catch {}
+  cachedUsbDevice = null;
+  cachedUsbEndpointNumber = null;
 }

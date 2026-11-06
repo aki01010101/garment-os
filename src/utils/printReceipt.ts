@@ -60,7 +60,10 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
           font-weight: 800 !important;
           color: #000000 !important;
           -webkit-text-stroke: 0.35px #000000;
-          text-shadow: 0 0 0.4px #000000;
+          -webkit-font-smoothing: none !important;
+          font-smooth: never !important;
+          text-rendering: geometricPrecision !important;
+          image-rendering: pixelated !important;
         }
         hr {
           border-top: 1.5px solid #000000 !important;
@@ -147,6 +150,11 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
               box-sizing: border-box;
               margin: 0;
               padding: 0;
+              -webkit-font-smoothing: none !important;
+              font-smooth: never !important;
+              text-rendering: geometricPrecision !important;
+              image-rendering: pixelated !important;
+              color: #000000 !important;
             }
             html, body {
               width: 56mm;
@@ -164,7 +172,7 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
             }
             hr {
               border: 0;
-              border-top: 1px dashed #333;
+              border-top: 1.5px dashed #000000 !important;
               margin: 3px 0;
             }
             .receipt-title {
@@ -173,11 +181,12 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
               text-align: center;
               line-height: 1.15;
               text-transform: uppercase;
+              color: #000000 !important;
             }
             .receipt-sub {
               font-size: 8.5px;
               text-align: center;
-              color: #111;
+              color: #000000 !important;
             }
             .receipt-row {
               display: flex;
@@ -265,7 +274,8 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
               justify-content: space-between !important;
               align-items: baseline !important;
               font-size: 8.5px !important;
-              color: #333333 !important;
+              color: #000000 !important;
+              font-weight: 700 !important;
               margin-top: 2px !important;
               width: 100% !important;
             }

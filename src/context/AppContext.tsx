@@ -2281,6 +2281,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       splitBreakdown,
       notes,
       taxInclusive: defaultInclusive,
+      isCompositionScheme: company.isCompositionScheme ?? false,
       googleReviewUrl: company.googleReviewUrl || storeGoogleReviewUrl,
       cashierName: company.type === 'billed' ? 'Billing Clerk (Reg 1)' : 'Cashier (Counter 2)',
       salesAssociate: selectedAssociate,

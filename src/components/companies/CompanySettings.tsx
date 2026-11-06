@@ -62,6 +62,7 @@ export const CompanySettings: React.FC = () => {
     tagline: 'Retail Clothing Outlet',
     enableDynamicGarmentGst: true,
     taxInclusive: true,
+    isCompositionScheme: false,
     googleReviewUrl: '',
   });
 
@@ -83,6 +84,7 @@ export const CompanySettings: React.FC = () => {
       tagline: 'Fashion Boutique',
       enableDynamicGarmentGst: true,
       taxInclusive: true,
+      isCompositionScheme: false,
       googleReviewUrl: '',
     });
     setIsModalOpen(true);
@@ -94,6 +96,7 @@ export const CompanySettings: React.FC = () => {
       ...comp,
       enableDynamicGarmentGst: comp.enableDynamicGarmentGst ?? true,
       taxInclusive: comp.taxInclusive ?? true,
+      isCompositionScheme: comp.isCompositionScheme ?? false,
       googleReviewUrl: comp.googleReviewUrl || '',
     });
     setIsModalOpen(true);
@@ -165,7 +168,12 @@ export const CompanySettings: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {isBilled && (
+                  {isBilled && comp.isCompositionScheme && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-300">
+                      Composition GST (Bill of Supply)
+                    </span>
+                  )}
+                  {isBilled && !comp.isCompositionScheme && (
                     <span
                       className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
                         comp.taxInclusive !== false
@@ -545,7 +553,60 @@ export const CompanySettings: React.FC = () => {
                     </div>
 
                     {formData.type === 'billed' ? (
-                      <div className="space-y-3">
+                      <div className="space-y-3.5">
+                        {/* GST Registration Scheme (Composition vs Regular) */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-800 block">GST Scheme Type:</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <label
+                              className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                                formData.isCompositionScheme
+                                  ? 'bg-purple-50/70 border-purple-300 ring-1 ring-purple-400 shadow-2xs'
+                                  : 'bg-white border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="isCompositionScheme"
+                                checked={Boolean(formData.isCompositionScheme)}
+                                onChange={() => setFormData({ ...formData, isCompositionScheme: true, taxInclusive: true })}
+                                className="mt-0.5 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                              />
+                              <div>
+                                <div className="font-extrabold text-xs text-purple-950 flex items-center gap-1.5">
+                                  <span>Composition Scheme (Sec 10)</span>
+                                  <span className="text-[9px] bg-purple-200 text-purple-900 font-bold px-1.5 py-0.2 rounded">Recommended</span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                                  Prints as <strong>Bill of Supply</strong> with <strong>"GST: Included in Price"</strong>. Suppresses separate CGST &amp; SGST breakdown lines from customer bills.
+                                </p>
+                              </div>
+                            </label>
+
+                            <label
+                              className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                                !formData.isCompositionScheme
+                                  ? 'bg-indigo-50/70 border-indigo-300 ring-1 ring-indigo-400 shadow-2xs'
+                                  : 'bg-white border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="isCompositionScheme"
+                                checked={!formData.isCompositionScheme}
+                                onChange={() => setFormData({ ...formData, isCompositionScheme: false })}
+                                className="mt-0.5 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                              />
+                              <div>
+                                <div className="font-extrabold text-xs text-slate-900">Regular GST Scheme</div>
+                                <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                                  Standard Tax Invoice with itemized CGST and SGST breakdown lines printed on customer bills.
+                                </p>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+
                         {/* GST Mode Cards */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           <label

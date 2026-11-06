@@ -8,8 +8,12 @@ import { printThermalReceiptHtml } from '../../utils/printReceipt';
 import {
   formatSaleToEscPos,
   printViaWebBluetooth,
+  printViaWebUsb,
   printViaRawBT,
   isWebBluetoothSupported,
+  isWebUsbSupported,
+  disconnectBluetoothPrinter,
+  disconnectUsbPrinter,
 } from '../../utils/escpos';
 import {
   Printer,
@@ -33,6 +37,7 @@ import {
   FileText,
   Sparkles,
   Bluetooth,
+  Usb,
   Zap,
   ExternalLink,
   Loader2,
@@ -86,16 +91,35 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     }
   });
 
-  // Thermal Printer Method: 'bluetooth' (Web Bluetooth) | 'rawbt' (Android 1-Tap) | 'browser' (System Dialog)
-  const [printMethod, setPrintMethod] = useState<'bluetooth' | 'rawbt' | 'browser'>(() => {
+  // Thermal Printer Method: 'bluetooth' | 'usb' | 'rawbt' | 'browser'
+  const [printMethod, setPrintMethod] = useState<'bluetooth' | 'usb' | 'rawbt' | 'browser'>(() => {
     try {
       const saved = localStorage.getItem('thermal_print_method');
-      if (saved === 'bluetooth' || saved === 'rawbt' || saved === 'browser') return saved;
-      return isWebBluetoothSupported() ? 'bluetooth' : 'browser';
+      if (saved === 'bluetooth' || saved === 'usb' || saved === 'rawbt' || saved === 'browser') return saved;
+      return isWebBluetoothSupported() ? 'bluetooth' : isWebUsbSupported() ? 'usb' : 'browser';
     } catch {
       return 'browser';
     }
   });
+
+  // Composition Scheme GST state (default from receipt or active company; can be toggled on receipt)
+  const [isCompositionGst, setIsCompositionGst] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('receipt_composition_gst');
+      if (saved !== null) return saved === 'true';
+    } catch {}
+    return receipt?.isCompositionScheme ?? activeCompany?.isCompositionScheme ?? false;
+  });
+
+  const toggleCompositionGst = () => {
+    setIsCompositionGst((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('receipt_composition_gst', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Paper width: 32 columns (58mm / 2-inch) or 48 columns (80mm / 3-inch)
   const [paperColumns, setPaperColumns] = useState<32 | 48>(() => {
@@ -110,7 +134,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   const [bluetoothStatus, setBluetoothStatus] = useState<string | null>(null);
   const [isBluetoothPrinting, setIsBluetoothPrinting] = useState<boolean>(false);
 
-  const setAndSavePrintMethod = (method: 'bluetooth' | 'rawbt' | 'browser') => {
+  const setAndSavePrintMethod = (method: 'bluetooth' | 'usb' | 'rawbt' | 'browser') => {
     setPrintMethod(method);
     try {
       localStorage.setItem('thermal_print_method', method);
@@ -179,6 +203,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         includeReviewQr,
         reviewUrl: effectiveReviewUrl,
         reviewPromptText: googleReviewPromptText,
+        isCompositionGst,
       });
 
       const res = await printViaWebBluetooth(payload, (status) => setBluetoothStatus(status));
@@ -189,6 +214,37 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
       }
     } catch (err: any) {
       setBluetoothStatus(`❌ ${err.message || 'Bluetooth error'}`);
+    } finally {
+      setIsBluetoothPrinting(false);
+    }
+  };
+
+  const handlePrintUsb = async () => {
+    if (!receipt) return;
+    setIsBluetoothPrinting(true);
+    setBluetoothStatus('Connecting to USB Thermal Printer (ESC/POS)...');
+    try {
+      const payload = formatSaleToEscPos(receipt, {
+        columns: paperColumns,
+        codePrintType,
+        includeInvoiceCode: true,
+        includeUpiQr,
+        storeUpiId,
+        storeUpiName,
+        includeReviewQr,
+        reviewUrl: effectiveReviewUrl,
+        reviewPromptText: googleReviewPromptText,
+        isCompositionGst,
+      });
+
+      const res = await printViaWebUsb(payload, (status) => setBluetoothStatus(status));
+      if (res.success) {
+        setBluetoothStatus(`✅ Printed via USB to ${res.deviceName || 'Thermal Printer'} (203 DPI Dark)!`);
+      } else {
+        setBluetoothStatus(`❌ ${res.error || 'USB Print failed'}`);
+      }
+    } catch (err: any) {
+      setBluetoothStatus(`❌ ${err.message || 'USB print error'}`);
     } finally {
       setIsBluetoothPrinting(false);
     }
@@ -207,6 +263,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
       includeReviewQr,
       reviewUrl: effectiveReviewUrl,
       reviewPromptText: googleReviewPromptText,
+      isCompositionGst,
     });
     const res = printViaRawBT(payload);
     if (res.success) {
@@ -219,6 +276,8 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   const handlePrimaryPrint = () => {
     if (printMethod === 'bluetooth') {
       handlePrintBluetooth();
+    } else if (printMethod === 'usb') {
+      handlePrintUsb();
     } else if (printMethod === 'rawbt') {
       handlePrintRawBT();
     } else {
@@ -238,7 +297,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 ================================
 Store: ${receipt.companyAddress}
 Tel: ${receipt.companyPhone}
-${receipt.companyTaxId && receipt.companyTaxId !== 'RETAIL-CASH-UNREG' ? `GSTIN: ${receipt.companyTaxId}` : 'Retail Cash Memo'}
+${receipt.companyTaxId && receipt.companyTaxId !== 'RETAIL-CASH-UNREG' ? `GSTIN: ${receipt.companyTaxId}${isCompositionGst ? '\n*BILL OF SUPPLY (COMPOSITION SCHEME)*' : ''}` : 'Retail Cash Memo'}
 --------------------------------
 *Invoice:* ${receipt.invoiceNumber}
 *Date:* ${formattedDate}, ${formattedTime}
@@ -249,7 +308,7 @@ ${receipt.items.map((i) => `* ${i.qty}x ${i.name} [Size: ${i.size}, ${i.color}] 
 --------------------------------
 *Subtotal:* Rs. ${receipt.subtotal.toFixed(2)}
 *Total Items:* ${totalItemsCount} pcs
-${receipt.itemDiscountsTotal > 0 ? `*Discount:* -Rs. ${receipt.itemDiscountsTotal.toFixed(2)}\n` : ''}${Boolean(receipt.promoDiscountAmount && receipt.promoDiscountAmount > 0) ? `*Offer/Promo (${receipt.promoTitleApplied || 'Special Deal'}):* -Rs. ${receipt.promoDiscountAmount!.toFixed(2)}\n` : ''}${receipt.loyaltyDiscountAmount > 0 ? `*Loyalty Redeemed:* -Rs. ${receipt.loyaltyDiscountAmount.toFixed(2)}\n` : ''}${Boolean(receipt.couponDiscountAmount && receipt.couponDiscountAmount > 0) ? `*Coupon:* -Rs. ${receipt.couponDiscountAmount!.toFixed(2)}\n` : ''}${Boolean(receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) ? `*Credit Note:* -Rs. ${receipt.creditNoteDiscountAmount!.toFixed(2)}\n` : ''}${receipt.taxTotal > 0 ? `*GST (${receipt.taxInclusive !== false ? 'Included in Price' : 'Added Separately'}):* Rs. ${receipt.taxTotal.toFixed(2)}\n` : ''}*NET PAID:* Rs. ${receipt.grandTotal.toFixed(2)} (${paymentModeLabel})
+${receipt.itemDiscountsTotal > 0 ? `*Discount:* -Rs. ${receipt.itemDiscountsTotal.toFixed(2)}\n` : ''}${Boolean(receipt.promoDiscountAmount && receipt.promoDiscountAmount > 0) ? `*Offer/Promo (${receipt.promoTitleApplied || 'Special Deal'}):* -Rs. ${receipt.promoDiscountAmount!.toFixed(2)}\n` : ''}${receipt.loyaltyDiscountAmount > 0 ? `*Loyalty Redeemed:* -Rs. ${receipt.loyaltyDiscountAmount.toFixed(2)}\n` : ''}${Boolean(receipt.couponDiscountAmount && receipt.couponDiscountAmount > 0) ? `*Coupon:* -Rs. ${receipt.couponDiscountAmount!.toFixed(2)}\n` : ''}${Boolean(receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) ? `*Credit Note:* -Rs. ${receipt.creditNoteDiscountAmount!.toFixed(2)}\n` : ''}${isCompositionGst ? '*GST:* Included in Price\n' : receipt.taxTotal > 0 ? `*GST (${receipt.taxInclusive !== false ? 'Included in Price' : 'Added Separately'}):* Rs. ${receipt.taxTotal.toFixed(2)}\n` : ''}*NET PAID:* Rs. ${receipt.grandTotal.toFixed(2)} (${paymentModeLabel})
 --------------------------------
 ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n--------------------------------\n' : ''}*Return Policy:* ${receipt.companyReturnPolicy}
 *Thank you for shopping with us!*
@@ -380,6 +439,20 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                     <span>{includeUpiQr ? "UPI QR: ON" : "UPI QR: OFF"}</span>
                   </button>
 
+                  {/* Composition GST Mode Toggle */}
+                  <button
+                    type="button"
+                    onClick={toggleCompositionGst}
+                    title="Toggle Composition GST: When ON, suppresses CGST/SGST tax breakdown lines and shows 'GST: Included in Price'"
+                    className={`px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+                      isCompositionGst
+                        ? "bg-purple-700 text-white border-purple-700 shadow-2xs"
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>{isCompositionGst ? "✨ Comp. GST: ON" : "✨ Comp. GST: OFF"}</span>
+                  </button>
+
                   {/* Google Review QR Print Toggle */}
                   {effectiveReviewUrl && (
                     <button
@@ -447,7 +520,14 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                 <div className="receipt-sub mt-0.5">{receipt.companyAddress}</div>
                 <div className="receipt-sub">Ph: {receipt.companyPhone}</div>
                 {receipt.companyTaxId && receipt.companyTaxId !== 'RETAIL-CASH-UNREG' ? (
-                  <div className="receipt-sub font-bold">GSTIN: {receipt.companyTaxId}</div>
+                  <>
+                    <div className="receipt-sub font-bold">GSTIN: {receipt.companyTaxId}</div>
+                    {isCompositionGst && (
+                      <div className="receipt-sub font-extrabold tracking-tight text-[8px] uppercase">
+                        BILL OF SUPPLY (COMPOSITION SCHEME)
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="receipt-sub text-[8px]">RETAIL CASH MEMO</div>
                 )}
@@ -577,17 +657,24 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                   </div>
                 )}
 
-                {receipt.taxTotal > 0 && (
-                  <>
-                    <div className="receipt-row text-[8px] text-neutral-600">
-                      <span>CGST ({receipt.taxInclusive !== false ? 'Included' : 'Added'}):</span>
-                      <span>₹{(receipt.taxTotal / 2).toFixed(2)}</span>
-                    </div>
-                    <div className="receipt-row text-[8px] text-neutral-600">
-                      <span>SGST ({receipt.taxInclusive !== false ? 'Included' : 'Added'}):</span>
-                      <span>₹{(receipt.taxTotal / 2).toFixed(2)}</span>
-                    </div>
-                  </>
+                {isCompositionGst ? (
+                  <div className="receipt-row text-[9px] font-bold text-black py-0.5">
+                    <span>GST:</span>
+                    <span>INCLUDED IN PRICE</span>
+                  </div>
+                ) : (
+                  receipt.taxTotal > 0 && (
+                    <>
+                      <div className="receipt-row text-[8px] text-neutral-600">
+                        <span>CGST ({receipt.taxInclusive !== false ? 'Included' : 'Added'}):</span>
+                        <span>₹{(receipt.taxTotal / 2).toFixed(2)}</span>
+                      </div>
+                      <div className="receipt-row text-[8px] text-neutral-600">
+                        <span>SGST ({receipt.taxInclusive !== false ? 'Included' : 'Added'}):</span>
+                        <span>₹{(receipt.taxTotal / 2).toFixed(2)}</span>
+                      </div>
+                    </>
+                  )
                 )}
 
                 <hr />
@@ -947,8 +1034,8 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                   </div>
                 </div>
 
-                {/* 3 Print Method Selector Pills */}
-                <div className="grid grid-cols-3 gap-2">
+                {/* 4 Print Method Selector Pills */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => setAndSavePrintMethod('bluetooth')}
@@ -967,6 +1054,27 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                     <div className="mt-1.5">
                       <div className="text-xs font-bold text-slate-900 leading-tight">Bluetooth</div>
                       <div className="text-[10px] text-slate-500">Everycom Direct</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAndSavePrintMethod('usb')}
+                    className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                      printMethod === 'usb'
+                        ? 'border-cyan-600 bg-cyan-50/70 ring-1 ring-cyan-500 shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Usb className={`w-4 h-4 ${printMethod === 'usb' ? 'text-cyan-600' : 'text-slate-500'}`} />
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-cyan-100 text-cyan-800">
+                        Dark 203 DPI
+                      </span>
+                    </div>
+                    <div className="mt-1.5">
+                      <div className="text-xs font-bold text-slate-900 leading-tight">USB Direct</div>
+                      <div className="text-[10px] text-slate-500">Raw ESC/POS</div>
                     </div>
                   </button>
 
@@ -1008,9 +1116,43 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                     </div>
                     <div className="mt-1.5">
                       <div className="text-xs font-bold text-slate-900 leading-tight">Browser</div>
-                      <div className="text-[10px] text-slate-500">PC / Mac Dialog</div>
+                      <div className="text-[10px] text-slate-500">Windows Dialog</div>
                     </div>
                   </button>
+                </div>
+
+                {/* Helpful tips & disconnect option */}
+                <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5 px-0.5">
+                  <span>
+                    {printMethod === 'bluetooth' && '⚡ Paired printer auto-reconnects seamlessly on every new bill.'}
+                    {printMethod === 'usb' && '⚡ USB Direct sends native ESC/POS commands with zero Windows spooler halftoning.'}
+                    {printMethod === 'rawbt' && '⚡ Sends invoice intent directly to RawBT driver service.'}
+                    {printMethod === 'browser' && '⚡ Opens Windows Print Spooler with high-contrast zero-dither layout.'}
+                  </span>
+                  {printMethod === 'bluetooth' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        disconnectBluetoothPrinter();
+                        setBluetoothStatus('Bluetooth printer pairing disconnected.');
+                      }}
+                      className="text-indigo-600 hover:text-indigo-800 underline font-semibold cursor-pointer shrink-0 ml-2"
+                    >
+                      Reset Pairing
+                    </button>
+                  )}
+                  {printMethod === 'usb' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        disconnectUsbPrinter();
+                        setBluetoothStatus('USB printer disconnected.');
+                      }}
+                      className="text-cyan-700 hover:text-cyan-900 underline font-semibold cursor-pointer shrink-0 ml-2"
+                    >
+                      Reset USB
+                    </button>
+                  )}
                 </div>
 
                 {/* Status Message */}
@@ -1045,6 +1187,8 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                 className={`w-full sm:w-auto px-6 py-2.5 text-xs font-extrabold text-white rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer disabled:opacity-50 ${
                   printMethod === 'bluetooth'
                     ? 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 shadow-indigo-600/25'
+                    : printMethod === 'usb'
+                    ? 'bg-cyan-700 hover:bg-cyan-800 active:bg-cyan-900 shadow-cyan-700/25'
                     : printMethod === 'rawbt'
                     ? 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800 shadow-amber-600/25'
                     : 'bg-slate-900 hover:bg-slate-800 active:bg-black shadow-slate-900/20'
@@ -1053,12 +1197,17 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                 {isBluetoothPrinting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>Connecting Everycom...</span>
+                    <span>Communicating with Printer...</span>
                   </>
                 ) : printMethod === 'bluetooth' ? (
                   <>
                     <Bluetooth className="w-4 h-4 text-white" />
                     <span>Print via Bluetooth (Everycom)</span>
+                  </>
+                ) : printMethod === 'usb' ? (
+                  <>
+                    <Usb className="w-4 h-4 text-white" />
+                    <span>Print via USB (ESC/POS Direct)</span>
                   </>
                 ) : printMethod === 'rawbt' ? (
                   <>
