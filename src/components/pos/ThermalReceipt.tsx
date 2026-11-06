@@ -18,6 +18,7 @@ import {
   detectLocalPrinters,
   disconnectBluetoothPrinter,
   disconnectUsbPrinter,
+  EscPosBuilder,
 } from '../../utils/escpos';
 import {
   Printer,
@@ -200,9 +201,94 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     }
   };
 
-  const handlePrintTailorSlip = () => {
-    if (tailorSlipRef.current) {
-      printThermalReceiptHtml(tailorSlipRef.current.innerHTML, isBoldThermal);
+  const handlePrintTailorSlip = async () => {
+    if (!receipt) return;
+    if (printMethod === 'browser') {
+      if (tailorSlipRef.current) {
+        printThermalReceiptHtml(tailorSlipRef.current.innerHTML, isBoldThermal);
+      }
+      return;
+    }
+
+    const alterationItems = receipt.items.filter((i) => i.alteration?.needed);
+    if (alterationItems.length === 0) return;
+
+    setIsBluetoothPrinting(true);
+    setBluetoothStatus(`Printing ${alterationItems.length} tailor tag(s)...`);
+
+    try {
+      const builder = new EscPosBuilder(paperColumns);
+      builder.initialize();
+
+      alterationItems.forEach((item, idx) => {
+        builder.bold(true).align('center');
+        builder.line((receipt.companyName || 'STORE').toUpperCase());
+        builder.line('TAILOR ALTERATION SLIP');
+        builder.bold(false).line('ATTACH SECURELY TO GARMENT');
+        builder.separator('=');
+
+        builder.align('left');
+        builder.twoColumnRow('BILL NO:', receipt.invoiceNumber, true);
+        builder.twoColumnRow('CUSTOMER:', receipt.customerName);
+        if (receipt.customerPhone && receipt.customerPhone !== 'N/A') {
+          builder.twoColumnRow('PHONE:', receipt.customerPhone);
+        }
+        builder.twoColumnRow('DATE:', formattedDate);
+        builder.separator('-');
+
+        builder.bold(true).line(item.name).bold(false);
+        builder.line(`Size: ${item.size}  |  Color: ${item.color}`);
+        builder.separator('-');
+
+        builder.bold(true).line('ALTERATION INSTRUCTIONS:');
+        builder.line(item.alteration?.notes || 'Standard fitting');
+        builder.bold(false);
+        builder.separator('-');
+
+        if (item.alteration?.promisedDate) {
+          builder.align('center').bold(true).textSize('double-height');
+          builder.line(`READY BY: ${item.alteration.promisedDate}`);
+          builder.textSize('normal').bold(false);
+          builder.separator('-');
+        }
+
+        builder.align('center');
+        builder.barcode128(receipt.invoiceNumber.replace(/[^0-9A-Z]/gi, ''), 30, true);
+        builder.feed(1);
+        builder.bold(true).line('*** STAPLE TO GARMENT ***').bold(false);
+
+        if (idx < alterationItems.length - 1) {
+          builder.feed(3);
+        } else {
+          builder.feed(3);
+          builder.cut();
+        }
+      });
+
+      const payload = builder.build();
+
+      if (printMethod === 'usb') {
+        const res = await printViaWebUsb(payload, (status) => setBluetoothStatus(status));
+        if (res.success) {
+          setBluetoothStatus(`✅ Printed ${alterationItems.length} tailor tag(s) via USB (203 DPI Dark)!`);
+        } else {
+          setBluetoothStatus(`❌ USB Print Error: ${res.error}`);
+        }
+      } else if (printMethod === 'bluetooth') {
+        const res = await printViaWebBluetooth(payload, (status) => setBluetoothStatus(status));
+        if (res.success) {
+          setBluetoothStatus(`✅ Printed ${alterationItems.length} tailor tag(s) via Bluetooth!`);
+        } else {
+          setBluetoothStatus(`❌ Bluetooth Print Error: ${res.error}`);
+        }
+      } else if (printMethod === 'rawbt') {
+        printViaRawBT(payload);
+        setBluetoothStatus(`⚡ Sent ${alterationItems.length} tailor tag(s) to RawBT app!`);
+      }
+    } catch (err: any) {
+      setBluetoothStatus(`❌ ${err.message || 'Failed to print tailor slip'}`);
+    } finally {
+      setIsBluetoothPrinting(false);
     }
   };
 

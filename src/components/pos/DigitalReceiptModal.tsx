@@ -1,12 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import QRCode from 'qrcode';
 import { SaleTransaction } from '../../types';
-import { printThermalReceiptHtml } from '../../utils/printReceipt';
 import {
   QrCode,
   X,
   Share2,
-  Printer,
   Star,
   CheckCircle2,
   ExternalLink,

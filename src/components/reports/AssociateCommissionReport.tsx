@@ -134,7 +134,7 @@ export const AssociateCommissionReport: React.FC = () => {
           <div style="border-top: 1px solid #000; width: 45%; padding-top: 2px;">Manager Sign</div>
           <div style="border-top: 1px solid #000; width: 45%; padding-top: 2px;">Associate Sign</div>
         </div>
-        <div style="font-size: 7px; margin-top: 8px; text-align: center;">Garment OS Commission & Payroll Module</div>
+        <div style="font-size: 7px; margin-top: 8px; text-align: center;">${(activeCompany?.name || 'Store').toUpperCase()} Payroll & Commission</div>
       </div>
     `;
 

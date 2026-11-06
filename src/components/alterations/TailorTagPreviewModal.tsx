@@ -1,8 +1,14 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { AlterationRecord } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { printThermalReceiptHtml } from '../../utils/printReceipt';
+import {
+  formatTailorSlipToEscPos,
+  printViaWebUsb,
+  printViaWebBluetooth,
+  detectLocalPrinters,
+} from '../../utils/escpos';
 import {
   Printer,
   X,
@@ -10,6 +16,11 @@ import {
   Check,
   Scissors,
   Receipt,
+  Bluetooth,
+  Usb,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
 } from 'lucide-react';
 
 interface TailorTagPreviewModalProps {
@@ -26,17 +37,74 @@ export const TailorTagPreviewModal: React.FC<TailorTagPreviewModalProps> = ({
   const { activeCompany } = useApp();
   const receiptRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  const [printMethod, setPrintMethod] = useState<'usb' | 'bluetooth' | 'browser'>(() => {
+    return (localStorage.getItem('default_printer_type') as any) || 'usb';
+  });
+  const [printStatus, setPrintStatus] = useState<string | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [detectedHardware, setDetectedHardware] = useState<{ printers: any[]; ports: any[] }>({
+    printers: [],
+    ports: [],
+  });
+
+  useEffect(() => {
+    detectLocalPrinters().then((hw) => {
+      setDetectedHardware(hw);
+    });
+  }, []);
+
+  const setAndSavePrintMethod = (method: 'usb' | 'bluetooth' | 'browser') => {
+    setPrintMethod(method);
+    localStorage.setItem('default_printer_type', method);
+  };
 
   if (!isOpen || !alteration) return null;
 
-  const firmName = (activeCompany?.name || 'Garment OS Apparel').toUpperCase();
+  const firmName = (activeCompany?.name || 'Store Apparel').toUpperCase();
 
-  const handlePrint = () => {
-    if (receiptRef.current) {
-      printThermalReceiptHtml(receiptRef.current.innerHTML);
-    } else {
-      window.focus();
-      window.print();
+  const handlePrint = async () => {
+    if (printMethod === 'browser') {
+      if (receiptRef.current) {
+        printThermalReceiptHtml(receiptRef.current.innerHTML);
+      } else {
+        window.focus();
+        window.print();
+      }
+      return;
+    }
+
+    setIsPrinting(true);
+    setPrintStatus(
+      printMethod === 'usb'
+        ? 'Connecting to USB Thermal Printer (203 DPI Dark)...'
+        : 'Connecting to Bluetooth Printer (COM4 / SPP)...'
+    );
+
+    try {
+      const payload = formatTailorSlipToEscPos(alteration, {
+        columns: 32,
+        companyName: firmName,
+      });
+
+      if (printMethod === 'usb') {
+        const res = await printViaWebUsb(payload, (status) => setPrintStatus(status));
+        if (res.success) {
+          setPrintStatus(`✅ Printed Tailor Tag via USB (203 DPI Pitch-Black)!`);
+        } else {
+          setPrintStatus(`❌ USB Print Error: ${res.error}`);
+        }
+      } else if (printMethod === 'bluetooth') {
+        const res = await printViaWebBluetooth(payload, (status) => setPrintStatus(status));
+        if (res.success) {
+          setPrintStatus(`✅ Printed Tailor Tag via Bluetooth!`);
+        } else {
+          setPrintStatus(`❌ Bluetooth Print Error: ${res.error}`);
+        }
+      }
+    } catch (err: any) {
+      setPrintStatus(`❌ ${err.message || 'Printing failed'}`);
+    } finally {
+      setIsPrinting(false);
     }
   };
 
@@ -163,6 +231,87 @@ export const TailorTagPreviewModal: React.FC<TailorTagPreviewModalProps> = ({
           </div>
         </div>
 
+        {/* Print Method Selector & Status Bar */}
+        <div className="px-5 py-2.5 bg-slate-50 border-t border-slate-200 space-y-2">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-bold text-slate-700 flex items-center gap-1">
+              <Printer className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Printer Output:</span>
+            </span>
+            {(detectedHardware.printers.length > 0 || detectedHardware.ports.length > 0) && (
+              <span className="text-[10px] text-emerald-800 font-medium flex items-center gap-1 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                {detectedHardware.printers.length > 0 ? detectedHardware.printers[0].Name : detectedHardware.ports[0].DeviceID}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-1.5">
+            <button
+              type="button"
+              onClick={() => setAndSavePrintMethod('usb')}
+              className={`py-1.5 px-2 rounded-lg border text-center transition-all cursor-pointer ${
+                printMethod === 'usb'
+                  ? 'border-cyan-600 bg-cyan-50/80 text-cyan-900 font-bold ring-1 ring-cyan-500'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-1 text-[11px]">
+                <Usb className="w-3 h-3 text-cyan-600" />
+                <span>USB 203 DPI</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAndSavePrintMethod('bluetooth')}
+              className={`py-1.5 px-2 rounded-lg border text-center transition-all cursor-pointer ${
+                printMethod === 'bluetooth'
+                  ? 'border-indigo-600 bg-indigo-50/80 text-indigo-900 font-bold ring-1 ring-indigo-500'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-1 text-[11px]">
+                <Bluetooth className="w-3 h-3 text-indigo-600" />
+                <span>Bluetooth</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAndSavePrintMethod('browser')}
+              className={`py-1.5 px-2 rounded-lg border text-center transition-all cursor-pointer ${
+                printMethod === 'browser'
+                  ? 'border-slate-800 bg-slate-100 text-slate-900 font-bold ring-1 ring-slate-800'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-1 text-[11px]">
+                <Printer className="w-3 h-3 text-slate-700" />
+                <span>Browser</span>
+              </div>
+            </button>
+          </div>
+
+          {printStatus && (
+            <div className={`p-1.5 rounded-lg border text-[10px] flex items-center justify-between gap-1.5 ${
+              printStatus.startsWith('✅')
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-900 font-semibold'
+                : printStatus.startsWith('❌')
+                ? 'bg-rose-50 border-rose-200 text-rose-800'
+                : 'bg-indigo-50 border-indigo-200 text-indigo-900 animate-pulse'
+            }`}>
+              <span className="truncate">{printStatus}</span>
+              <button
+                onClick={() => setPrintStatus(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Modal Actions */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
           <button
@@ -191,10 +340,29 @@ export const TailorTagPreviewModal: React.FC<TailorTagPreviewModalProps> = ({
             </button>
             <button
               onClick={handlePrint}
-              className="px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+              disabled={isPrinting}
+              className={`px-4 py-1.5 text-xs font-semibold text-white rounded-lg flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer ${
+                printMethod === 'usb'
+                  ? 'bg-cyan-700 hover:bg-cyan-800 disabled:bg-slate-300'
+                  : printMethod === 'bluetooth'
+                  ? 'bg-indigo-700 hover:bg-indigo-800 disabled:bg-slate-300'
+                  : 'bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300'
+              }`}
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Print Tag</span>
+              {isPrinting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : printMethod === 'usb' ? (
+                <Usb className="w-3.5 h-3.5" />
+              ) : printMethod === 'bluetooth' ? (
+                <Bluetooth className="w-3.5 h-3.5" />
+              ) : (
+                <Printer className="w-3.5 h-3.5" />
+              )}
+              <span>
+                {isPrinting
+                  ? 'Printing...'
+                  : `Print (${printMethod === 'usb' ? 'USB' : printMethod === 'bluetooth' ? 'Bluetooth' : 'Dialog'})`}
+              </span>
             </button>
           </div>
         </div>

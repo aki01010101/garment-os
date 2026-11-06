@@ -7,7 +7,7 @@
  * - 58mm (32 columns) and 80mm (48 columns) paper roll formats.
  */
 
-import { SaleTransaction } from '../types';
+import { SaleTransaction, AlterationRecord, CreditNote } from '../types';
 import { buildUpiPaymentUri } from './upi';
 
 export interface EscPosOptions {
@@ -1170,6 +1170,266 @@ export function formatPriceTagsToEscPos(
       builder.feed(3);
     }
   });
+
+  return builder.build();
+}
+
+/**
+ * Format Store Credit Note voucher to native ESC/POS binary commands (58mm/80mm roll).
+ * Delivers pitch-black 203 DPI printing via USB or Bluetooth with full-size barcode.
+ */
+export function formatCreditNoteToEscPos(
+  creditNote: CreditNote,
+  options?: { columns?: 32 | 48 }
+): Uint8Array {
+  const columns = options?.columns || 32;
+  const builder = new EscPosBuilder(columns);
+  builder.initialize();
+
+  // Header
+  builder.bold(true).align('center');
+  builder.line((creditNote.companyName || 'STORE').toUpperCase());
+  builder.line('STORE CREDIT VOUCHER');
+  builder.bold(false).line('RETAIL CUSTOMER EXCHANGE');
+  builder.separator('=');
+
+  // Voucher Details
+  builder.align('left');
+  builder.twoColumnRow('VOUCHER NO:', creditNote.code, true);
+  builder.twoColumnRow('ISSUED:', creditNote.issuedDate);
+  builder.twoColumnRow('VALID UNTIL:', creditNote.expiryDate, true);
+  builder.twoColumnRow('ORIGINAL BILL:', creditNote.originalInvoiceNumber);
+  builder.twoColumnRow('CUSTOMER:', creditNote.customerName);
+  if (creditNote.customerPhone && creditNote.customerPhone !== 'N/A') {
+    builder.twoColumnRow('PHONE:', creditNote.customerPhone);
+  }
+  builder.separator('-');
+
+  // Credit Value (Prominent Bold Center)
+  builder.align('center');
+  builder.line('STORE CREDIT VALUE');
+  builder.bold(true).textSize('double-height');
+  builder.line(`Rs. ${creditNote.amount.toFixed(2)}`);
+  builder.textSize('normal').bold(false);
+  if (creditNote.remainingAmount !== creditNote.amount) {
+    builder.line(`(Remaining: Rs. ${creditNote.remainingAmount.toFixed(2)})`);
+  }
+  builder.separator('-');
+
+  // Returned Items
+  builder.align('left').bold(true).line('RETURNED MERCHANDISE:').bold(false);
+  creditNote.itemsReturned.forEach((item) => {
+    builder.twoColumnRow(item.productName, `Rs. ${item.amount.toFixed(2)}`, true);
+    const details = [
+      item.size ? `Size: ${item.size}` : '',
+      item.color ? `Color: ${item.color}` : '',
+      `Qty: ${item.qty}`,
+    ].filter(Boolean).join('  |  ');
+    if (details) builder.line(details);
+    if (item.reason) builder.line(`Reason: ${item.reason}`);
+  });
+  builder.separator('-');
+
+  // Barcode / Code
+  const barcodeValue = creditNote.code.replace(/[^0-9A-Z]/gi, '');
+  builder.align('center');
+  builder.barcode128(barcodeValue, 36, true);
+  builder.feed(1);
+
+  // Policy & Footer Notice
+  builder.line('Present voucher at checkout to redeem.');
+  builder.line('Non-refundable for cash.');
+  builder.bold(true);
+  builder.line(`*** ${(creditNote.companyName || 'STORE').toUpperCase()} STORE CREDIT ***`);
+  builder.bold(false);
+  builder.feed(3);
+  builder.cut();
+
+  return builder.build();
+}
+
+/**
+ * Format Garment Alteration Workshop Ticket / Tailor Tag to native ESC/POS binary commands.
+ * Delivers pitch-black 203 DPI printing via USB or Bluetooth to staple on garments.
+ */
+export function formatTailorSlipToEscPos(
+  alteration: AlterationRecord,
+  options?: { columns?: 32 | 48; companyName?: string }
+): Uint8Array {
+  const columns = options?.columns || 32;
+  const company = (options?.companyName || 'ALTERATION WORKSHOP').toUpperCase();
+  const builder = new EscPosBuilder(columns);
+  builder.initialize();
+
+  // Header
+  builder.bold(true).align('center');
+  builder.line(company);
+  builder.line('ALTERATION JOB TICKET');
+  builder.bold(false).line('ATTACH SECURELY TO GARMENT');
+  builder.separator('=');
+
+  // Job Details
+  builder.align('left');
+  builder.twoColumnRow('JOB NO:', `#${alteration.id.slice(-6)}`, true);
+  builder.twoColumnRow('BOOKED:', alteration.createdDate);
+  builder.separator('-');
+
+  // Garment Details (Normal size styling)
+  builder.bold(true).line(alteration.garmentName).bold(false);
+  const sizeColor = [
+    alteration.size ? `Size: ${alteration.size}` : '',
+    alteration.color ? `Color: ${alteration.color}` : '',
+  ].filter(Boolean).join('  |  ');
+  if (sizeColor) builder.line(sizeColor);
+
+  if (alteration.customerName) {
+    builder.twoColumnRow('CUSTOMER:', alteration.customerName);
+  }
+  if (alteration.customerPhone && alteration.customerPhone !== 'N/A') {
+    builder.twoColumnRow('PHONE:', alteration.customerPhone);
+  }
+  builder.separator('-');
+
+  // Alteration Instructions Box
+  builder.bold(true).line('ALTERATION INSTRUCTIONS:');
+  builder.line(alteration.alterationNotes);
+  builder.bold(false);
+  builder.separator('-');
+
+  // Promised Date (Prominent)
+  builder.align('center');
+  builder.bold(true).textSize('double-height');
+  builder.line(`READY BY: ${alteration.promisedDate}`);
+  builder.textSize('normal').bold(false);
+  builder.separator('-');
+
+  // Barcode
+  const barcodeValue = `ALT${alteration.id.slice(-6)}`;
+  builder.align('center');
+  builder.barcode128(barcodeValue, 32, true);
+  builder.feed(1);
+
+  builder.bold(true).line('*** STAPLE TO GARMENT ***').bold(false);
+  builder.feed(3);
+  builder.cut();
+
+  return builder.build();
+}
+
+export interface ZReportEscPosData {
+  dayRegister: {
+    date: string;
+    status: string;
+    openingCash: number;
+    closingCashCounted?: number;
+    closingNotes?: string;
+    expenses?: Array<{ time: string; amount: number; category: string; paidTo: string; notes: string }>;
+    cashDrops?: Array<{ time: string; amount: number; droppedBy: string; notes?: string }>;
+  };
+  companyName: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyTaxId?: string;
+  printTimestamp: string;
+  todaySalesCount: number;
+  salesTotals: {
+    cash: number;
+    upi: number;
+    card: number;
+    grandTotal: number;
+    taxTotal: number;
+  };
+  expectedCashInDrawer: number;
+  actualCounted?: number;
+  discrepancy?: number;
+  totalPettyExpenses: number;
+  totalCashDrops?: number;
+}
+
+/**
+ * Format Day-End Register Z-Report to native ESC/POS binary commands.
+ * Delivers pitch-black 203 DPI printing via USB or Bluetooth with full cashier audit log.
+ */
+export function formatZReportToEscPos(
+  data: ZReportEscPosData,
+  options?: { columns?: 32 | 48 }
+): Uint8Array {
+  const columns = options?.columns || 32;
+  const builder = new EscPosBuilder(columns);
+  builder.initialize();
+
+  // Header
+  builder.bold(true).align('center');
+  builder.line(data.companyName.toUpperCase());
+  builder.line('DAY-END REGISTER Z-REPORT');
+  builder.bold(false);
+  if (data.companyAddress) builder.line(data.companyAddress);
+  if (data.companyPhone) builder.line(`Tel: ${data.companyPhone}`);
+  if (data.companyTaxId && data.companyTaxId !== 'RETAIL-CASH-UNREG') {
+    builder.line(`GSTIN: ${data.companyTaxId}`);
+  }
+  builder.separator('=');
+
+  // Metadata
+  builder.align('left');
+  builder.twoColumnRow('DATE:', data.dayRegister.date);
+  builder.twoColumnRow('PRINTED:', data.printTimestamp);
+  builder.twoColumnRow('REGISTER:', data.dayRegister.status.toUpperCase(), true);
+  builder.twoColumnRow('TRANSACTIONS:', `${data.todaySalesCount} completed`, true);
+  builder.separator('-');
+
+  // Tender Breakdown
+  builder.bold(true).line('SALES BY TENDER:').bold(false);
+  builder.twoColumnRow('CASH SALES:', `Rs. ${data.salesTotals.cash.toFixed(2)}`);
+  builder.twoColumnRow('UPI SALES:', `Rs. ${data.salesTotals.upi.toFixed(2)}`);
+  builder.twoColumnRow('CARD SALES:', `Rs. ${data.salesTotals.card.toFixed(2)}`);
+  builder.separator('-');
+  builder.bold(true);
+  builder.twoColumnRow('TOTAL REVENUE:', `Rs. ${data.salesTotals.grandTotal.toFixed(2)}`, true);
+  builder.bold(false);
+  builder.separator('-');
+
+  // Cash Drawer Reconciliation
+  builder.bold(true).line('CASH DRAWER RECONCILIATION:').bold(false);
+  builder.twoColumnRow('OPENING FLOAT:', `Rs. ${data.dayRegister.openingCash.toFixed(2)}`);
+  builder.twoColumnRow('(+) CASH IN:', `+Rs. ${data.salesTotals.cash.toFixed(2)}`);
+  builder.twoColumnRow('(-) PETTY OUT:', `-Rs. ${data.totalPettyExpenses.toFixed(2)}`);
+  if (data.totalCashDrops && data.totalCashDrops > 0) {
+    builder.twoColumnRow('(-) SAFE SKIMS:', `-Rs. ${data.totalCashDrops.toFixed(2)}`);
+  }
+  builder.separator('-');
+  builder.bold(true);
+  builder.twoColumnRow('EXPECTED IN DRAWER:', `Rs. ${data.expectedCashInDrawer.toFixed(2)}`, true);
+  if (data.actualCounted !== undefined) {
+    builder.twoColumnRow('ACTUAL COUNTED:', `Rs. ${data.actualCounted.toFixed(2)}`, true);
+    const diff = data.discrepancy !== undefined ? data.discrepancy : (data.actualCounted - data.expectedCashInDrawer);
+    const diffStr = diff >= 0 ? `+Rs. ${diff.toFixed(2)} (OVER)` : `-Rs. ${Math.abs(diff).toFixed(2)} (SHORT)`;
+    builder.twoColumnRow('VARIANCE:', diffStr, true);
+  }
+  builder.bold(false);
+  builder.separator('-');
+
+  // Petty Expenses
+  const expenses = data.dayRegister.expenses || [];
+  if (expenses.length > 0) {
+    builder.bold(true).line(`PETTY OUTLAYS (${expenses.length}):`).bold(false);
+    expenses.forEach((e) => {
+      builder.twoColumnRow(`${e.time} ${e.category}`, `Rs. ${e.amount.toFixed(2)}`);
+      if (e.notes) builder.line(`  Note: ${e.notes}`);
+    });
+    builder.separator('-');
+  }
+
+  // Barcode
+  const barcodeValue = `ZREP${data.dayRegister.date.replace(/-/g, '')}`;
+  builder.align('center');
+  builder.barcode128(barcodeValue, 28, true);
+  builder.feed(1);
+
+  builder.line('VERIFIED BY CASHIER & STORE MANAGER');
+  builder.bold(true).line('*** END OF Z-REPORT ***').bold(false);
+  builder.feed(3);
+  builder.cut();
 
   return builder.build();
 }

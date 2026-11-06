@@ -225,7 +225,7 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
           <div style="border-top: 1px solid #000; width: 45%; padding-top: 2px;">Dispatch Sign</div>
           <div style="border-top: 1px solid #000; width: 45%; padding-top: 2px;">Receiver Sign</div>
         </div>
-        <div style="font-size: 7px; margin-top: 8px; text-align: center;">Garment OS Multi-Branch Logistics</div>
+        <div style="font-size: 7px; margin-top: 8px; text-align: center;">${(activeCompany?.name || 'Retail').toUpperCase()} Logistics</div>
       </div>
     `;
 

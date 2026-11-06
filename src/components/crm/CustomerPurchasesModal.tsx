@@ -39,7 +39,7 @@ export const CustomerPurchasesModal: React.FC<CustomerPurchasesModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { sales, companies, loyaltyConfig, setActiveReceipt, setIsReceiptModalOpen } = useApp();
+  const { sales, companies, loyaltyConfig, setActiveReceipt, setIsReceiptModalOpen, activeCompany } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEntity, setSelectedEntity] = useState<string>('all');
@@ -91,10 +91,10 @@ export const CustomerPurchasesModal: React.FC<CustomerPurchasesModalProps> = ({
     let url = '';
     if (sale) {
       const itemsList = sale.items.map((i) => `• ${i.name} (${i.size}, ${i.color}) x${i.qty} = ₹${i.total.toFixed(0)}`).join('\n');
-      const text = `*Invoice ${sale.invoiceNumber} - ${sale.companyName}*\nDate: ${new Date(sale.date).toLocaleDateString('en-IN')}\nCustomer: ${sale.customerName}\n\n*Items Purchased:*\n${itemsList}\n\n*Net Total: ₹${sale.grandTotal.toFixed(2)}* (${sale.paymentMode})\nThank you for shopping at Garment OS!`;
+      const text = `*Invoice ${sale.invoiceNumber} - ${sale.companyName}*\nDate: ${new Date(sale.date).toLocaleDateString('en-IN')}\nCustomer: ${sale.customerName}\n\n*Items Purchased:*\n${itemsList}\n\n*Net Total: ₹${sale.grandTotal.toFixed(2)}* (${sale.paymentMode})\nThank you for shopping at ${sale.companyName || 'our store'}!`;
       url = `https://wa.me/91${customer.phone}?text=${encodeURIComponent(text)}`;
     } else {
-      url = `https://wa.me/91${customer.phone}?text=${buildCustomerWhatsAppSummary(customer, metrics)}`;
+      url = `https://wa.me/91${customer.phone}?text=${buildCustomerWhatsAppSummary(customer, metrics, activeCompany?.name)}`;
     }
     window.open(url, '_blank');
   };

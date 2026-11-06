@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { SaleTransaction, CreditNote, CreditNoteItem } from '../../types';
-import { printThermalReceiptHtml } from '../../utils/printReceipt';
 import { CreditNotePreviewModal } from './CreditNotePreviewModal';
 import {
   RotateCcw,

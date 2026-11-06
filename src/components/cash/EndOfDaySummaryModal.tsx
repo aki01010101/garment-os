@@ -236,7 +236,7 @@ ${
     : '• ACTUAL COUNTED CASH:   [Pending Evening Closing]'
 }
 ========================================
-Printed from Garment OS Terminal
+Printed from ${activeCompany?.name || 'Store'} Terminal
     `.trim();
   };
 

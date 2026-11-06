@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { AlterationRecord } from '../../types';
-import { printThermalReceiptHtml } from '../../utils/printReceipt';
 import { TailorTagPreviewModal } from './TailorTagPreviewModal';
 import { AlterationNotifyModal } from './AlterationNotifyModal';
 import {

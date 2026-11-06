@@ -139,10 +139,12 @@ export function computeCustomerSpendMetrics(
  */
 export function buildCustomerWhatsAppSummary(
   customer: Customer,
-  metrics: CustomerSpendMetrics
+  metrics: CustomerSpendMetrics,
+  storeName?: string
 ): string {
   const vipText = metrics.isVip ? '👑 *VIP Status:* Active Member' : 'Tier: Valued Retail Shopper';
-  const text = `*Customer Statement - Garment OS Retail*
+  const name = storeName || 'Our Store';
+  const text = `*Customer Statement - ${name}*
 Dear ${customer.name},
 Thank you for shopping with us! Here is your current purchase summary:
 
@@ -152,7 +154,7 @@ ${vipText}
 • *Lifetime Spend:* ₹${metrics.lifetimeSpend.toLocaleString('en-IN')}
 • *Reward Points:* ${customer.loyaltyPoints} pts (Worth ₹${customer.loyaltyPoints})
 
-Visit us soon at Garment OS!`;
+Visit us soon at ${name}!`;
 
   return encodeURIComponent(text);
 }
