@@ -1209,20 +1209,28 @@ export interface PriceTagItem {
   contactNumber?: string;
   codeType?: 'barcode' | 'qr';
   saleOfferPercentage?: number;
+  rollSize?: '50x25' | '50x32';
 }
 
 /**
- * Render an apparel price tag (50mm x 32mm) onto an HTML5 Canvas at 203 DPI (384 x 240 px).
+ * Render an apparel price tag (50mm x 25mm or 50mm x 32mm) onto an HTML5 Canvas at 203 DPI.
+ * Standard 50x25mm uses 384 x 192 px; 50x32mm uses 384 x 240 px.
  * Matches the live screen UI preview pixel-for-pixel:
  * - Brand Name & Contact Number header with divider line
  * - Garment Name, Category, and Color
  * - Left: 2D QR Code (or 1D Barcode) with scannable modules and code string underneath
  * - Right: Size (clean text display), Price label, big selling price (or strikethrough original + discounted price), and (INCL. TAXES)
  */
-export function renderTagToCanvas(tag: PriceTagItem): HTMLCanvasElement {
+export function renderTagToCanvas(
+  tag: PriceTagItem,
+  options?: { rollSize?: '50x25' | '50x32' }
+): HTMLCanvasElement {
+  const rollSize = options?.rollSize || tag.rollSize || '50x25';
+  const is25mm = rollSize === '50x25';
+
   const canvas = document.createElement('canvas');
   canvas.width = 384; // 48mm printable width at 203 DPI (8 dots/mm)
-  canvas.height = 240; // 30mm height at 203 DPI (fits comfortably inside 32mm sticker)
+  canvas.height = is25mm ? 192 : 240; // 24mm height for 50x25, 30mm height for 50x32
   const ctx = canvas.getContext('2d');
   if (!ctx) return canvas;
 
@@ -1247,8 +1255,180 @@ export function renderTagToCanvas(tag: PriceTagItem): HTMLCanvasElement {
       ? Math.round(product.sellingPrice * (1 - saleOfferPercentage / 100))
       : product.sellingPrice;
 
-  const leftX = 12;
-  const rightX = 372;
+  const leftX = 10;
+  const rightX = 374;
+
+  if (is25mm) {
+    // 50mm x 25mm Compact Layout (192 dots height)
+
+    // 1. TOP HEADER: Brand Title (left) & Phone Number (right)
+    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText((brandTitle || 'FANTASY').toUpperCase(), leftX, 3);
+
+    ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(contactNumber, rightX, 5);
+
+    // Top header rule
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(leftX, 19);
+    ctx.lineTo(rightX, 19);
+    ctx.stroke();
+
+    // 2. PRODUCT NAME (Bold, single line, truncated with ellipsis if exceeding label width)
+    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.textAlign = 'left';
+    let name = product.name || 'Apparel Item';
+    const maxNameWidth = rightX - leftX;
+    if (ctx.measureText(name).width > maxNameWidth) {
+      while (ctx.measureText(name + '...').width > maxNameWidth && name.length > 3) {
+        name = name.slice(0, -1);
+      }
+      name = name + '...';
+    }
+    ctx.fillText(name, leftX, 22);
+
+    // 3. CATEGORY & COLOR
+    const catParts = [product.category, product.subCategory].filter((c) => c && c !== 'General');
+    const catText = (catParts.length > 0 ? catParts.join(' · ') : 'GARMENT').toUpperCase();
+    ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.fillText(catText, leftX, 38);
+
+    if (product.color) {
+      ctx.font = 'bold 10px "JetBrains Mono", Courier, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(product.color, rightX, 38);
+    }
+
+    // Subheader dividing rule
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(leftX, 50);
+    ctx.lineTo(rightX, 50);
+    ctx.stroke();
+
+    // 4. BOTTOM SPLIT (y = 53 to 188)
+    const codeValue = (product.barcode || product.sku || '000000').trim();
+
+    if (codeType === 'qr') {
+      try {
+        const qr = QRCode.create(codeValue, { errorCorrectionLevel: 'M' });
+        const size = qr.modules.size;
+        const targetSize = 88;
+        const cellSize = Math.floor(targetSize / size);
+        const actualSize = cellSize * size;
+        const qrStartX = leftX + 4;
+        const qrStartY = 54;
+
+        ctx.fillStyle = '#000000';
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (qr.modules.get(r, c)) {
+              ctx.fillRect(qrStartX + c * cellSize, qrStartY + r * cellSize, cellSize, cellSize);
+            }
+          }
+        }
+
+        // Center text under QR code
+        ctx.font = 'bold 10px "JetBrains Mono", Courier, monospace';
+        ctx.textAlign = 'center';
+        const textCenterX = qrStartX + Math.floor(actualSize / 2);
+        ctx.fillText(codeValue, textCenterX, qrStartY + actualSize + 4);
+      } catch (err) {
+        console.warn('QR canvas render error:', err);
+      }
+    } else {
+      // 1D Barcode (Code 128)
+      try {
+        const Code128Module = (JsBarcode as any).getModule
+          ? (JsBarcode as any).getModule('CODE128')
+          : null;
+
+        if (Code128Module) {
+          const encoder = new Code128Module(codeValue, {});
+          const encoded = encoder.encode();
+          const bitString: string = encoded.data || '';
+
+          if (bitString) {
+            const barcodeWidth = 135;
+            const barcodeHeight = 55;
+            const barWidth = barcodeWidth / bitString.length;
+            const barStartX = leftX + 4;
+            const barStartY = 64;
+
+            ctx.fillStyle = '#000000';
+            for (let i = 0; i < bitString.length; i++) {
+              if (bitString[i] === '1') {
+                ctx.fillRect(barStartX + i * barWidth, barStartY, Math.ceil(barWidth), barcodeHeight);
+              }
+            }
+
+            ctx.font = 'bold 10px "JetBrains Mono", Courier, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(codeValue, barStartX + barcodeWidth / 2, barStartY + barcodeHeight + 4);
+          }
+        }
+      } catch (err) {
+        console.warn('Barcode render error:', err);
+      }
+    }
+
+    // RIGHT COLUMN: SIZE + PRICE + TAXES (all aligned to rightX)
+    ctx.textAlign = 'right';
+
+    // SIZE:
+    ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = '#000000';
+    const sizeVal = product.size || 'FREE';
+    const sizeValWidth = ctx.measureText(sizeVal).width;
+    ctx.fillText('SIZE: ', rightX - sizeValWidth, 56);
+    ctx.font = 'bold 14px "JetBrains Mono", Courier, monospace';
+    ctx.fillText(sizeVal, rightX, 56);
+
+    // PRICE LABEL
+    ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = '#475569';
+    ctx.fillText('PRICE', rightX, 78);
+
+    // PRICE VALUES
+    if (saleOfferPercentage > 0) {
+      // Strikethrough original price
+      const origPriceStr = `₹${product.sellingPrice}`;
+      ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(origPriceStr, rightX, 92);
+      const strikeWidth = ctx.measureText(origPriceStr).width;
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(rightX - strikeWidth, 98);
+      ctx.lineTo(rightX, 98);
+      ctx.stroke();
+
+      // Discounted price
+      ctx.font = 'bold 22px "JetBrains Mono", Courier, monospace';
+      ctx.fillStyle = '#000000';
+      ctx.fillText(`₹${discountedPrice}`, rightX, 104);
+
+      // Taxes
+      ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('(INCL. TAXES)', rightX, 136);
+    } else {
+      // Standard price
+      ctx.font = 'bold 26px "JetBrains Mono", Courier, monospace';
+      ctx.fillStyle = '#000000';
+      ctx.fillText(`₹${product.sellingPrice}`, rightX, 92);
+
+      // Taxes
+      ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('(INCL. TAXES)', rightX, 132);
+    }
+  } else {
+    // 50mm x 32mm Layout (240 dots height)
 
   // 1. TOP HEADER: Brand Title (left) & Phone Number (right)
   ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
@@ -1418,30 +1598,32 @@ export function renderTagToCanvas(tag: PriceTagItem): HTMLCanvasElement {
     ctx.fillStyle = '#64748b';
     ctx.fillText('(INCL. TAXES)', rightX, 156);
   }
+}
 
   return canvas;
 }
 
 /**
- * Format apparel price tags to native ESC/POS binary commands (50x32mm tag roll).
+ * Format apparel price tags to native ESC/POS binary commands (50x25mm / 50x32mm tag roll).
  * Delivers 100% pixel-perfect 203 DPI raster printing via USB or Bluetooth:
  * exactly identical to the on-screen UI preview with 2-column layout (QR on left, Size + Price on right).
  */
 export function formatPriceTagsToEscPos(
   tags: PriceTagItem[],
-  options?: { columns?: 32 | 48 }
+  options?: { columns?: 32 | 48; rollSize?: '50x25' | '50x32' }
 ): Uint8Array {
   const columns = options?.columns || 32;
+  const rollSize = options?.rollSize || tags[0]?.rollSize || '50x25';
   const builder = new EscPosBuilder(columns);
   builder.initialize();
 
   // If in browser environment with Canvas support, render raster graphics for 100% UI match!
   if (typeof document !== 'undefined') {
     tags.forEach((tag, idx) => {
-      const canvas = renderTagToCanvas(tag);
+      const canvas = renderTagToCanvas(tag, { rollSize });
       builder.rasterImage(canvas);
       if (idx < tags.length - 1) {
-        builder.feed(1); // Advance ~3mm across the gap to the next 50x32mm label
+        builder.feed(1); // Advance ~2-3mm across the gap to the next sticker
       } else {
         builder.feed(2);
       }

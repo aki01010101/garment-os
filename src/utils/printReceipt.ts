@@ -422,17 +422,27 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
   }
 }
 
+export interface PriceTagPrintOptions {
+  rollSize?: '50x25' | '50x32';
+  orientation?: 'portrait' | 'landscape';
+}
+
 /**
- * Dedicated high-precision 50mm x 32mm clothing price tag printing utility.
- * Creates an isolated, zero-margin printable iframe specifically sized to 50x32mm labels.
+ * Dedicated high-precision 50mm clothing price tag printing utility (50x25mm / 50x32mm sticker rolls).
+ * Creates an isolated, zero-margin printable iframe specifically sized to apparel sticker rolls.
  * Guarantees exact 1:1 match with UI preview:
- * - Proper @page { size: 50mm 32mm; margin: 0; }
+ * - Proper @page { size: portrait; margin: 0; } preventing Chrome from auto-switching to Landscape
  * - Zero font-weight/stroke distortion (no blotchy text)
  * - Zero extra margins or dashed borders
  * - Strict per-tag page break so each tag prints on its own physical sticker
  */
-export function printPriceTagsHtml(tagsHtml: string) {
+export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOptions) {
   try {
+    const rollSize = options?.rollSize || '50x25';
+    const orientation = options?.orientation || 'portrait';
+    const tagHeight = rollSize === '50x25' ? '25mm' : '32mm';
+    const tagWidth = '50mm';
+
     // 1. Mount point for DOM / fallback print
     let printMount = document.getElementById('print-mount-point');
     if (!printMount) {
@@ -444,6 +454,11 @@ export function printPriceTagsHtml(tagsHtml: string) {
     }
     printMount.innerHTML = tagsHtml;
     printMount.classList.add('is-tag-print');
+    if (rollSize === '50x25') {
+      printMount.classList.add('is-tag-25mm');
+    } else {
+      printMount.classList.remove('is-tag-25mm');
+    }
     printMount.classList.remove('thermal-bold');
 
     // 2. Dedicated hidden iframe for tags
@@ -475,10 +490,10 @@ export function printPriceTagsHtml(tagsHtml: string) {
       <html>
         <head>
           <meta charset="UTF-8">
-          <title>Apparel Price Tags</title>
+          <title>Apparel Price Tags (${tagWidth} x ${tagHeight})</title>
           <style>
             @page {
-              size: 50mm 32mm;
+              size: ${orientation};
               margin: 0mm;
             }
             * {
@@ -490,7 +505,8 @@ export function printPriceTagsHtml(tagsHtml: string) {
               color-adjust: exact !important;
             }
             html, body {
-              width: 50mm;
+              width: ${tagWidth};
+              height: ${tagHeight};
               margin: 0;
               padding: 0;
               background-color: #ffffff;
@@ -502,13 +518,13 @@ export function printPriceTagsHtml(tagsHtml: string) {
               margin-top: 0 !important;
             }
             .thermal-tag-roll {
-              width: 50mm !important;
-              height: 32mm !important;
-              max-width: 50mm !important;
-              max-height: 32mm !important;
-              min-width: 50mm !important;
-              min-height: 32mm !important;
-              padding: 1.5mm 1.8mm !important;
+              width: ${tagWidth} !important;
+              height: ${tagHeight} !important;
+              max-width: ${tagWidth} !important;
+              max-height: ${tagHeight} !important;
+              min-width: ${tagWidth} !important;
+              min-height: ${tagHeight} !important;
+              padding: 1.2mm 1.5mm !important;
               box-sizing: border-box !important;
               background: #ffffff !important;
               border: none !important;

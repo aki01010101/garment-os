@@ -408,6 +408,13 @@
     break-inside: avoid !important;
   }
 
+  #print-mount-point.is-tag-print.is-tag-25mm .thermal-tag-roll {
+    height: 25mm !important;
+    max-height: 25mm !important;
+    min-height: 25mm !important;
+    padding: 1.2mm 1.5mm !important;
+  }
+
   #print-mount-point.is-tag-print .thermal-tag-roll:last-of-type {
     page-break-after: auto !important;
     break-after: auto !important;
