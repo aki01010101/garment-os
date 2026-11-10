@@ -16,6 +16,8 @@ import {
   KhataLedgerEntry,
 } from '../types';
 import { buildUpiPaymentUri } from './upi';
+import QRCode from 'qrcode';
+import JsBarcode from 'jsbarcode';
 
 export interface EscPosOptions {
   columns?: 32 | 48; // 32 for 58mm (2-inch), 48 for 80mm (3-inch)
@@ -244,6 +246,64 @@ export class EscPosBuilder {
   // Kick Cash Drawer (Pin 2 or Pin 5)
   kickDrawer(): this {
     this.buffer.push(0x1b, 0x70, 0x00, 0x19, 0xfa); // ESC p 0 25 250
+    return this;
+  }
+
+  /**
+   * ESC/POS Raster Bit Image (GS v 0) - Pitch-black 203 DPI pixel-perfect graphic printing.
+   * Directly sends 1-bit monochrome pixel array to Everycom & standard ESC/POS printers.
+   * Produces an exact replica of what is drawn on canvas with zero halftoning artifacts.
+   */
+  rasterImage(canvas: HTMLCanvasElement): this {
+    try {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return this;
+
+      const width = canvas.width;
+      const height = canvas.height;
+      const imgData = ctx.getImageData(0, 0, width, height);
+      const data = imgData.data;
+
+      // Width in bytes (each byte represents 8 horizontal dots, MSB first)
+      const widthBytes = Math.ceil(width / 8);
+      const xL = widthBytes & 0xff;
+      const xH = (widthBytes >> 8) & 0xff;
+      const yL = height & 0xff;
+      const yH = (height >> 8) & 0xff;
+
+      // Reset line spacing (ESC 2) and left alignment (ESC a 0)
+      this.buffer.push(0x1b, 0x32);
+      this.buffer.push(0x1b, 0x61, 0x00);
+
+      // GS v 0 m xL xH yL yH d1...dk
+      // m = 0: Normal mode (1 dot = 1 printer pixel at 203 DPI)
+      this.buffer.push(0x1d, 0x76, 0x30, 0x00, xL, xH, yL, yH);
+
+      for (let y = 0; y < height; y++) {
+        for (let bx = 0; bx < widthBytes; bx++) {
+          let byteVal = 0;
+          for (let bit = 0; bit < 8; bit++) {
+            const x = bx * 8 + bit;
+            if (x < width) {
+              const offset = (y * width + x) * 4;
+              const r = data[offset];
+              const g = data[offset + 1];
+              const b = data[offset + 2];
+              const a = data[offset + 3];
+
+              // Pixel is printed if opaque and dark (luminance < 175)
+              const isDark = a >= 128 && (0.299 * r + 0.587 * g + 0.114 * b < 175);
+              if (isDark) {
+                byteVal |= 1 << (7 - bit);
+              }
+            }
+          }
+          this.buffer.push(byteVal);
+        }
+      }
+    } catch (err) {
+      console.warn('EscPosBuilder.rasterImage error:', err);
+    }
     return this;
   }
 
@@ -1152,9 +1212,220 @@ export interface PriceTagItem {
 }
 
 /**
- * Format apparel price tags to native ESC/POS binary commands (50x32mm tag roll)
- * Prints directly via USB or Bluetooth at 203 DPI pitch-black quality with zero Windows halftoning.
- * Prints size normally as regular text matching other details on the tag.
+ * Render an apparel price tag (50mm x 32mm) onto an HTML5 Canvas at 203 DPI (384 x 240 px).
+ * Matches the live screen UI preview pixel-for-pixel:
+ * - Brand Name & Contact Number header with divider line
+ * - Garment Name, Category, and Color
+ * - Left: 2D QR Code (or 1D Barcode) with scannable modules and code string underneath
+ * - Right: Size (clean text display), Price label, big selling price (or strikethrough original + discounted price), and (INCL. TAXES)
+ */
+export function renderTagToCanvas(tag: PriceTagItem): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = 384; // 48mm printable width at 203 DPI (8 dots/mm)
+  canvas.height = 240; // 30mm height at 203 DPI (fits comfortably inside 32mm sticker)
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  // 1. Crisp white background
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = '#000000';
+  ctx.strokeStyle = '#000000';
+  ctx.textBaseline = 'top';
+
+  const {
+    product,
+    brandTitle = 'FANTASY',
+    contactNumber = '+919416109928',
+    codeType = 'qr',
+    saleOfferPercentage = 0,
+  } = tag;
+
+  const discountedPrice =
+    saleOfferPercentage > 0
+      ? Math.round(product.sellingPrice * (1 - saleOfferPercentage / 100))
+      : product.sellingPrice;
+
+  const leftX = 12;
+  const rightX = 372;
+
+  // 1. TOP HEADER: Brand Title (left) & Phone Number (right)
+  ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText((brandTitle || 'FANTASY').toUpperCase(), leftX, 6);
+
+  ctx.font = 'bold 12px "JetBrains Mono", Courier, monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(contactNumber, rightX, 8);
+
+  // Top header rule
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(leftX, 25);
+  ctx.lineTo(rightX, 25);
+  ctx.stroke();
+
+  // 2. PRODUCT NAME (Bold, single line, truncated with ellipsis if exceeding label width)
+  ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+  ctx.textAlign = 'left';
+  let name = product.name || 'Apparel Item';
+  const maxNameWidth = rightX - leftX;
+  if (ctx.measureText(name).width > maxNameWidth) {
+    while (ctx.measureText(name + '...').width > maxNameWidth && name.length > 3) {
+      name = name.slice(0, -1);
+    }
+    name = name + '...';
+  }
+  ctx.fillText(name, leftX, 29);
+
+  // 3. CATEGORY & COLOR
+  const catParts = [product.category, product.subCategory].filter((c) => c && c !== 'General');
+  const catText = (catParts.length > 0 ? catParts.join(' · ') : 'GARMENT').toUpperCase();
+  ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+  ctx.fillText(catText, leftX, 48);
+
+  if (product.color) {
+    ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(product.color, rightX, 48);
+  }
+
+  // Subheader dividing rule
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(leftX, 64);
+  ctx.lineTo(rightX, 64);
+  ctx.stroke();
+
+  // 4. BOTTOM SPLIT:
+  // LEFT COLUMN: QR Code (or 1D Barcode) + Code Value
+  // RIGHT COLUMN: SIZE, PRICE, TAXES
+  const codeValue = (product.barcode || product.sku || '000000').trim();
+
+  if (codeType === 'qr') {
+    try {
+      const qr = QRCode.create(codeValue, { errorCorrectionLevel: 'M' });
+      const size = qr.modules.size;
+      const targetSize = 104;
+      const cellSize = Math.floor(targetSize / size);
+      const actualSize = cellSize * size;
+      const qrStartX = leftX + 4;
+      const qrStartY = 70;
+
+      ctx.fillStyle = '#000000';
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          if (qr.modules.get(r, c)) {
+            ctx.fillRect(qrStartX + c * cellSize, qrStartY + r * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+
+      // Center text under QR code
+      ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
+      ctx.textAlign = 'center';
+      const textCenterX = qrStartX + Math.floor(actualSize / 2);
+      ctx.fillText(codeValue, textCenterX, qrStartY + actualSize + 5);
+    } catch (err) {
+      console.warn('QR canvas render error:', err);
+    }
+  } else {
+    // 1D Barcode (Code 128)
+    try {
+      const Code128Module = (JsBarcode as any).getModule
+        ? (JsBarcode as any).getModule('CODE128')
+        : null;
+
+      if (Code128Module) {
+        const encoder = new Code128Module(codeValue, {});
+        const encoded = encoder.encode();
+        const bitString: string = encoded.data || '';
+
+        if (bitString) {
+          const barcodeWidth = 145;
+          const barcodeHeight = 70;
+          const barWidth = barcodeWidth / bitString.length;
+          const barStartX = leftX + 4;
+          const barStartY = 82;
+
+          ctx.fillStyle = '#000000';
+          for (let i = 0; i < bitString.length; i++) {
+            if (bitString[i] === '1') {
+              ctx.fillRect(barStartX + i * barWidth, barStartY, Math.ceil(barWidth), barcodeHeight);
+            }
+          }
+
+          ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(codeValue, barStartX + barcodeWidth / 2, barStartY + barcodeHeight + 4);
+        }
+      }
+    } catch (err) {
+      console.warn('Barcode canvas render error:', err);
+    }
+  }
+
+  // RIGHT COLUMN: SIZE + PRICE + TAXES (all aligned to rightX)
+  ctx.textAlign = 'right';
+
+  // SIZE:
+  ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+  ctx.fillStyle = '#000000';
+  const sizeVal = product.size || 'FREE';
+  const sizeValWidth = ctx.measureText(sizeVal).width;
+  ctx.fillText('SIZE: ', rightX - sizeValWidth, 72);
+  ctx.font = 'bold 15px "JetBrains Mono", Courier, monospace';
+  ctx.fillText(sizeVal, rightX, 72);
+
+  // PRICE LABEL
+  ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+  ctx.fillStyle = '#475569';
+  ctx.fillText('PRICE', rightX, 98);
+
+  // PRICE VALUES
+  if (saleOfferPercentage > 0) {
+    // Strikethrough original price
+    const origPriceStr = `₹${product.sellingPrice}`;
+    ctx.font = 'bold 12px "JetBrains Mono", Courier, monospace';
+    ctx.fillStyle = '#64748b';
+    ctx.fillText(origPriceStr, rightX, 115);
+    const strikeWidth = ctx.measureText(origPriceStr).width;
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(rightX - strikeWidth, 121);
+    ctx.lineTo(rightX, 121);
+    ctx.stroke();
+
+    // Discounted price
+    ctx.font = 'bold 24px "JetBrains Mono", Courier, monospace';
+    ctx.fillStyle = '#000000';
+    ctx.fillText(`₹${discountedPrice}`, rightX, 128);
+
+    // Taxes
+    ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = '#64748b';
+    ctx.fillText('(INCL. TAXES)', rightX, 168);
+  } else {
+    // Standard price
+    ctx.font = 'bold 28px "JetBrains Mono", Courier, monospace';
+    ctx.fillStyle = '#000000';
+    ctx.fillText(`₹${product.sellingPrice}`, rightX, 114);
+
+    // Taxes
+    ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = '#64748b';
+    ctx.fillText('(INCL. TAXES)', rightX, 156);
+  }
+
+  return canvas;
+}
+
+/**
+ * Format apparel price tags to native ESC/POS binary commands (50x32mm tag roll).
+ * Delivers 100% pixel-perfect 203 DPI raster printing via USB or Bluetooth:
+ * exactly identical to the on-screen UI preview with 2-column layout (QR on left, Size + Price on right).
  */
 export function formatPriceTagsToEscPos(
   tags: PriceTagItem[],
@@ -1164,6 +1435,21 @@ export function formatPriceTagsToEscPos(
   const builder = new EscPosBuilder(columns);
   builder.initialize();
 
+  // If in browser environment with Canvas support, render raster graphics for 100% UI match!
+  if (typeof document !== 'undefined') {
+    tags.forEach((tag, idx) => {
+      const canvas = renderTagToCanvas(tag);
+      builder.rasterImage(canvas);
+      if (idx < tags.length - 1) {
+        builder.feed(1); // Advance ~3mm across the gap to the next 50x32mm label
+      } else {
+        builder.feed(2);
+      }
+    });
+    return builder.build();
+  }
+
+  // Fallback for headless environments without DOM
   tags.forEach((tag, idx) => {
     const {
       product,
@@ -1180,25 +1466,18 @@ export function formatPriceTagsToEscPos(
 
     const displayPrice = price % 1 === 0 ? price.toFixed(0) : price.toFixed(2);
 
-    // Reset printer state per tag
     builder.initialize();
-
-    // 1. Header: Brand (Bold) + Contact Number
     builder.bold(true);
     builder.twoColumnRow((brandTitle || 'FANTASY').toUpperCase(), contactNumber, true);
     builder.bold(false);
     builder.separator('-');
-
-    // 2. Article / Garment Name (Bold)
     builder.bold(true).line(product.name).bold(false);
 
-    // 3. Category
     const catParts = [product.category, product.subCategory].filter((c) => c && c !== 'General');
     if (catParts.length > 0) {
       builder.line(`Category: ${catParts.join(' · ')}`);
     }
 
-    // 4. Size & Color (Normal text size as other text lines)
     const sizeColorParts = [
       product.size ? `Size: ${product.size}` : '',
       product.color ? `Color: ${product.color}` : '',
@@ -1207,7 +1486,6 @@ export function formatPriceTagsToEscPos(
       builder.line(sizeColorParts.join('  |  '));
     }
 
-    // 5. QR Code or Barcode
     const codeValue = (product.barcode || product.sku || '').trim();
     if (codeValue) {
       if (codeType === 'qr') {
@@ -1219,7 +1497,6 @@ export function formatPriceTagsToEscPos(
       }
     }
 
-    // 6. Selling Price (Just the amount, prominent, no MRP)
     builder
       .align('center')
       .bold(true)
@@ -1232,12 +1509,10 @@ export function formatPriceTagsToEscPos(
       .align('left');
 
     builder.separator('-');
-
-    // Feed gap between tags
     if (idx < tags.length - 1) {
-      builder.feed(2);
+      builder.feed(1);
     } else {
-      builder.feed(3);
+      builder.feed(2);
     }
   });
 

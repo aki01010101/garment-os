@@ -381,6 +381,38 @@
     visibility: visible !important;
   }
 
+  /* Tag-specific print mount point override */
+  #print-mount-point.is-tag-print {
+    width: 50mm !important;
+    max-width: 50mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #print-mount-point.is-tag-print .thermal-tag-roll {
+    width: 50mm !important;
+    height: 32mm !important;
+    max-width: 50mm !important;
+    max-height: 32mm !important;
+    min-width: 50mm !important;
+    min-height: 32mm !important;
+    padding: 1.5mm 1.8mm !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #print-mount-point.is-tag-print .thermal-tag-roll:last-of-type {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
   #print-mount-point * {
     visibility: visible !important;
   }

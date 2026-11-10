@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { BarcodeSvg } from '../common/BarcodeSvg';
-import { printThermalReceiptHtml } from '../../utils/printReceipt';
+import { printPriceTagsHtml } from '../../utils/printReceipt';
 import { CodePrintType } from '../../types';
 import {
   formatPriceTagsToEscPos,
@@ -124,7 +124,7 @@ export const PriceTagGenerator: React.FC = () => {
 
     if (printMethod === 'browser') {
       if (printRef.current) {
-        printThermalReceiptHtml(printRef.current.innerHTML);
+        printPriceTagsHtml(printRef.current.innerHTML);
       } else {
         window.focus();
         window.print();

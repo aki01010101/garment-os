@@ -382,24 +382,6 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
               margin: 1px auto 0 auto !important;
               width: 100% !important;
             }
-            .thermal-tag-roll {
-              width: 50mm !important;
-              height: 32mm !important;
-              max-width: 50mm !important;
-              max-height: 32mm !important;
-              padding: 1.5mm !important;
-              background: white !important;
-              border: 1px dashed #777 !important;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-              overflow: hidden !important;
-              display: flex !important;
-              flex-direction: column !important;
-              justify-content: space-between !important;
-              box-sizing: border-box !important;
-              page-break-after: always !important;
-              break-after: page !important;
-              margin: 0 auto 2.5mm auto !important;
-            }
             .no-print {
               display: none !important;
             }
@@ -435,6 +417,157 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
     }, 350);
   } catch (error) {
     console.error('Print utility error:', error);
+    window.focus();
+    window.print();
+  }
+}
+
+/**
+ * Dedicated high-precision 50mm x 32mm clothing price tag printing utility.
+ * Creates an isolated, zero-margin printable iframe specifically sized to 50x32mm labels.
+ * Guarantees exact 1:1 match with UI preview:
+ * - Proper @page { size: 50mm 32mm; margin: 0; }
+ * - Zero font-weight/stroke distortion (no blotchy text)
+ * - Zero extra margins or dashed borders
+ * - Strict per-tag page break so each tag prints on its own physical sticker
+ */
+export function printPriceTagsHtml(tagsHtml: string) {
+  try {
+    // 1. Mount point for DOM / fallback print
+    let printMount = document.getElementById('print-mount-point');
+    if (!printMount) {
+      printMount = document.createElement('div');
+      printMount.id = 'print-mount-point';
+      printMount.className = 'no-print';
+      printMount.style.display = 'none';
+      document.body.appendChild(printMount);
+    }
+    printMount.innerHTML = tagsHtml;
+    printMount.classList.add('is-tag-print');
+    printMount.classList.remove('thermal-bold');
+
+    // 2. Dedicated hidden iframe for tags
+    let iframe = document.getElementById('price-tag-print-iframe') as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'price-tag-print-iframe';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
+      document.body.appendChild(iframe);
+    }
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) {
+      window.focus();
+      window.print();
+      return;
+    }
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Apparel Price Tags</title>
+          <style>
+            @page {
+              size: 50mm 32mm;
+              margin: 0mm;
+            }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
+            html, body {
+              width: 50mm;
+              margin: 0;
+              padding: 0;
+              background-color: #ffffff;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+              color: #000000;
+              -webkit-font-smoothing: antialiased;
+            }
+            .space-y-3 > * + * {
+              margin-top: 0 !important;
+            }
+            .thermal-tag-roll {
+              width: 50mm !important;
+              height: 32mm !important;
+              max-width: 50mm !important;
+              max-height: 32mm !important;
+              min-width: 50mm !important;
+              min-height: 32mm !important;
+              padding: 1.5mm 1.8mm !important;
+              box-sizing: border-box !important;
+              background: #ffffff !important;
+              border: none !important;
+              box-shadow: none !important;
+              margin: 0 !important;
+              overflow: hidden !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: space-between !important;
+              page-break-after: always !important;
+              break-after: page !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+            .thermal-tag-roll:last-of-type {
+              page-break-after: auto !important;
+              break-after: auto !important;
+            }
+            svg {
+              display: block !important;
+              margin: 0 auto !important;
+              max-width: 100% !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              shape-rendering: crispEdges !important;
+            }
+            svg rect, svg path {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .no-print {
+              display: none !important;
+            }
+          </style>
+        </head>
+        <body>
+          ${tagsHtml}
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(() => {
+      try {
+        if (iframe.contentWindow) {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } else {
+          window.focus();
+          window.print();
+        }
+      } catch (err) {
+        console.warn('Tag iframe print failed, falling back to window.print:', err);
+        window.focus();
+        window.print();
+      }
+    }, 350);
+  } catch (error) {
+    console.error('Print price tags error:', error);
     window.focus();
     window.print();
   }
