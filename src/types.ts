@@ -234,6 +234,10 @@ export interface SaleTransaction {
   creditStatus?: CreditStatus;
   creditNotes?: string;
   creditSettledDate?: string;
+  customerPreviousBalance?: number;
+  customerNewBalance?: number;
+  customerSignature?: string; // base64 PNG data URL of signature
+  customerSignedAt?: string; // ISO string when customer signed
   notes?: string;
   cashierName: string;
   salesAssociate?: string;

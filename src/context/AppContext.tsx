@@ -170,7 +170,8 @@ interface AppContextType {
     splitBreakdown?: SplitPaymentBreakdown,
     taxInclusive?: boolean,
     creditDueDate?: string,
-    creditNotes?: string
+    creditNotes?: string,
+    customerSignature?: string
   ) => SaleTransaction;
 
   // Sales History & Receipts
@@ -2174,7 +2175,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     splitBreakdown?: SplitPaymentBreakdown,
     taxInclusive?: boolean,
     creditDueDate?: string,
-    creditNotes?: string
+    creditNotes?: string,
+    customerSignature?: string
   ): SaleTransaction => {
     if (cart.length === 0) throw new Error('Cart is empty');
 
@@ -2337,6 +2339,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       creditDueDate: resolvedDueDate,
       creditStatus,
       creditNotes,
+      customerPreviousBalance: selectedCustomer?.outstandingCredit || 0,
+      customerNewBalance: (selectedCustomer?.outstandingCredit || 0) + (creditAmount || 0),
+      customerSignature,
+      customerSignedAt: customerSignature ? new Date().toISOString() : undefined,
       notes,
       taxInclusive: defaultInclusive,
       isCompositionScheme: company.isCompositionScheme ?? false,

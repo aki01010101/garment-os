@@ -46,7 +46,10 @@ import {
   Zap,
   ExternalLink,
   Loader2,
+  FileSignature,
+  PenTool,
 } from 'lucide-react';
+import { SignaturePadModal } from '../common/SignaturePadModal';
 
 interface ThermalReceiptProps {
   receipt: SaleTransaction | null;
@@ -56,14 +59,24 @@ interface ThermalReceiptProps {
 }
 
 export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
-  receipt,
+  receipt: initialReceipt,
   isOpen,
   onClose,
   onOpenPrinterGuide,
 }) => {
+  const [currentReceipt, setCurrentReceipt] = useState<SaleTransaction | null>(initialReceipt);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+
+  useEffect(() => {
+    setCurrentReceipt(initialReceipt);
+  }, [initialReceipt]);
+
+  const receipt = currentReceipt || initialReceipt;
+
   const receiptRef = useRef<HTMLDivElement>(null);
   const tailorSlipRef = useRef<HTMLDivElement>(null);
   const {
+    updateSale,
     codePrintType,
     setCodePrintType,
     qrPrintSize,
@@ -191,6 +204,29 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
   const hasAlterations = receipt.items.some((i) => i.alteration?.needed);
   const totalItemsCount = receipt.items.reduce((sum, item) => sum + item.qty, 0);
+
+  const handleSaveSignature = (sigDataUrl: string) => {
+    if (!receipt) return;
+    const updated: SaleTransaction = {
+      ...receipt,
+      customerSignature: sigDataUrl,
+      customerSignedAt: new Date().toISOString(),
+    };
+    setCurrentReceipt(updated);
+    updateSale(updated);
+    setIsSignatureModalOpen(false);
+  };
+
+  const handleClearSignature = () => {
+    if (!receipt) return;
+    const updated: SaleTransaction = {
+      ...receipt,
+      customerSignature: undefined,
+      customerSignedAt: undefined,
+    };
+    setCurrentReceipt(updated);
+    updateSale(updated);
+  };
 
   const handlePrint = () => {
     if (receiptRef.current) {
@@ -390,12 +426,31 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   };
 
   const generateReceiptText = () => {
+    const isCreditSale =
+      receipt.paymentMode === 'Credit' ||
+      Boolean(receipt.creditAmount && receipt.creditAmount > 0) ||
+      Boolean(receipt.splitBreakdown?.credit && receipt.splitBreakdown.credit > 0);
+    const hasPrevBalance = Boolean(receipt.customerPreviousBalance && receipt.customerPreviousBalance > 0);
+    const showKhataMemo = isCreditSale || hasPrevBalance || Boolean(receipt.customerSignature);
+
     const paymentModeLabel =
       receipt.paymentMode === 'Split' && receipt.splitBreakdown
         ? `Split: ${receipt.splitBreakdown.cash ? `Cash Rs. ${receipt.splitBreakdown.cash.toFixed(2)} ` : ''}${receipt.splitBreakdown.upi ? `UPI Rs. ${receipt.splitBreakdown.upi.toFixed(2)} ` : ''}${receipt.splitBreakdown.card ? `Card Rs. ${receipt.splitBreakdown.card.toFixed(2)} ` : ''}${receipt.splitBreakdown.credit ? `Khata Rs. ${receipt.splitBreakdown.credit.toFixed(2)}` : ''}`.trim()
         : receipt.paymentMode === 'Credit'
           ? `KHATA / UDHAAR (Due: ${receipt.creditDueDate || '15 Days'})`
           : receipt.paymentMode;
+
+    const prevBal = receipt.customerPreviousBalance || 0;
+    const thisCredit =
+      receipt.creditAmount !== undefined
+        ? receipt.creditAmount
+        : receipt.paymentMode === 'Credit'
+          ? receipt.grandTotal
+          : (receipt.splitBreakdown?.credit || 0);
+    const totalOutstanding =
+      receipt.customerNewBalance !== undefined
+        ? receipt.customerNewBalance
+        : prevBal + thisCredit;
 
     return `
 ================================
@@ -417,7 +472,10 @@ ${receipt.items.map((i) => `* ${i.qty}x ${i.name} [Size: ${i.size}, ${i.color}] 
 ${receipt.itemDiscountsTotal > 0 ? `*Discount:* -Rs. ${receipt.itemDiscountsTotal.toFixed(2)}\n` : ''}${Boolean(receipt.promoDiscountAmount && receipt.promoDiscountAmount > 0) ? `*Offer/Promo (${receipt.promoTitleApplied || 'Special Deal'}):* -Rs. ${receipt.promoDiscountAmount!.toFixed(2)}\n` : ''}${receipt.loyaltyDiscountAmount > 0 ? `*Loyalty Redeemed:* -Rs. ${receipt.loyaltyDiscountAmount.toFixed(2)}\n` : ''}${Boolean(receipt.couponDiscountAmount && receipt.couponDiscountAmount > 0) ? `*Coupon:* -Rs. ${receipt.couponDiscountAmount!.toFixed(2)}\n` : ''}${Boolean(receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) ? `*Credit Note:* -Rs. ${receipt.creditNoteDiscountAmount!.toFixed(2)}\n` : ''}*GST:* Included in Price
 *NET PAID:* Rs. ${receipt.grandTotal.toFixed(2)} (${paymentModeLabel})
 --------------------------------
-${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n--------------------------------\n' : ''}*Return Policy:* ${receipt.companyReturnPolicy}
+${showKhataMemo ? `*KHATA / UDHAAR ACKNOWLEDGMENT*
+${prevBal > 0 ? `*Previous Khata:* Rs. ${prevBal.toFixed(2)}\n` : ''}${thisCredit > 0 ? `*This Bill Credit:* Rs. ${thisCredit.toFixed(2)}\n` : ''}*Net Outstanding Debt:* Rs. ${totalOutstanding.toFixed(2)}
+${receipt.creditDueDate ? `*Promised Due Date:* ${receipt.creditDueDate}\n` : ''}"I acknowledge the balance above and agree to clear the outstanding debt."
+${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${receipt.customerName}\n` : `*Customer Signature:* __________________ (${receipt.customerName})\n`}--------------------------------\n` : ''}${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n--------------------------------\n' : ''}*Return Policy:* ${receipt.companyReturnPolicy}
 *Thank you for shopping with us!*
 *Visit Again · ${receipt.companyName || 'Store'}*
 ================================
@@ -837,25 +895,101 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                     )}
                   </div>
                 )}
-                {/* Credit / Udhaar Memo Details */}
-                {(receipt.paymentMode === 'Credit' || (receipt.creditAmount !== undefined && receipt.creditAmount > 0)) && (
-                  <div className="mt-1 pt-1 border-t border-dashed border-neutral-400 text-[8px] space-y-0.5">
-                    <div className="receipt-row font-bold text-black">
-                      <span>KHATA AMOUNT:</span>
-                      <span>₹{(receipt.creditRemainingBalance !== undefined ? receipt.creditRemainingBalance : (receipt.creditAmount || receipt.grandTotal)).toFixed(2)}</span>
-                    </div>
-                    {receipt.creditDueDate && (
-                      <div className="receipt-row">
-                        <span>PROMISED DUE DATE:</span>
-                        <span>{receipt.creditDueDate}</span>
+                {/* Credit / Udhaar Memo Details & Customer Signature */}
+                {(() => {
+                  const isCreditSale =
+                    receipt.paymentMode === 'Credit' ||
+                    Boolean(receipt.creditAmount && receipt.creditAmount > 0) ||
+                    Boolean(receipt.splitBreakdown?.credit && receipt.splitBreakdown.credit > 0);
+                  const hasPrevBalance = Boolean(receipt.customerPreviousBalance && receipt.customerPreviousBalance > 0);
+                  const showKhataMemo = isCreditSale || hasPrevBalance || Boolean(receipt.customerSignature);
+
+                  if (!showKhataMemo) return null;
+
+                  const prevBal = receipt.customerPreviousBalance || 0;
+                  const thisCredit =
+                    receipt.creditAmount !== undefined
+                      ? receipt.creditAmount
+                      : receipt.paymentMode === 'Credit'
+                        ? receipt.grandTotal
+                        : (receipt.splitBreakdown?.credit || 0);
+                  const totalOutstanding =
+                    receipt.customerNewBalance !== undefined
+                      ? receipt.customerNewBalance
+                      : prevBal + thisCredit;
+
+                  return (
+                    <div className="mt-1.5 pt-1.5 border-t-2 border-dashed border-neutral-500 text-[8px] space-y-0.5">
+                      <div className="text-center font-bold text-black text-[8.5px] tracking-wide pb-0.5">
+                        *** KHATA / UDHAAR ACKNOWLEDGMENT ***
                       </div>
-                    )}
-                    <div className="pt-2.5 text-center text-[7.5px] text-neutral-800">
-                      <div className="border-b border-black w-28 mx-auto mb-0.5" />
-                      <span>Customer Signature</span>
+
+                      {hasPrevBalance && (
+                        <div className="receipt-row text-neutral-800">
+                          <span>PREVIOUS KHATA:</span>
+                          <span className="font-mono">₹{prevBal.toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      {thisCredit > 0 && (
+                        <div className="receipt-row font-bold text-neutral-900">
+                          <span>THIS BILL CREDIT:</span>
+                          <span className="font-mono">₹{thisCredit.toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      <div className="receipt-row font-extrabold text-black text-[8.5px] pt-0.5 border-t border-dotted border-neutral-400">
+                        <span>NET OUTSTANDING:</span>
+                        <span className="font-mono">₹{totalOutstanding.toFixed(2)}</span>
+                      </div>
+
+                      {receipt.creditDueDate && (
+                        <div className="receipt-row text-neutral-700">
+                          <span>AGREED DUE DATE:</span>
+                          <span className="font-mono font-semibold">{receipt.creditDueDate}</span>
+                        </div>
+                      )}
+
+                      <div className="text-[7px] text-center text-neutral-700 italic pt-1 leading-tight px-1">
+                        "I acknowledge the previous & current balance above and agree to clear the outstanding debt."
+                      </div>
+
+                      {/* Customer Signature: Digital or Paper Line */}
+                      <div className="pt-2 text-center text-[7.5px] text-neutral-900">
+                        {receipt.customerSignature ? (
+                          <div className="space-y-0.5">
+                            <img
+                              src={receipt.customerSignature}
+                              alt="Customer Signature"
+                              className="max-h-12 max-w-[140px] mx-auto object-contain my-0.5"
+                            />
+                            <div className="border-b border-black w-36 mx-auto mb-0.5" />
+                            <div className="font-bold text-[7.5px] text-black">
+                              Digitally Signed by {receipt.customerName}
+                            </div>
+                            {receipt.customerSignedAt && (
+                              <div className="text-[6.5px] text-neutral-600 font-mono">
+                                {new Date(receipt.customerSignedAt).toLocaleString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="pt-1">
+                            <div className="border-b border-black w-36 mx-auto mb-1" />
+                            <div className="font-semibold text-black">Customer Signature</div>
+                            <div className="text-[7px] text-neutral-600">({receipt.customerName})</div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Dynamic UPI Payment QR Code on Receipt */}
@@ -1111,6 +1245,73 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                   </button>
                 </div>
               )}
+
+              {/* Customer Khata Signature Management Card */}
+              {(() => {
+                const isCreditSale =
+                  receipt.paymentMode === 'Credit' ||
+                  Boolean(receipt.creditAmount && receipt.creditAmount > 0) ||
+                  Boolean(receipt.splitBreakdown?.credit && receipt.splitBreakdown.credit > 0);
+                const hasPrevBalance = Boolean(receipt.customerPreviousBalance && receipt.customerPreviousBalance > 0);
+                const showKhataMemo = isCreditSale || hasPrevBalance || Boolean(receipt.customerSignature);
+
+                if (!showKhataMemo) return null;
+
+                return (
+                  <div className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/50 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          receipt.customerSignature ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        <FileSignature className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                          <span>Customer Khata Signature</span>
+                          {receipt.customerSignature ? (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">
+                              Signed ✓
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded-full">
+                              Paper Sign
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-600 truncate">
+                          {receipt.customerSignature
+                            ? `Digitally captured at ${new Date(
+                                receipt.customerSignedAt || receipt.date
+                              ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                            : 'Sign on touch screen/stylus or sign on printed paper.'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setIsSignatureModalOpen(true)}
+                        className="px-3 py-1.5 text-xs font-bold text-indigo-700 bg-white hover:bg-indigo-100 border border-indigo-300 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <PenTool className="w-3.5 h-3.5" />
+                        <span>{receipt.customerSignature ? 'Re-sign' : 'Capture Signature'}</span>
+                      </button>
+                      {receipt.customerSignature && (
+                        <button
+                          type="button"
+                          onClick={handleClearSignature}
+                          className="px-2 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Remove signature (revert to paper line)"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Everycom & Thermal Printer Connection Panel */}
               <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
@@ -1373,6 +1574,40 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
           </div>
         </div>
       </div>
+
+      {/* Customer Signature Pad Modal */}
+      {receipt && (
+        <SignaturePadModal
+          isOpen={isSignatureModalOpen}
+          onClose={() => setIsSignatureModalOpen(false)}
+          customerName={receipt.customerName}
+          customerPhone={receipt.customerPhone}
+          previousBalance={receipt.customerPreviousBalance || 0}
+          creditAmount={
+            receipt.creditAmount !== undefined
+              ? receipt.creditAmount
+              : receipt.paymentMode === 'Credit'
+                ? receipt.grandTotal
+                : (receipt.splitBreakdown?.credit || 0)
+          }
+          totalNewBalance={
+            receipt.customerNewBalance !== undefined
+              ? receipt.customerNewBalance
+              : (receipt.customerPreviousBalance || 0) +
+                (receipt.creditAmount !== undefined
+                  ? receipt.creditAmount
+                  : receipt.paymentMode === 'Credit'
+                    ? receipt.grandTotal
+                    : (receipt.splitBreakdown?.credit || 0))
+          }
+          dueDate={receipt.creditDueDate}
+          onConfirm={handleSaveSignature}
+          onSignOnPaper={() => {
+            handleClearSignature();
+            setIsSignatureModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

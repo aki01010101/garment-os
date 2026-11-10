@@ -450,17 +450,64 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
     }
   }
 
-  // Credit / Udhaar Notice & Terms
-  if (receipt.paymentMode === 'Credit' || (receipt.creditAmount && receipt.creditAmount > 0)) {
-    const credAmt = receipt.creditAmount || receipt.grandTotal;
+  // Credit / Udhaar Notice, Debt Acknowledgment & Signature
+  const isCreditSale =
+    receipt.paymentMode === 'Credit' ||
+    Boolean(receipt.creditAmount && receipt.creditAmount > 0) ||
+    Boolean(receipt.splitBreakdown?.credit && receipt.splitBreakdown.credit > 0);
+  const hasPrevBalance = Boolean(receipt.customerPreviousBalance && receipt.customerPreviousBalance > 0);
+  const showKhataMemo = isCreditSale || hasPrevBalance || Boolean(receipt.customerSignature);
+
+  if (showKhataMemo) {
+    const prevBal = receipt.customerPreviousBalance || 0;
+    const thisCredit =
+      receipt.creditAmount !== undefined
+        ? receipt.creditAmount
+        : receipt.paymentMode === 'Credit'
+          ? receipt.grandTotal
+          : (receipt.splitBreakdown?.credit || 0);
+    const totalOutstanding =
+      receipt.customerNewBalance !== undefined
+        ? receipt.customerNewBalance
+        : prevBal + thisCredit;
+
     builder.separator('-');
-    builder.align('center').bold(true).line('*** KHATA / UDHAAR MEMO ***').bold(false);
-    builder.twoColumnRow('Credit Taken:', `Rs. ${credAmt.toFixed(2)}`, true);
+    builder.align('center').bold(true).line('*** KHATA / UDHAAR ACKNOWLEDGMENT ***').bold(false);
+    builder.align('left');
+    if (prevBal > 0) {
+      builder.twoColumnRow('Previous Khata:', `Rs. ${prevBal.toFixed(2)}`);
+    }
+    if (thisCredit > 0) {
+      builder.twoColumnRow('This Bill Credit:', `Rs. ${thisCredit.toFixed(2)}`, true);
+    }
+    builder.bold(true).twoColumnRow('TOTAL OUTSTANDING:', `Rs. ${totalOutstanding.toFixed(2)}`, true).bold(false);
     if (receipt.creditDueDate) {
       builder.twoColumnRow('Promised Due Date:', receipt.creditDueDate, true);
     }
-    builder.feed(1);
-    builder.line('Customer Signature: __________________');
+    builder.separator('-');
+    builder.align('center');
+    builder.line('I acknowledge the balance above and');
+    builder.line('agree to clear the outstanding debt.');
+
+    if (receipt.customerSignature) {
+      builder.feed(1);
+      builder.bold(true).line('[ DIGITALLY SIGNED BY CUSTOMER ]').bold(false);
+      builder.line(`Customer: ${receipt.customerName}`);
+      if (receipt.customerSignedAt) {
+        const signDate = new Date(receipt.customerSignedAt).toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        builder.line(`Signed: ${signDate}`);
+      }
+    } else {
+      builder.feed(1);
+      builder.line('Customer Signature: __________________');
+      builder.line(`(${receipt.customerName})`);
+    }
   }
 
   // 6. SAVINGS CALLOUT

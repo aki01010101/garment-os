@@ -40,6 +40,8 @@ import {
   List,
   BookOpen,
   Calendar,
+  FileSignature,
+  PenTool,
 } from 'lucide-react';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 import { CustomerPurchasesModal } from '../crm/CustomerPurchasesModal';
@@ -48,6 +50,7 @@ import { computeCustomerSpendMetrics } from '../../utils/crmUtils';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
 import { DigitalReceiptModal } from './DigitalReceiptModal';
 import { StoreCreditNotesModal } from './StoreCreditNotesModal';
+import { SignaturePadModal } from '../common/SignaturePadModal';
 
 export const POSBilling: React.FC = () => {
   const {
@@ -123,6 +126,9 @@ export const POSBilling: React.FC = () => {
   });
   const [creditNotesInput, setCreditNotesInput] = useState<string>('');
   const [saleNotes, setSaleNotes] = useState('');
+  const [capturedSignature, setCapturedSignature] = useState<string | null>(null);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [pendingCheckoutAfterSign, setPendingCheckoutAfterSign] = useState(false);
   const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState(false);
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
@@ -163,6 +169,12 @@ export const POSBilling: React.FC = () => {
   useEffect(() => {
     setTaxInclusiveOverride(null);
   }, [activeCompanyId]);
+
+  // Reset captured signature if customer changes
+  useEffect(() => {
+    setCapturedSignature(null);
+    setPendingCheckoutAfterSign(false);
+  }, [selectedCustomerId]);
 
   // Coupon & Credit Note inputs
   const [couponInput, setCouponInput] = useState('');
@@ -632,6 +644,57 @@ export const POSBilling: React.FC = () => {
     }
   };
 
+  const executeCheckout = (sigToUse?: string) => {
+    try {
+      const isCreditInvolved = paymentMode === 'Credit' || (paymentMode === 'Split' && splitCreditVal > 0);
+      let resolvedDueDate: string | undefined = undefined;
+      if (isCreditInvolved) {
+        if (creditDaysOption === 'custom') {
+          resolvedDueDate = customDueDate;
+        } else {
+          const days = parseInt(creditDaysOption, 10) || 15;
+          resolvedDueDate = new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
+        }
+      }
+
+      const splitBreakdown =
+        paymentMode === 'Split'
+          ? {
+            cash: splitCashVal,
+            upi: splitUpiVal,
+            card: splitCardVal,
+            credit: splitCreditVal,
+          }
+          : undefined;
+
+      checkoutSale(
+        paymentMode,
+        paymentMode === 'Cash'
+          ? tenderedAmount || cartSummary.grandTotal
+          : paymentMode === 'Split' && splitCashVal > 0
+            ? splitCashVal
+            : undefined,
+        saleNotes,
+        splitBreakdown,
+        isTaxInclusive,
+        resolvedDueDate,
+        creditNotesInput.trim() || undefined,
+        sigToUse !== undefined ? sigToUse : (capturedSignature || undefined)
+      );
+      setCashTendered('');
+      setSplitCash('');
+      setSplitUpi('');
+      setSplitCard('');
+      setSplitCredit('');
+      setSaleNotes('');
+      setCreditNotesInput('');
+      setCapturedSignature(null);
+      setPendingCheckoutAfterSign(false);
+    } catch (err: any) {
+      alert(err.message || 'Error checking out sale');
+    }
+  };
+
   const handleCheckout = () => {
     if (cart.length === 0) return;
 
@@ -669,50 +732,18 @@ export const POSBilling: React.FC = () => {
       }
     }
 
-    try {
-      let resolvedDueDate: string | undefined = undefined;
-      if (isCreditInvolved) {
-        if (creditDaysOption === 'custom') {
-          resolvedDueDate = customDueDate;
-        } else {
-          const days = parseInt(creditDaysOption, 10) || 15;
-          resolvedDueDate = new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
-        }
-      }
+    // Check if customer signature is required:
+    // Required when customer is taking credit on this bill OR has previous outstanding debt balance
+    const hasPrevBalance = Boolean(selectedCustomer && (selectedCustomer.outstandingCredit || 0) > 0);
+    const requiresSignature = (isCreditInvolved || hasPrevBalance) && Boolean(selectedCustomer);
 
-      const splitBreakdown =
-        paymentMode === 'Split'
-          ? {
-            cash: splitCashVal,
-            upi: splitUpiVal,
-            card: splitCardVal,
-            credit: splitCreditVal,
-          }
-          : undefined;
-
-      checkoutSale(
-        paymentMode,
-        paymentMode === 'Cash'
-          ? tenderedAmount || cartSummary.grandTotal
-          : paymentMode === 'Split' && splitCashVal > 0
-            ? splitCashVal
-            : undefined,
-        saleNotes,
-        splitBreakdown,
-        isTaxInclusive,
-        resolvedDueDate,
-        creditNotesInput.trim() || undefined
-      );
-      setCashTendered('');
-      setSplitCash('');
-      setSplitUpi('');
-      setSplitCard('');
-      setSplitCredit('');
-      setSaleNotes('');
-      setCreditNotesInput('');
-    } catch (err: any) {
-      alert(err.message || 'Error checking out sale');
+    if (requiresSignature && !capturedSignature) {
+      setPendingCheckoutAfterSign(true);
+      setIsSignatureModalOpen(true);
+      return;
     }
+
+    executeCheckout(capturedSignature || undefined);
   };
 
   const handleCreateCustomer = (e: React.FormEvent) => {
@@ -2542,6 +2573,81 @@ export const POSBilling: React.FC = () => {
               </div>
             )}
 
+            {/* Customer Signature Acknowledgment Trigger (shown for credit purchases or existing khata balance) */}
+            {((paymentMode === 'Credit' || (paymentMode === 'Split' && splitCreditVal > 0)) ||
+              Boolean(selectedCustomer && (selectedCustomer.outstandingCredit || 0) > 0)) &&
+              selectedCustomer &&
+              !lastCompletedSale && (
+                <div className="p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/60 flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className={`p-1.5 rounded-lg shrink-0 ${
+                        capturedSignature ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'
+                      }`}
+                    >
+                      <FileSignature className="w-4 h-4" />
+                    </div>
+                    <div className="truncate">
+                      <div className="font-bold text-slate-800 text-[11px] flex items-center gap-1.5">
+                        <span>Customer Khata Signature</span>
+                        {capturedSignature ? (
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">
+                            Signed ✓
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-medium text-slate-500">
+                            (Will prompt at checkout)
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-500 truncate">
+                        {capturedSignature
+                          ? 'Signature ready to print on receipt'
+                          : selectedCustomer.outstandingCredit && selectedCustomer.outstandingCredit > 0
+                            ? `Debt: ₹${selectedCustomer.outstandingCredit.toLocaleString('en-IN')} · Sign on screen or paper`
+                            : 'Sign on touch screen or paper slip'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {capturedSignature ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPendingCheckoutAfterSign(false);
+                            setIsSignatureModalOpen(true);
+                          }}
+                          className="text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 px-2 py-1 rounded bg-white border border-indigo-200 cursor-pointer shadow-2xs"
+                        >
+                          Re-sign
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCapturedSignature(null)}
+                          className="text-[11px] font-semibold text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-1.5 py-1 rounded cursor-pointer"
+                          title="Clear signature"
+                        >
+                          Clear
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingCheckoutAfterSign(false);
+                          setIsSignatureModalOpen(true);
+                        }}
+                        className="text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 px-2.5 py-1 rounded-md bg-white border border-indigo-300 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                      >
+                        <PenTool className="w-3 h-3" />
+                        Sign Now
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
             {/* Complete Sale Button OR Start Next Sale Button */}
             {lastCompletedSale ? (
               <div className="space-y-2">
@@ -3205,6 +3311,58 @@ export const POSBilling: React.FC = () => {
         appliedCreditNoteCode={appliedCreditNote?.code}
         onRemoveAppliedCreditNote={removeCreditNote}
       />
+
+      {/* Customer Signature & Khata Acknowledgment Modal */}
+      {selectedCustomer && (
+        <SignaturePadModal
+          isOpen={isSignatureModalOpen}
+          onClose={() => {
+            setIsSignatureModalOpen(false);
+            setPendingCheckoutAfterSign(false);
+          }}
+          customerName={selectedCustomer.name}
+          customerPhone={selectedCustomer.phone}
+          previousBalance={selectedCustomer.outstandingCredit || 0}
+          creditAmount={
+            paymentMode === 'Credit'
+              ? cartSummary.grandTotal
+              : paymentMode === 'Split'
+                ? splitCreditVal
+                : 0
+          }
+          totalNewBalance={
+            (selectedCustomer.outstandingCredit || 0) +
+            (paymentMode === 'Credit'
+              ? cartSummary.grandTotal
+              : paymentMode === 'Split'
+                ? splitCreditVal
+                : 0)
+          }
+          dueDate={
+            paymentMode === 'Credit' || (paymentMode === 'Split' && splitCreditVal > 0)
+              ? creditDaysOption === 'custom'
+                ? customDueDate
+                : new Date(Date.now() + (parseInt(creditDaysOption, 10) || 15) * 86400000)
+                    .toISOString()
+                    .split('T')[0]
+              : undefined
+          }
+          onConfirm={(sigDataUrl) => {
+            setCapturedSignature(sigDataUrl);
+            setIsSignatureModalOpen(false);
+            if (pendingCheckoutAfterSign) {
+              executeCheckout(sigDataUrl);
+            }
+          }}
+          onSignOnPaper={() => {
+            setCapturedSignature(null);
+            setIsSignatureModalOpen(false);
+            if (pendingCheckoutAfterSign) {
+              executeCheckout(undefined);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -318,6 +318,76 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
                 <span>₹{totalSavings.toFixed(2)}</span>
               </div>
             )}
+
+            {/* Customer Khata Acknowledgment & Digital Signature */}
+            {(() => {
+              const isCreditSale =
+                receipt.paymentMode === 'Credit' ||
+                Boolean(receipt.creditAmount && receipt.creditAmount > 0) ||
+                Boolean(receipt.splitBreakdown?.credit && receipt.splitBreakdown.credit > 0);
+              const hasPrevBalance = Boolean(receipt.customerPreviousBalance && receipt.customerPreviousBalance > 0);
+              const showKhata = isCreditSale || hasPrevBalance || Boolean(receipt.customerSignature);
+
+              if (!showKhata) return null;
+
+              const prevBal = receipt.customerPreviousBalance || 0;
+              const thisCredit =
+                receipt.creditAmount !== undefined
+                  ? receipt.creditAmount
+                  : receipt.paymentMode === 'Credit'
+                    ? receipt.grandTotal
+                    : (receipt.splitBreakdown?.credit || 0);
+              const totalOutstanding =
+                receipt.customerNewBalance !== undefined
+                  ? receipt.customerNewBalance
+                  : prevBal + thisCredit;
+
+              return (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                  <div className="flex items-center justify-between font-bold text-slate-800 text-[11px]">
+                    <span>Khata / Udhaar Acknowledgment</span>
+                    {receipt.customerSignature && (
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                        Digitally Signed ✓
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                    {prevBal > 0 && (
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Previous Khata:</span>
+                        <span className="font-bold text-slate-700">₹{prevBal.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {thisCredit > 0 && (
+                      <div>
+                        <span className="text-amber-700 block text-[10px]">This Bill Credit:</span>
+                        <span className="font-bold text-amber-800">+₹{thisCredit.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="col-span-2 pt-1 border-t border-slate-200 flex justify-between font-bold text-slate-900">
+                      <span>Net Outstanding Debt:</span>
+                      <span className="text-indigo-900">₹{totalOutstanding.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  {receipt.customerSignature && (
+                    <div className="pt-2 text-center border-t border-slate-200">
+                      <img
+                        src={receipt.customerSignature}
+                        alt="Customer Signature"
+                        className="max-h-12 max-w-[150px] mx-auto object-contain my-1"
+                      />
+                      <div className="text-[10px] text-slate-500 font-mono">
+                        Signed by {receipt.customerName}
+                        {receipt.customerSignedAt && ` on ${new Date(receipt.customerSignedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
 
