@@ -753,7 +753,7 @@ export const PriceTagGenerator: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* 3. Middle & Bottom Split: QR Code on Left | Size & Price on Right */}
+                        {/* 3. Bottom Row: 3 Columns -> QR Code (Left) | Price (Center) | Size (Right) */}
                         <div
                           className="pt-0.5 border-t border-black/40 flex items-center justify-between"
                           style={{
@@ -763,35 +763,38 @@ export const PriceTagGenerator: React.FC = () => {
                             borderTop: '0.8px solid #000000',
                             paddingTop: is25mm ? '1px' : '1.5px',
                             marginTop: 'auto',
+                            gap: '2px',
                           }}
                         >
-                          {/* QR Code / Barcode */}
+                          {/* Column 1: QR Code / Barcode (Left) */}
                           <div
                             style={{
                               display: 'flex',
                               flexDirection: 'column',
-                              alignItems: 'center',
+                              alignItems: 'flex-start',
                               justifyContent: 'center',
+                              flexShrink: 0,
                             }}
                           >
                             <BarcodeSvg
                               value={product.barcode || product.sku}
                               type={tagCodeType}
-                              qrSize={is25mm ? 36 : 46}
+                              qrSize={is25mm ? 35 : 44}
                               height={is25mm ? 15 : 18}
-                              width={is25mm ? 80 : 90}
+                              width={is25mm ? 68 : 80}
                               showText={tagCodeType === 'barcode'}
-                              className="scale-95"
+                              className="scale-95 origin-left"
                             />
                             {tagCodeType === 'qr' && (
                               <span
                                 style={{
-                                  fontSize: is25mm ? '6px' : '6.5px',
+                                  fontSize: is25mm ? '5.5px' : '6.5px',
                                   fontFamily: 'monospace',
-                                  fontWeight: 600,
+                                  fontWeight: 700,
                                   color: '#000000',
                                   marginTop: '0.5px',
                                   lineHeight: '1',
+                                  letterSpacing: '-0.2px',
                                 }}
                               >
                                 {product.barcode || product.sku}
@@ -799,75 +802,97 @@ export const PriceTagGenerator: React.FC = () => {
                             )}
                           </div>
 
-                          {/* Size & Selling Price (Just the amount) */}
+                          {/* Column 2: Selling Price (Center) */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              textAlign: 'center',
+                              flex: 1,
+                              padding: '0 2px',
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: is25mm ? '5.5px' : '6px',
+                                fontWeight: 700,
+                                color: '#475569',
+                                textTransform: 'uppercase',
+                                lineHeight: '1',
+                              }}
+                            >
+                              PRICE
+                            </div>
+                            <div
+                              style={{
+                                fontSize: is25mm ? '13px' : '14px',
+                                fontWeight: 900,
+                                fontFamily: 'monospace',
+                                color: '#000000',
+                                lineHeight: '1.1',
+                              }}
+                            >
+                              {saleOfferPercentage > 0 ? (
+                                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '2px' }}>
+                                  <span style={{ fontSize: is25mm ? '7px' : '8px', textDecoration: 'line-through', color: '#64748b' }}>
+                                    ₹{product.sellingPrice}
+                                  </span>
+                                  <span style={{ fontSize: is25mm ? '13px' : '14px', fontWeight: 900, color: '#000000' }}>
+                                    ₹{discountedPrice}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span>₹{product.sellingPrice}</span>
+                              )}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: is25mm ? '5px' : '5.5px',
+                                color: '#64748b',
+                                textTransform: 'uppercase',
+                                lineHeight: '1',
+                                marginTop: '0.5px',
+                              }}
+                            >
+                              (INCL. TAXES)
+                            </div>
+                          </div>
+
+                          {/* Column 3: Garment Size (Right) */}
                           <div
                             style={{
                               display: 'flex',
                               flexDirection: 'column',
                               alignItems: 'flex-end',
-                              textAlign: 'right',
                               justifyContent: 'center',
+                              textAlign: 'right',
+                              flexShrink: 0,
+                              minWidth: is25mm ? '32px' : '38px',
                             }}
                           >
-                            {/* Size (Normal clean text display, no badge) */}
                             <div
                               style={{
-                                fontSize: is25mm ? '7.5px' : '8px',
+                                fontSize: is25mm ? '5.5px' : '6px',
                                 fontWeight: 700,
+                                color: '#475569',
+                                textTransform: 'uppercase',
+                                lineHeight: '1',
+                              }}
+                            >
+                              SIZE
+                            </div>
+                            <div
+                              style={{
+                                fontSize: (product.size || '').length > 4 ? (is25mm ? '9px' : '10px') : (is25mm ? '13px' : '14px'),
+                                fontWeight: 900,
+                                fontFamily: 'monospace',
                                 color: '#000000',
-                                marginBottom: is25mm ? '1px' : '2px',
                                 lineHeight: '1.1',
                               }}
                             >
-                              SIZE: <span style={{ fontFamily: 'monospace', fontWeight: 800 }}>{product.size}</span>
-                            </div>
-
-                            {/* Selling Price (Just the amount) */}
-                            <div>
-                              <div
-                                style={{
-                                  fontSize: is25mm ? '5.5px' : '6px',
-                                  fontWeight: 700,
-                                  color: '#475569',
-                                  textTransform: 'uppercase',
-                                  lineHeight: '1',
-                                }}
-                              >
-                                PRICE
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: is25mm ? '13px' : '14px',
-                                  fontWeight: 900,
-                                  fontFamily: 'monospace',
-                                  color: '#000000',
-                                  lineHeight: '1.1',
-                                }}
-                              >
-                                {saleOfferPercentage > 0 ? (
-                                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
-                                    <span style={{ fontSize: is25mm ? '7.5px' : '8px', textDecoration: 'line-through', color: '#64748b' }}>
-                                      ₹{product.sellingPrice}
-                                    </span>
-                                    <span style={{ fontSize: is25mm ? '13px' : '14px', fontWeight: 900, color: '#000000' }}>
-                                      ₹{discountedPrice}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span>₹{product.sellingPrice}</span>
-                                )}
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: is25mm ? '5px' : '5.5px',
-                                  color: '#64748b',
-                                  textTransform: 'uppercase',
-                                  lineHeight: '1',
-                                  marginTop: '0.5px',
-                                }}
-                              >
-                                (INCL. TAXES)
-                              </div>
+                              {product.size || 'FREE'}
                             </div>
                           </div>
                         </div>

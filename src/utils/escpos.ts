@@ -1375,58 +1375,68 @@ export function renderTagToCanvas(
       }
     }
 
-    // RIGHT COLUMN: SIZE + PRICE + TAXES (all aligned to rightX)
-    ctx.textAlign = 'right';
+    // 4. BOTTOM 3 COLUMNS:
+    // LEFT: QR Code / 1D Barcode (centered under code)
+    // CENTER: PRICE (Label, Value, (INCL. TAXES))
+    // RIGHT: SIZE (Label, Value)
 
-    // SIZE:
-    ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#000000';
-    const sizeVal = product.size || 'FREE';
-    const sizeValWidth = ctx.measureText(sizeVal).width;
-    ctx.fillText('SIZE: ', rightX - sizeValWidth, 56);
-    ctx.font = 'bold 14px "JetBrains Mono", Courier, monospace';
-    ctx.fillText(sizeVal, rightX, 56);
+    // CENTER COLUMN: SELLING PRICE
+    const centerX = 205;
+    ctx.textAlign = 'center';
 
     // PRICE LABEL
     ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
     ctx.fillStyle = '#475569';
-    ctx.fillText('PRICE', rightX, 78);
+    ctx.fillText('PRICE', centerX, 64);
 
     // PRICE VALUES
     if (saleOfferPercentage > 0) {
       // Strikethrough original price
       const origPriceStr = `₹${product.sellingPrice}`;
-      ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
+      ctx.font = 'bold 10px "JetBrains Mono", Courier, monospace';
       ctx.fillStyle = '#64748b';
-      ctx.fillText(origPriceStr, rightX, 92);
+      ctx.fillText(origPriceStr, centerX, 78);
       const strikeWidth = ctx.measureText(origPriceStr).width;
       ctx.strokeStyle = '#64748b';
       ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.moveTo(rightX - strikeWidth, 98);
-      ctx.lineTo(rightX, 98);
+      ctx.moveTo(centerX - strikeWidth / 2, 84);
+      ctx.lineTo(centerX + strikeWidth / 2, 84);
       ctx.stroke();
 
       // Discounted price
       ctx.font = 'bold 22px "JetBrains Mono", Courier, monospace';
       ctx.fillStyle = '#000000';
-      ctx.fillText(`₹${discountedPrice}`, rightX, 104);
+      ctx.fillText(`₹${discountedPrice}`, centerX, 92);
 
       // Taxes
-      ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+      ctx.font = 'bold 8.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
       ctx.fillStyle = '#64748b';
-      ctx.fillText('(INCL. TAXES)', rightX, 136);
+      ctx.fillText('(INCL. TAXES)', centerX, 122);
     } else {
       // Standard price
       ctx.font = 'bold 26px "JetBrains Mono", Courier, monospace';
       ctx.fillStyle = '#000000';
-      ctx.fillText(`₹${product.sellingPrice}`, rightX, 92);
+      ctx.fillText(`₹${product.sellingPrice}`, centerX, 80);
 
       // Taxes
-      ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+      ctx.font = 'bold 8.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
       ctx.fillStyle = '#64748b';
-      ctx.fillText('(INCL. TAXES)', rightX, 132);
+      ctx.fillText('(INCL. TAXES)', centerX, 120);
     }
+
+    // RIGHT COLUMN: SIZE
+    ctx.textAlign = 'right';
+    ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = '#475569';
+    ctx.fillText('SIZE', rightX, 64);
+
+    const sizeVal = (product.size || 'FREE').toUpperCase();
+    ctx.font = sizeVal.length > 4
+      ? 'bold 13px "JetBrains Mono", Courier, monospace'
+      : 'bold 24px "JetBrains Mono", Courier, monospace';
+    ctx.fillStyle = '#000000';
+    ctx.fillText(sizeVal, rightX, 82);
   } else {
     // 50mm x 32mm Layout (240 dots height)
 
@@ -1546,22 +1556,19 @@ export function renderTagToCanvas(
     }
   }
 
-  // RIGHT COLUMN: SIZE + PRICE + TAXES (all aligned to rightX)
-  ctx.textAlign = 'right';
+  // 4. BOTTOM 3 COLUMNS:
+  // LEFT: QR Code / 1D Barcode (centered under code)
+  // CENTER: PRICE (Label, Value, (INCL. TAXES))
+  // RIGHT: SIZE (Label, Value)
 
-  // SIZE:
-  ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = '#000000';
-  const sizeVal = product.size || 'FREE';
-  const sizeValWidth = ctx.measureText(sizeVal).width;
-  ctx.fillText('SIZE: ', rightX - sizeValWidth, 72);
-  ctx.font = 'bold 15px "JetBrains Mono", Courier, monospace';
-  ctx.fillText(sizeVal, rightX, 72);
+  // CENTER COLUMN: SELLING PRICE
+  const centerX32 = 205;
+  ctx.textAlign = 'center';
 
   // PRICE LABEL
   ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
   ctx.fillStyle = '#475569';
-  ctx.fillText('PRICE', rightX, 98);
+  ctx.fillText('PRICE', centerX32, 80);
 
   // PRICE VALUES
   if (saleOfferPercentage > 0) {
@@ -1569,35 +1576,48 @@ export function renderTagToCanvas(
     const origPriceStr = `₹${product.sellingPrice}`;
     ctx.font = 'bold 12px "JetBrains Mono", Courier, monospace';
     ctx.fillStyle = '#64748b';
-    ctx.fillText(origPriceStr, rightX, 115);
+    ctx.fillText(origPriceStr, centerX32, 98);
     const strikeWidth = ctx.measureText(origPriceStr).width;
     ctx.strokeStyle = '#64748b';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.moveTo(rightX - strikeWidth, 121);
-    ctx.lineTo(rightX, 121);
+    ctx.moveTo(centerX32 - strikeWidth / 2, 104);
+    ctx.lineTo(centerX32 + strikeWidth / 2, 104);
     ctx.stroke();
 
     // Discounted price
-    ctx.font = 'bold 24px "JetBrains Mono", Courier, monospace';
+    ctx.font = 'bold 26px "JetBrains Mono", Courier, monospace';
     ctx.fillStyle = '#000000';
-    ctx.fillText(`₹${discountedPrice}`, rightX, 128);
+    ctx.fillText(`₹${discountedPrice}`, centerX32, 112);
 
     // Taxes
     ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
     ctx.fillStyle = '#64748b';
-    ctx.fillText('(INCL. TAXES)', rightX, 168);
+    ctx.fillText('(INCL. TAXES)', centerX32, 152);
   } else {
     // Standard price
-    ctx.font = 'bold 28px "JetBrains Mono", Courier, monospace';
+    ctx.font = 'bold 30px "JetBrains Mono", Courier, monospace';
     ctx.fillStyle = '#000000';
-    ctx.fillText(`₹${product.sellingPrice}`, rightX, 114);
+    ctx.fillText(`₹${product.sellingPrice}`, centerX32, 98);
 
     // Taxes
     ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
     ctx.fillStyle = '#64748b';
-    ctx.fillText('(INCL. TAXES)', rightX, 156);
+    ctx.fillText('(INCL. TAXES)', centerX32, 144);
   }
+
+  // RIGHT COLUMN: SIZE
+  ctx.textAlign = 'right';
+  ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+  ctx.fillStyle = '#475569';
+  ctx.fillText('SIZE', rightX, 80);
+
+  const sizeVal32 = (product.size || 'FREE').toUpperCase();
+  ctx.font = sizeVal32.length > 4
+    ? 'bold 15px "JetBrains Mono", Courier, monospace'
+    : 'bold 28px "JetBrains Mono", Courier, monospace';
+  ctx.fillStyle = '#000000';
+  ctx.fillText(sizeVal32, rightX, 102);
 }
 
   return canvas;
