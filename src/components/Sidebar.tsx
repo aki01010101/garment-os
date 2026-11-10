@@ -18,6 +18,7 @@ import {
   ChevronRight,
   X,
   Lock,
+  BookOpen,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -46,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'tags', label: 'Price Tags', icon: Tag, short: 'Tags' },
     { id: 'vendors', label: 'Vendors & Stock', icon: Truck, short: 'Vendors' },
     { id: 'returns', label: 'Returns & Credit', icon: RotateCcw, short: 'Returns' },
+    { id: 'khata', label: 'Customer Khata', icon: BookOpen, short: 'Khata' },
     { id: 'alterations', label: 'Alterations', icon: Scissors, short: 'Tailor' },
     { id: 'cash', label: 'Day Register (Z)', icon: IndianRupee, short: 'Cash (Z)' },
     { id: 'crm', label: 'CRM & Loyalty', icon: Users, short: 'CRM' },

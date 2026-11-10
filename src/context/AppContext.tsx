@@ -36,6 +36,11 @@ import {
   AssociateCommissionConfig,
   AssociateCommissionPayout,
   WhatsAppCampaignTemplate,
+  CustomerCreditPayment,
+  KhataLedgerEntry,
+  KhataSummaryStats,
+  PaymentMode,
+  CustomerCreditPaymentAllocation,
 } from '../types';
 import {
   INITIAL_COMPANIES,
@@ -57,6 +62,7 @@ import {
   INITIAL_CAMPAIGN_TEMPLATES,
   INITIAL_COMMISSION_CONFIGS,
   INITIAL_STOCK_TRANSFERS,
+  INITIAL_CREDIT_PAYMENTS,
 } from '../data/seedData';
 
 import { playBarcodeBeep } from '../utils/audio';
@@ -158,11 +164,13 @@ interface AppContextType {
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
   checkoutSale: (
-    paymentMode: 'Cash' | 'Card' | 'UPI' | 'Split',
+    paymentMode: PaymentMode,
     cashTendered?: number,
     notes?: string,
     splitBreakdown?: SplitPaymentBreakdown,
-    taxInclusive?: boolean
+    taxInclusive?: boolean,
+    creditDueDate?: string,
+    creditNotes?: string
   ) => SaleTransaction;
 
   // Sales History & Receipts
@@ -280,6 +288,24 @@ interface AppContextType {
   enableEReceiptQr: boolean;
   setEnableEReceiptQr: (enable: boolean) => void;
 
+  // Customer Khata (Credit) & Recovery System
+  creditPayments: CustomerCreditPayment[];
+  recordCreditPayment: (payment: Omit<CustomerCreditPayment, 'id' | 'receiptNumber'>) => CustomerCreditPayment;
+  getCustomerKhata: (customerId: string) => {
+    creditSales: SaleTransaction[];
+    payments: CustomerCreditPayment[];
+    ledger: KhataLedgerEntry[];
+    totalOutstanding: number;
+    agingBuckets: {
+      '0-15': number;
+      '16-30': number;
+      '31-60': number;
+      '60+': number;
+    };
+    oldestCreditDays: number;
+  };
+  getKhataSummaryStats: () => KhataSummaryStats;
+
   // System
   resetToSampleData: () => void;
 }
@@ -319,6 +345,7 @@ const STORAGE_KEYS = {
   GOOGLE_REVIEW_PROMPT: 'garment_os_google_review_prompt_v1',
   ENABLE_RECEIPT_REVIEW_QR: 'garment_os_enable_receipt_review_qr_v1',
   ENABLE_E_RECEIPT_QR: 'garment_os_enable_ereceipt_qr_v1',
+  CREDIT_PAYMENTS: 'garment_os_customer_credit_payments_v1',
 };
 
 
@@ -369,6 +396,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [loyaltyConfig, setLoyaltyConfig] = useState<LoyaltyConfig>(() => safeLoad(STORAGE_KEYS.LOYALTY, DEFAULT_LOYALTY_CONFIG));
   const [alterations, setAlterations] = useState<AlterationRecord[]>(() => safeLoad(STORAGE_KEYS.ALTERATIONS, INITIAL_ALTERATIONS));
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>(() => safeLoad(STORAGE_KEYS.CREDIT_NOTES, INITIAL_CREDIT_NOTES));
+  const [creditPayments, setCreditPayments] = useState<CustomerCreditPayment[]>(() =>
+    safeLoad(STORAGE_KEYS.CREDIT_PAYMENTS, INITIAL_CREDIT_PAYMENTS)
+  );
   const [dayRegister, setDayRegister] = useState<DayEndRegister>(() => safeLoad(STORAGE_KEYS.REGISTER, INITIAL_REGISTER));
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => safeLoad(STORAGE_KEYS.SOUND, true));
 
@@ -641,8 +671,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return !['reports', 'companies', 'settings'].includes(tabKey);
     }
     if (active.role === 'sales_cashier') {
-      // Sales cashiers can access POS billing, Returns/Exchanges, Alterations, and Sales Register
-      return ['pos', 'returns', 'alterations', 'sales-register'].includes(tabKey);
+      // Sales cashiers can access POS billing, Returns/Exchanges, Alterations, Sales Register, and Khata
+      return ['pos', 'returns', 'alterations', 'sales-register', 'khata'].includes(tabKey);
     }
     return false;
   };
@@ -1373,6 +1403,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.CREDIT_NOTES, JSON.stringify(creditNotes));
   }, [creditNotes]);
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.CREDIT_PAYMENTS, JSON.stringify(creditPayments));
+  }, [creditPayments]);
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.REGISTER, JSON.stringify(dayRegister));
   }, [dayRegister]);
@@ -2135,11 +2168,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sale Checkout
   const checkoutSale = (
-    paymentMode: 'Cash' | 'Card' | 'UPI' | 'Split',
+    paymentMode: PaymentMode,
     cashTendered?: number,
     notes?: string,
     splitBreakdown?: SplitPaymentBreakdown,
-    taxInclusive?: boolean
+    taxInclusive?: boolean,
+    creditDueDate?: string,
+    creditNotes?: string
   ): SaleTransaction => {
     if (cart.length === 0) throw new Error('Cart is empty');
 
@@ -2249,6 +2284,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? Math.max(0, cashTendered - finalGrandTotal)
         : undefined;
 
+    // Calculate Credit parameters
+    let creditAmount: number | undefined = undefined;
+    let creditRemainingBalance: number | undefined = undefined;
+    let creditStatus: 'unpaid' | 'partially_paid' | 'paid' | undefined = undefined;
+    let resolvedDueDate: string | undefined = undefined;
+
+    if (paymentMode === 'Credit') {
+      creditAmount = finalGrandTotal;
+      creditRemainingBalance = finalGrandTotal;
+      creditStatus = 'unpaid';
+      resolvedDueDate = creditDueDate || new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0];
+    } else if (paymentMode === 'Split' && splitBreakdown?.credit && splitBreakdown.credit > 0) {
+      creditAmount = Math.min(finalGrandTotal, splitBreakdown.credit);
+      creditRemainingBalance = creditAmount;
+      creditStatus = 'unpaid';
+      resolvedDueDate = creditDueDate || new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0];
+    }
+
     const transaction: SaleTransaction = {
       id: `sale_${Date.now()}`,
       invoiceNumber,
@@ -2279,6 +2332,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cashTendered,
       changeDue,
       splitBreakdown,
+      creditAmount,
+      creditRemainingBalance,
+      creditDueDate: resolvedDueDate,
+      creditStatus,
+      creditNotes,
       notes,
       taxInclusive: defaultInclusive,
       isCompositionScheme: company.isCompositionScheme ?? false,
@@ -2317,12 +2375,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         prev.map((cust) => {
           if (cust.id === selectedCustomer.id) {
             const netPoints = Math.max(0, cust.loyaltyPoints - redeemedPoints + pointsEarned);
+            const creditAmt = creditAmount || 0;
+            const newOutstanding = (cust.outstandingCredit || 0) + creditAmt;
+            const oldestDate = cust.oldestCreditDate || (creditAmt > 0 ? transaction.date : undefined);
             return {
               ...cust,
               loyaltyPoints: netPoints,
               totalSpend: cust.totalSpend + finalGrandTotal,
               totalVisits: cust.totalVisits + 1,
               lastPurchaseDate: new Date().toISOString().split('T')[0],
+              outstandingCredit: newOutstanding,
+              oldestCreditDate: oldestDate,
+              creditStatus: newOutstanding > 0 ? (cust.creditStatus || 'good') : 'good',
             };
           }
           return cust;
@@ -2385,12 +2449,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         });
         if (selectedCustomer) {
+          const creditAmt = creditAmount || 0;
+          const newOutstanding = (selectedCustomer.outstandingCredit || 0) + creditAmt;
           asyncSyncCustomer({
             ...selectedCustomer,
             loyaltyPoints: Math.max(0, selectedCustomer.loyaltyPoints - redeemedPoints + pointsEarned),
             totalSpend: selectedCustomer.totalSpend + finalGrandTotal,
             totalVisits: selectedCustomer.totalVisits + 1,
             lastPurchaseDate: new Date().toISOString().split('T')[0],
+            outstandingCredit: newOutstanding,
+            oldestCreditDate: selectedCustomer.oldestCreditDate || (creditAmt > 0 ? transaction.date : undefined),
+            creditStatus: newOutstanding > 0 ? (selectedCustomer.creditStatus || 'good') : 'good',
           });
         }
       } catch (err) {
@@ -2408,6 +2477,302 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return transaction;
   };
 
+  // Customer Khata Management
+  const recordCreditPayment = (
+    paymentData: Omit<CustomerCreditPayment, 'id' | 'receiptNumber'>
+  ): CustomerCreditPayment => {
+    const id = `cp_${Date.now()}`;
+    const receiptNumber = `REC-KHATA-${Date.now().toString().slice(-6)}`;
+    let remainingToAllocate = paymentData.amount;
+    const allocations: CustomerCreditPaymentAllocation[] = [];
+
+    // Find customer's unpaid / partially paid credit sales sorted oldest first (FIFO)
+    const customerCreditSales = sales
+      .filter(
+        (s) =>
+          s.customerId === paymentData.customerId &&
+          ((s.creditAmount || 0) > 0 || s.paymentMode === 'Credit' || (s.splitBreakdown?.credit || 0) > 0) &&
+          (s.creditRemainingBalance === undefined || s.creditRemainingBalance > 0)
+      )
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Allocations map
+    const updatedSaleMap = new Map<string, { balance: number; status: 'unpaid' | 'partially_paid' | 'paid' }>();
+
+    for (const sale of customerCreditSales) {
+      if (remainingToAllocate <= 0) break;
+      const currentBalance = sale.creditRemainingBalance !== undefined ? sale.creditRemainingBalance : (sale.creditAmount || sale.grandTotal);
+      if (currentBalance <= 0) continue;
+
+      const allocated = Math.min(remainingToAllocate, currentBalance);
+      const newBalance = Math.max(0, currentBalance - allocated);
+      const newStatus: 'unpaid' | 'partially_paid' | 'paid' = newBalance === 0 ? 'paid' : 'partially_paid';
+
+      allocations.push({
+        saleId: sale.id,
+        invoiceNumber: sale.invoiceNumber,
+        amountAllocated: allocated,
+        remainingOnInvoice: newBalance,
+      });
+
+      updatedSaleMap.set(sale.id, { balance: newBalance, status: newStatus });
+      remainingToAllocate -= allocated;
+    }
+
+    // Update sales state
+    if (updatedSaleMap.size > 0) {
+      setSales((prev) =>
+        prev.map((s) => {
+          const update = updatedSaleMap.get(s.id);
+          if (update) {
+            const updatedSale: SaleTransaction = {
+              ...s,
+              creditRemainingBalance: update.balance,
+              creditStatus: update.status,
+              creditSettledDate: update.status === 'paid' ? (paymentData.date || new Date().toISOString()) : s.creditSettledDate,
+            };
+            if (isSupabaseAutoSync) {
+              try { asyncSyncSale(updatedSale); } catch {}
+            }
+            return updatedSale;
+          }
+          return s;
+        })
+      );
+    }
+
+    const currentCustomer = customers.find((c) => c.id === paymentData.customerId);
+    const prevBalance = currentCustomer?.outstandingCredit || 0;
+    const newBalance = Math.max(0, prevBalance - paymentData.amount);
+
+    // Update customer balance & oldest credit date
+    setCustomers((prev) =>
+      prev.map((cust) => {
+        if (cust.id === paymentData.customerId) {
+          // Find remaining oldest unpaid sale
+          const remainingUnpaidSales = sales
+            .filter(
+              (s) =>
+                s.customerId === cust.id &&
+                s.id !== undefined &&
+                ((updatedSaleMap.has(s.id) ? updatedSaleMap.get(s.id)!.balance : (s.creditRemainingBalance ?? s.creditAmount ?? 0)) > 0)
+            )
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+          const newOldestDate = remainingUnpaidSales.length > 0 ? remainingUnpaidSales[0].date : undefined;
+          let newStatus: 'good' | 'overdue' | 'blocked' = 'good';
+          if (newBalance > 0 && newOldestDate) {
+            const daysOld = Math.floor((Date.now() - new Date(newOldestDate).getTime()) / (1000 * 60 * 60 * 24));
+            if (daysOld > 30) newStatus = 'overdue';
+          }
+
+          const updatedCust: Customer = {
+            ...cust,
+            outstandingCredit: newBalance,
+            oldestCreditDate: newOldestDate,
+            creditStatus: newStatus,
+          };
+          if (isSupabaseAutoSync) {
+            try { asyncSyncCustomer(updatedCust); } catch {}
+          }
+          return updatedCust;
+        }
+        return cust;
+      })
+    );
+
+    const newPayment: CustomerCreditPayment = {
+      ...paymentData,
+      id,
+      receiptNumber,
+      allocations: paymentData.allocations && paymentData.allocations.length > 0 ? paymentData.allocations : allocations,
+      customerPreviousBalance: paymentData.customerPreviousBalance !== undefined ? paymentData.customerPreviousBalance : prevBalance,
+      customerNewBalance: paymentData.customerNewBalance !== undefined ? paymentData.customerNewBalance : newBalance,
+      date: paymentData.date || new Date().toISOString(),
+    };
+
+    setCreditPayments((prev) => [newPayment, ...prev]);
+    return newPayment;
+  };
+
+  const getCustomerKhata = (customerId: string) => {
+    const cust = customers.find((c) => c.id === customerId);
+    const creditSales = sales.filter(
+      (s) =>
+        s.customerId === customerId &&
+        ((s.creditAmount || 0) > 0 || s.paymentMode === 'Credit' || (s.splitBreakdown?.credit || 0) > 0)
+    );
+
+    const payments = creditPayments.filter((cp) => cp.customerId === customerId);
+
+    // Build unified chronological ledger
+    const rawEntries: {
+      id: string;
+      date: string;
+      type: 'DEBIT' | 'CREDIT';
+      description: string;
+      referenceNumber: string;
+      amount: number;
+      saleId?: string;
+      paymentId?: string;
+      dueDate?: string;
+      paymentMode?: string;
+      rawTransaction?: SaleTransaction | CustomerCreditPayment;
+    }[] = [];
+
+    creditSales.forEach((s) => {
+      rawEntries.push({
+        id: `led_sale_${s.id}`,
+        date: s.date,
+        type: 'DEBIT',
+        description: `Credit Purchase (Bill #${s.invoiceNumber})`,
+        amount: s.creditAmount !== undefined ? s.creditAmount : s.grandTotal,
+        referenceNumber: s.invoiceNumber,
+        saleId: s.id,
+        dueDate: s.creditDueDate,
+        paymentMode: s.paymentMode,
+        rawTransaction: s,
+      });
+    });
+
+    payments.forEach((cp) => {
+      rawEntries.push({
+        id: `led_pay_${cp.id}`,
+        date: cp.date,
+        type: 'CREDIT',
+        description: `Payment Received (${cp.paymentMode}${cp.notes ? ' - ' + cp.notes : ''})`,
+        amount: cp.amount,
+        referenceNumber: cp.receiptNumber,
+        paymentId: cp.id,
+        paymentMode: cp.paymentMode,
+        rawTransaction: cp,
+      });
+    });
+
+    // Sort ascending by date to calculate running balance
+    rawEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    let currentBal = 0;
+    const now = Date.now();
+    const ledger: KhataLedgerEntry[] = rawEntries.map((e) => {
+      if (e.type === 'DEBIT') {
+        currentBal += e.amount;
+      } else {
+        currentBal = Math.max(0, currentBal - e.amount);
+      }
+      const daysElapsed = Math.max(0, Math.floor((now - new Date(e.date).getTime()) / (1000 * 60 * 60 * 24)));
+      const isOverdue = e.type === 'DEBIT' && e.dueDate ? new Date(e.dueDate).getTime() < now : (e.type === 'DEBIT' && daysElapsed > 15);
+      return {
+        id: e.id,
+        type: e.type,
+        date: e.date,
+        referenceNumber: e.referenceNumber,
+        description: e.description,
+        amount: e.amount,
+        runningBalance: currentBal,
+        daysElapsed,
+        dueDate: e.dueDate,
+        isOverdue,
+        paymentMode: e.paymentMode,
+        rawTransaction: e.rawTransaction,
+      };
+    });
+
+    // Aging buckets
+    const agingBuckets = {
+      '0-15': 0,
+      '16-30': 0,
+      '31-60': 0,
+      '60+': 0,
+    };
+
+    let maxDays = 0;
+
+    creditSales.forEach((s) => {
+      const bal = s.creditRemainingBalance !== undefined ? s.creditRemainingBalance : (s.creditAmount || s.grandTotal);
+      if (bal > 0) {
+        const days = Math.max(0, Math.floor((now - new Date(s.date).getTime()) / (1000 * 60 * 60 * 24)));
+        if (days > maxDays) maxDays = days;
+
+        if (days <= 15) agingBuckets['0-15'] += bal;
+        else if (days <= 30) agingBuckets['16-30'] += bal;
+        else if (days <= 60) agingBuckets['31-60'] += bal;
+        else agingBuckets['60+'] += bal;
+      }
+    });
+
+    const totalOutstanding = cust?.outstandingCredit ?? Math.max(0, currentBal);
+
+    return {
+      creditSales,
+      payments,
+      ledger,
+      totalOutstanding,
+      agingBuckets,
+      oldestCreditDays: maxDays,
+    };
+  };
+
+  const getKhataSummaryStats = (): KhataSummaryStats => {
+    let totalOutstanding = 0;
+    let overdueAmount = 0;
+    let customerCount = 0;
+    const now = Date.now();
+    const currentMonthStr = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
+
+    customers.forEach((c) => {
+      const bal = c.outstandingCredit || 0;
+      if (bal > 0) {
+        totalOutstanding += bal;
+        customerCount += 1;
+      }
+    });
+
+    const agingBuckets: KhataSummaryStats['agingBuckets'] = {
+      '0-15': { amount: 0, count: 0 },
+      '16-30': { amount: 0, count: 0 },
+      '31-60': { amount: 0, count: 0 },
+      '60+': { amount: 0, count: 0 },
+    };
+
+    // Inspect each unpaid credit sale
+    sales.forEach((s) => {
+      const bal = s.creditRemainingBalance !== undefined ? s.creditRemainingBalance : (s.creditAmount || (s.paymentMode === 'Credit' ? s.grandTotal : 0));
+      if (bal > 0) {
+        const days = Math.max(0, Math.floor((now - new Date(s.date).getTime()) / (1000 * 60 * 60 * 24)));
+        if (days > 15 || (s.creditDueDate && new Date(s.creditDueDate).getTime() < now)) {
+          overdueAmount += bal;
+        }
+
+        if (days <= 15) {
+          agingBuckets['0-15'].amount += bal;
+          agingBuckets['0-15'].count += 1;
+        } else if (days <= 30) {
+          agingBuckets['16-30'].amount += bal;
+          agingBuckets['16-30'].count += 1;
+        } else if (days <= 60) {
+          agingBuckets['31-60'].amount += bal;
+          agingBuckets['31-60'].count += 1;
+        } else {
+          agingBuckets['60+'].amount += bal;
+          agingBuckets['60+'].count += 1;
+        }
+      }
+    });
+
+    const recoveredThisMonth = creditPayments
+      .filter((cp) => (cp.date || '').startsWith(currentMonthStr))
+      .reduce((sum, cp) => sum + cp.amount, 0);
+
+    return {
+      totalOutstanding,
+      overdueAmount,
+      customerCount,
+      recoveredThisMonth,
+      agingBuckets,
+    };
+  };
+
   const resetToSampleData = () => {
     setCompanies(INITIAL_COMPANIES);
     setActiveCompanyId('comp_billed');
@@ -2420,6 +2785,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLoyaltyConfig(DEFAULT_LOYALTY_CONFIG);
     setAlterations(INITIAL_ALTERATIONS);
     setCreditNotes(INITIAL_CREDIT_NOTES);
+    setCreditPayments(INITIAL_CREDIT_PAYMENTS);
     setDayRegister(INITIAL_REGISTER);
     setSoundEnabled(true);
     setUsers(DEFAULT_USERS);
@@ -2589,6 +2955,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setEnableReceiptReviewQr,
         enableEReceiptQr,
         setEnableEReceiptQr,
+        // Customer Khata (Credit) & Recovery System
+        creditPayments,
+        recordCreditPayment,
+        getCustomerKhata,
+        getKhataSummaryStats,
         resetToSampleData,
       }}
     >

@@ -9,6 +9,7 @@ import { PriceTagGenerator } from './components/tags/PriceTagGenerator';
 import { VendorPurchaseManager } from './components/vendors/VendorPurchaseManager';
 import { ReturnsExchangeManager } from './components/returns/ReturnsExchangeManager';
 import { AlterationsManager } from './components/alterations/AlterationsManager';
+import { CustomerKhataManager } from './components/khata/CustomerKhataManager';
 import { DayRegisterManager } from './components/cash/DayRegisterManager';
 import { CustomerCRM } from './components/crm/CustomerCRM';
 import { ReportsDashboard } from './components/reports/ReportsDashboard';
@@ -130,6 +131,7 @@ const AppContent: React.FC = () => {
             {currentTab === 'tags' && hasPermission('tags') && <PriceTagGenerator />}
             {currentTab === 'vendors' && hasPermission('vendors') && <VendorPurchaseManager />}
             {currentTab === 'returns' && hasPermission('returns') && <ReturnsExchangeManager />}
+            {currentTab === 'khata' && hasPermission('khata') && <CustomerKhataManager />}
             {currentTab === 'alterations' && hasPermission('alterations') && <AlterationsManager />}
             {currentTab === 'cash' && hasPermission('cash') && <DayRegisterManager />}
             {currentTab === 'crm' && hasPermission('crm') && <CustomerCRM />}

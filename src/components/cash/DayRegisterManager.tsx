@@ -31,6 +31,7 @@ export const DayRegisterManager: React.FC = () => {
     addCashDrop,
     closeDayRegister,
     sales,
+    creditPayments,
     activeCompany,
     currentUser,
   } = useApp();
@@ -83,7 +84,9 @@ export const DayRegisterManager: React.FC = () => {
       if (s.paymentMode === 'Cash') cash += s.grandTotal;
       else if (s.paymentMode === 'UPI') upi += s.grandTotal;
       else if (s.paymentMode === 'Card') card += s.grandTotal;
-      else if (s.paymentMode === 'Split') {
+      else if (s.paymentMode === 'Credit') {
+        // Goods taken on credit do not add to till cash
+      } else if (s.paymentMode === 'Split') {
         if (s.splitBreakdown) {
           cash += s.splitBreakdown.cash || 0;
           upi += s.splitBreakdown.upi || 0;
@@ -91,17 +94,22 @@ export const DayRegisterManager: React.FC = () => {
         } else {
           cash += s.grandTotal;
         }
-      } else {
-        cash += s.grandTotal;
       }
     });
 
     return { cash, upi, card, grandTotal, taxTotal };
   }, [todaySales]);
 
+  // Today's Khata / Credit debt recoveries collected in cash
+  const todayKhataCashRecoveries = useMemo(() => {
+    return (creditPayments || [])
+      .filter((cp) => (cp.date || '').startsWith(todayStr) && cp.paymentMode === 'Cash')
+      .reduce((sum, cp) => sum + cp.amount, 0);
+  }, [creditPayments, todayStr]);
+
   const totalPettyExpenses = dayRegister.expenses.reduce((s, e) => s + e.amount, 0);
   const totalCashDrops = (dayRegister.cashDrops || []).reduce((s, d) => s + d.amount, 0);
-  const expectedCashInDrawer = dayRegister.openingCash + salesTotals.cash - totalPettyExpenses - totalCashDrops;
+  const expectedCashInDrawer = dayRegister.openingCash + salesTotals.cash + todayKhataCashRecoveries - totalPettyExpenses - totalCashDrops;
 
   // Compute counted cash
   const denominationTotal = Object.entries(denominations).reduce(

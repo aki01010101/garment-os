@@ -392,8 +392,10 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   const generateReceiptText = () => {
     const paymentModeLabel =
       receipt.paymentMode === 'Split' && receipt.splitBreakdown
-        ? `Split: Cash Rs. ${receipt.splitBreakdown.cash.toFixed(2)}, UPI Rs. ${receipt.splitBreakdown.upi.toFixed(2)}, Card Rs. ${receipt.splitBreakdown.card.toFixed(2)}`
-        : receipt.paymentMode;
+        ? `Split: ${receipt.splitBreakdown.cash ? `Cash Rs. ${receipt.splitBreakdown.cash.toFixed(2)} ` : ''}${receipt.splitBreakdown.upi ? `UPI Rs. ${receipt.splitBreakdown.upi.toFixed(2)} ` : ''}${receipt.splitBreakdown.card ? `Card Rs. ${receipt.splitBreakdown.card.toFixed(2)} ` : ''}${receipt.splitBreakdown.credit ? `Khata Rs. ${receipt.splitBreakdown.credit.toFixed(2)}` : ''}`.trim()
+        : receipt.paymentMode === 'Credit'
+          ? `KHATA / UDHAAR (Due: ${receipt.creditDueDate || '15 Days'})`
+          : receipt.paymentMode;
 
     return `
 ================================
@@ -799,7 +801,13 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
 
                 <div className="receipt-row text-[8.5px]">
                   <span>PAYMENT MODE:</span>
-                  <span className="font-bold">{receipt.paymentMode === 'Split' ? 'SPLIT PAYMENT' : receipt.paymentMode.toUpperCase()}</span>
+                  <span className="font-bold">
+                    {receipt.paymentMode === 'Split'
+                      ? 'SPLIT PAYMENT'
+                      : receipt.paymentMode === 'Credit'
+                        ? 'KHATA / CREDIT'
+                        : receipt.paymentMode.toUpperCase()}
+                  </span>
                 </div>
                 {receipt.paymentMode === 'Split' && receipt.splitBreakdown && (
                   <div className="text-[8px] pl-1.5 space-y-0.5 text-neutral-800 font-mono">
@@ -821,6 +829,31 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                         <span>₹{receipt.splitBreakdown.card.toFixed(2)}</span>
                       </div>
                     )}
+                    {receipt.splitBreakdown.credit !== undefined && receipt.splitBreakdown.credit > 0 && (
+                      <div className="receipt-row font-bold text-black">
+                        <span>• KHATA / CREDIT:</span>
+                        <span>₹{receipt.splitBreakdown.credit.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Credit / Udhaar Memo Details */}
+                {(receipt.paymentMode === 'Credit' || (receipt.creditAmount !== undefined && receipt.creditAmount > 0)) && (
+                  <div className="mt-1 pt-1 border-t border-dashed border-neutral-400 text-[8px] space-y-0.5">
+                    <div className="receipt-row font-bold text-black">
+                      <span>KHATA AMOUNT:</span>
+                      <span>₹{(receipt.creditRemainingBalance !== undefined ? receipt.creditRemainingBalance : (receipt.creditAmount || receipt.grandTotal)).toFixed(2)}</span>
+                    </div>
+                    {receipt.creditDueDate && (
+                      <div className="receipt-row">
+                        <span>PROMISED DUE DATE:</span>
+                        <span>{receipt.creditDueDate}</span>
+                      </div>
+                    )}
+                    <div className="pt-2.5 text-center text-[7.5px] text-neutral-800">
+                      <div className="border-b border-black w-28 mx-auto mb-0.5" />
+                      <span>Customer Signature</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -964,6 +997,9 @@ ${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n-
                       {receipt.splitBreakdown.cash > 0 && <span>Cash: ₹{receipt.splitBreakdown.cash.toFixed(2)}</span>}
                       {receipt.splitBreakdown.upi > 0 && <span>UPI: ₹{receipt.splitBreakdown.upi.toFixed(2)}</span>}
                       {receipt.splitBreakdown.card > 0 && <span>Card: ₹{receipt.splitBreakdown.card.toFixed(2)}</span>}
+                      {Boolean(receipt.splitBreakdown.credit && receipt.splitBreakdown.credit > 0) && (
+                        <span>Khata: ₹{receipt.splitBreakdown.credit!.toFixed(2)}</span>
+                      )}
                     </div>
                   )}
                 </div>

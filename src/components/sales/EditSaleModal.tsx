@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { SaleTransaction, SaleItem, SplitPaymentBreakdown, Product } from '../../types';
+import { SaleTransaction, SaleItem, SplitPaymentBreakdown, Product, PaymentMode } from '../../types';
 import {
   X,
   Plus,
@@ -45,7 +45,7 @@ export const EditSaleModal: React.FC<EditSaleModalProps> = ({
   const [customerPhone, setCustomerPhone] = useState('');
   const [salesAssociate, setSalesAssociate] = useState('');
   const [notes, setNotes] = useState('');
-  const [paymentMode, setPaymentMode] = useState<'Cash' | 'Card' | 'UPI' | 'Split'>('Cash');
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
   const [cashTendered, setCashTendered] = useState<number | undefined>(undefined);
   const [splitBreakdown, setSplitBreakdown] = useState<SplitPaymentBreakdown>({
     cash: 0,
@@ -520,8 +520,8 @@ export const EditSaleModal: React.FC<EditSaleModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs">
             <div>
               <label className="block font-bold text-slate-800 mb-2">Payment Mode</label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {(['Cash', 'UPI', 'Card', 'Split'] as const).map((mode) => (
+              <div className="grid grid-cols-5 gap-1.5">
+                {(['Cash', 'UPI', 'Card', 'Credit', 'Split'] as PaymentMode[]).map((mode) => (
                   <button
                     key={mode}
                     type="button"
@@ -540,7 +540,7 @@ export const EditSaleModal: React.FC<EditSaleModalProps> = ({
               {paymentMode === 'Split' && (
                 <div className="mt-3 p-3 bg-white border border-slate-200 rounded-lg space-y-2">
                   <div className="text-[11px] font-bold text-slate-600 mb-1">Split Payment Breakdown:</div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div>
                       <span className="text-[10px] text-slate-500 font-semibold">Cash (₹)</span>
                       <input
@@ -573,6 +573,18 @@ export const EditSaleModal: React.FC<EditSaleModalProps> = ({
                         value={splitBreakdown.card}
                         onChange={(e) =>
                           setSplitBreakdown({ ...splitBreakdown, card: parseFloat(e.target.value) || 0 })
+                        }
+                        className="w-full px-2 py-1 border border-slate-200 rounded font-mono font-bold text-xs"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 font-semibold">Credit (₹)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={splitBreakdown.credit || 0}
+                        onChange={(e) =>
+                          setSplitBreakdown({ ...splitBreakdown, credit: parseFloat(e.target.value) || 0 })
                         }
                         className="w-full px-2 py-1 border border-slate-200 rounded font-mono font-bold text-xs"
                       />

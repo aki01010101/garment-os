@@ -7,7 +7,14 @@
  * - 58mm (32 columns) and 80mm (48 columns) paper roll formats.
  */
 
-import { SaleTransaction, AlterationRecord, CreditNote } from '../types';
+import {
+  SaleTransaction,
+  AlterationRecord,
+  CreditNote,
+  CustomerCreditPayment,
+  Customer,
+  KhataLedgerEntry,
+} from '../types';
 import { buildUpiPaymentUri } from './upi';
 
 export interface EscPosOptions {
@@ -438,6 +445,22 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
     if (receipt.splitBreakdown.card > 0) {
       builder.twoColumnRow(' - Card Paid:', `Rs. ${receipt.splitBreakdown.card.toFixed(2)}`);
     }
+    if (receipt.splitBreakdown.credit && receipt.splitBreakdown.credit > 0) {
+      builder.twoColumnRow(' - On Khata/Credit:', `Rs. ${receipt.splitBreakdown.credit.toFixed(2)}`);
+    }
+  }
+
+  // Credit / Udhaar Notice & Terms
+  if (receipt.paymentMode === 'Credit' || (receipt.creditAmount && receipt.creditAmount > 0)) {
+    const credAmt = receipt.creditAmount || receipt.grandTotal;
+    builder.separator('-');
+    builder.align('center').bold(true).line('*** KHATA / UDHAAR MEMO ***').bold(false);
+    builder.twoColumnRow('Credit Taken:', `Rs. ${credAmt.toFixed(2)}`, true);
+    if (receipt.creditDueDate) {
+      builder.twoColumnRow('Promised Due Date:', receipt.creditDueDate, true);
+    }
+    builder.feed(1);
+    builder.line('Customer Signature: __________________');
   }
 
   // 6. SAVINGS CALLOUT
@@ -1428,6 +1451,172 @@ export function formatZReportToEscPos(
 
   builder.line('VERIFIED BY CASHIER & STORE MANAGER');
   builder.bold(true).line('*** END OF Z-REPORT ***').bold(false);
+  builder.feed(3);
+  builder.cut();
+
+  return builder.build();
+}
+
+/**
+ * Format Customer Khata Payment Receipt (Money Receipt / Pawti) to native ESC/POS binary commands.
+ * Delivers pitch-black 203 DPI printing via USB or Bluetooth.
+ */
+export function formatCreditPaymentReceiptToEscPos(
+  payment: CustomerCreditPayment,
+  options?: { columns?: 32 | 48 }
+): Uint8Array {
+  const columns = options?.columns || 32;
+  const builder = new EscPosBuilder(columns);
+  builder.initialize();
+
+  // Header
+  builder.bold(true).align('center');
+  builder.line((payment.companyName || 'STORE').toUpperCase());
+  builder.line('PAYMENT RECEIPT (KHATA JAMA PAWTI)');
+  builder.bold(false);
+  builder.separator('=');
+
+  // Details
+  builder.align('left');
+  builder.twoColumnRow('RECEIPT NO:', payment.receiptNumber, true);
+  const formattedDate = new Date(payment.date).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  builder.twoColumnRow('DATE:', formattedDate);
+  builder.twoColumnRow('CUSTOMER:', payment.customerName, true);
+  if (payment.customerPhone && payment.customerPhone !== 'N/A') {
+    builder.twoColumnRow('PHONE:', payment.customerPhone);
+  }
+  builder.separator('-');
+
+  // Amount Received (Prominent Center)
+  builder.align('center');
+  builder.line('AMOUNT RECEIVED');
+  builder.bold(true).textSize('double-height');
+  builder.line(`Rs. ${payment.amount.toFixed(2)}`);
+  builder.textSize('normal').bold(false);
+  builder.line(`Mode: ${payment.paymentMode.toUpperCase()}${payment.referenceNumber ? ` (${payment.referenceNumber})` : ''}`);
+  builder.separator('-');
+
+  // Balance Reconciliation
+  builder.align('left');
+  builder.twoColumnRow('PREVIOUS BALANCE:', `Rs. ${payment.customerPreviousBalance.toFixed(2)}`);
+  builder.twoColumnRow('AMOUNT PAID (-):', `Rs. ${payment.amount.toFixed(2)}`, true);
+  builder.separator('-');
+  builder.bold(true);
+  builder.twoColumnRow('CURRENT REMAINING:', `Rs. ${payment.customerNewBalance.toFixed(2)}`, true);
+  builder.bold(false);
+
+  // Invoices Settled / Allocated
+  if (payment.allocations && payment.allocations.length > 0) {
+    builder.separator('-');
+    builder.bold(true).line('CREDITED TO BILLS:').bold(false);
+    payment.allocations.forEach((alloc) => {
+      builder.twoColumnRow(alloc.invoiceNumber, `Rs. ${alloc.amountAllocated.toFixed(2)}`);
+    });
+  }
+
+  if (payment.notes) {
+    builder.separator('-');
+    builder.line(`Note: ${payment.notes}`);
+  }
+
+  // Barcode
+  const barcodeValue = payment.receiptNumber.replace(/[^0-9A-Z]/gi, '');
+  builder.separator('-');
+  builder.align('center');
+  builder.barcode128(barcodeValue, 28, true);
+  builder.feed(1);
+
+  builder.twoColumnRow('Customer Sign', 'Cashier Sign');
+  builder.feed(1);
+  builder.bold(true).line('Thank you for your prompt payment!').bold(false);
+  builder.line(`Visit Again · ${payment.companyName || 'Store'}`);
+  builder.feed(3);
+  builder.cut();
+
+  return builder.build();
+}
+
+/**
+ * Format Customer Khata Account Statement to native ESC/POS commands (with UPI QR code).
+ */
+export function formatCustomerKhataStatementToEscPos(
+  data: {
+    customer: Customer;
+    companyName: string;
+    companyPhone?: string;
+    companyAddress?: string;
+    ledger: KhataLedgerEntry[];
+    totalOutstanding: number;
+    storeUpiId?: string;
+    storeUpiName?: string;
+  },
+  options?: { columns?: 32 | 48 }
+): Uint8Array {
+  const columns = options?.columns || 32;
+  const builder = new EscPosBuilder(columns);
+  builder.initialize();
+
+  // Header
+  builder.bold(true).align('center');
+  builder.line(data.companyName.toUpperCase());
+  builder.line('CUSTOMER KHATA STATEMENT');
+  builder.bold(false);
+  if (data.companyPhone) builder.line(`Tel: ${data.companyPhone}`);
+  builder.separator('=');
+
+  // Customer Summary
+  builder.align('left');
+  builder.twoColumnRow('CUSTOMER:', data.customer.name, true);
+  builder.twoColumnRow('PHONE:', data.customer.phone);
+  builder.twoColumnRow('STATEMENT DATE:', new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }));
+  builder.separator('-');
+
+  // Total Outstanding
+  builder.align('center');
+  builder.line('TOTAL OUTSTANDING BALANCE');
+  builder.bold(true).textSize('double-height');
+  builder.line(`Rs. ${data.totalOutstanding.toFixed(2)}`);
+  builder.textSize('normal').bold(false);
+  builder.separator('-');
+
+  // Recent Transactions (Up to last 8)
+  builder.align('left').bold(true).line('RECENT TRANSACTIONS:').bold(false);
+  const recent = data.ledger.slice(0, 8);
+  recent.forEach((item) => {
+    const symbol = item.type === 'DEBIT' ? '+' : '-';
+    builder.twoColumnRow(
+      `${item.date.slice(5)} ${item.referenceNumber}`,
+      `${symbol}Rs. ${item.amount.toFixed(0)}`,
+      item.type === 'DEBIT'
+    );
+  });
+
+  // Dynamic UPI Payment QR Code
+  if (data.storeUpiId && data.totalOutstanding > 0) {
+    const upiUri = buildUpiPaymentUri({
+      upiId: data.storeUpiId,
+      payeeName: data.storeUpiName || data.companyName,
+      amount: data.totalOutstanding,
+      transactionNote: `Khata ${data.customer.name}`,
+    });
+
+    if (upiUri) {
+      builder.separator('-');
+      builder.align('center').bold(true).line('SCAN & CLEAR KHATA VIA UPI').bold(false);
+      builder.qrCode(upiUri, columns === 48 ? 10 : 7);
+      builder.bold(true).line(`Rs. ${data.totalOutstanding.toFixed(2)} · ${data.storeUpiId}`).bold(false);
+      builder.line('PhonePe · GPay · Paytm · BHIM');
+    }
+  }
+
+  builder.separator('-');
+  builder.align('center');
+  builder.line('Please clear balance at your earliest convenience.');
+  builder.bold(true).line(`Thank you! · ${data.companyName}`).bold(false);
   builder.feed(3);
   builder.cut();
 

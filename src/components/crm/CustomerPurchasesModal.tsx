@@ -338,15 +338,28 @@ export const CustomerPurchasesModal: React.FC<CustomerPurchasesModalProps> = ({
                         </span>
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            sale.paymentMode === 'Cash'
+                            sale.paymentMode === 'Credit'
+                              ? 'bg-amber-50 text-amber-800 border border-amber-300'
+                              : sale.paymentMode === 'Cash'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : sale.paymentMode === 'UPI'
                               ? 'bg-purple-50 text-purple-700 border border-purple-200'
                               : 'bg-blue-50 text-blue-700 border border-blue-200'
                           }`}
                         >
-                          {sale.paymentMode}
+                          {sale.paymentMode === 'Credit' ? 'Khata / Credit' : sale.paymentMode}
                         </span>
+                        {sale.creditStatus && (
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              sale.creditStatus === 'paid'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {sale.creditStatus === 'paid' ? 'Settled' : 'Khata Due'}
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 font-mono">

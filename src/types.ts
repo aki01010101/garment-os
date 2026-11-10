@@ -164,6 +164,10 @@ export interface Customer {
   notes?: string;
   isVip?: boolean;
   profile?: CustomerProfile;
+  creditLimit?: number;
+  outstandingCredit?: number;
+  creditStatus?: 'good' | 'overdue' | 'blocked';
+  oldestCreditDate?: string;
 }
 
 export interface SaleItem {
@@ -188,7 +192,11 @@ export interface SplitPaymentBreakdown {
   cash: number;
   upi: number;
   card: number;
+  credit?: number;
 }
+
+export type PaymentMode = 'Cash' | 'Card' | 'UPI' | 'Credit' | 'Split';
+export type CreditStatus = 'unpaid' | 'partially_paid' | 'paid';
 
 export interface SaleTransaction {
   id: string;
@@ -216,16 +224,78 @@ export interface SaleTransaction {
   creditNoteDiscountAmount?: number;
   taxTotal: number;
   grandTotal: number;
-  paymentMode: 'Cash' | 'Card' | 'UPI' | 'Split';
+  paymentMode: PaymentMode;
   cashTendered?: number;
   changeDue?: number;
   splitBreakdown?: SplitPaymentBreakdown;
+  creditAmount?: number;
+  creditRemainingBalance?: number;
+  creditDueDate?: string;
+  creditStatus?: CreditStatus;
+  creditNotes?: string;
+  creditSettledDate?: string;
   notes?: string;
   cashierName: string;
   salesAssociate?: string;
   taxInclusive?: boolean;
   isCompositionScheme?: boolean;
   googleReviewUrl?: string;
+}
+
+export interface CustomerCreditPaymentAllocation {
+  saleId: string;
+  invoiceNumber: string;
+  amountAllocated: number;
+  remainingOnInvoice: number;
+}
+
+export interface CustomerCreditPayment {
+  id: string;
+  receiptNumber: string; // e.g. REC-KHATA-1001
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  companyId: string;
+  companyName: string;
+  amount: number;
+  paymentMode: 'Cash' | 'UPI' | 'Bank Transfer' | 'Card' | 'Cheque';
+  referenceNumber?: string; // UPI Ref, Cheque #, etc.
+  date: string; // ISO string
+  collectedBy: string;
+  notes?: string;
+  allocations: CustomerCreditPaymentAllocation[];
+  customerPreviousBalance: number;
+  customerNewBalance: number;
+}
+
+export interface KhataLedgerEntry {
+  id: string;
+  type: 'DEBIT' | 'CREDIT'; // DEBIT = Goods taken on credit (+), CREDIT = Payment received (-)
+  date: string;
+  referenceNumber: string; // Invoice # or Payment Receipt #
+  description: string;
+  amount: number;
+  runningBalance: number;
+  daysElapsed?: number;
+  dueDate?: string;
+  isOverdue?: boolean;
+  paymentMode?: string;
+  rawTransaction?: SaleTransaction | CustomerCreditPayment;
+}
+
+export type KhataAgingBucket = '0-15' | '16-30' | '31-60' | '60+';
+
+export interface KhataSummaryStats {
+  totalOutstanding: number;
+  overdueAmount: number;
+  customerCount: number;
+  recoveredThisMonth: number;
+  agingBuckets: {
+    '0-15': { count: number; amount: number };
+    '16-30': { count: number; amount: number };
+    '31-60': { count: number; amount: number };
+    '60+': { count: number; amount: number };
+  };
 }
 
 export interface AlterationRecord {

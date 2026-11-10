@@ -9,6 +9,9 @@ import {
 } from '../../utils/crmUtils';
 import { CustomerPurchasesModal } from './CustomerPurchasesModal';
 import { CustomerProfileModal } from './CustomerProfileModal';
+import { SettleKhataModal } from '../khata/SettleKhataModal';
+import { PaymentReminderModal } from '../khata/PaymentReminderModal';
+import { CustomerLedgerModal } from '../khata/CustomerLedgerModal';
 import {
   Users,
   Search,
@@ -42,6 +45,8 @@ import {
   Unlink,
   MessageSquare,
   ChevronLeft,
+  BookOpen,
+  PlusCircle,
 } from 'lucide-react';
 import { RFMCampaignsManager } from './RFMCampaignsManager';
 
@@ -78,6 +83,11 @@ export const CustomerCRM: React.FC = () => {
 
   // New Customer Modal
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+
+  // Khata Management Modals
+  const [isKhataSettleOpen, setIsKhataSettleOpen] = useState(false);
+  const [isKhataReminderOpen, setIsKhataReminderOpen] = useState(false);
+  const [isKhataLedgerOpen, setIsKhataLedgerOpen] = useState(false);
   const [newCust, setNewCust] = useState({ name: '', phone: '', email: '', notes: '' });
 
   // Points Adjustment Modal
@@ -521,6 +531,11 @@ export const CustomerCRM: React.FC = () => {
                           <Sparkles className="w-3 h-3 text-amber-500 fill-amber-500" />
                           <span>{cust.loyaltyPoints} pts</span>
                         </div>
+                        {Boolean(cust.outstandingCredit && cust.outstandingCredit > 0) && (
+                          <div className="text-[10px] text-red-700 font-bold font-mono bg-red-50 px-1.5 py-0.5 rounded border border-red-200 mt-1 inline-flex items-center gap-1">
+                            <span>Khata: ₹{cust.outstandingCredit!.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -774,6 +789,56 @@ export const CustomerCRM: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Customer Khata Balance Card (if active balance) */}
+              {Boolean(selectedCustomer.outstandingCredit && selectedCustomer.outstandingCredit > 0) && (
+                <div className="p-3.5 bg-gradient-to-r from-red-50 to-amber-50 rounded-xl border border-red-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-red-100 text-red-700 rounded-lg">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-red-950 uppercase tracking-wider">
+                          Khata Outstanding Debt
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 bg-red-200 text-red-900 rounded-full">
+                          Active Due
+                        </span>
+                      </div>
+                      <div className="text-lg font-black font-mono text-red-900">
+                        ₹{selectedCustomer.outstandingCredit!.toLocaleString('en-IN')}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsKhataSettleOpen(true)}
+                      className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>Settle</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsKhataReminderOpen(true)}
+                      className="p-1.5 bg-white text-emerald-700 hover:bg-emerald-50 border border-emerald-300 rounded-lg transition-colors cursor-pointer"
+                      title="Send WhatsApp Reminder"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsKhataLedgerOpen(true)}
+                      className="p-1.5 bg-white text-indigo-700 hover:bg-indigo-50 border border-indigo-200 rounded-lg transition-colors cursor-pointer"
+                      title="View Khata Ledger"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Customer Profile & Sizing Preferences Card */}
               <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
@@ -1557,6 +1622,39 @@ export const CustomerCRM: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Customer Khata Modals */}
+      {selectedCustomer && isKhataSettleOpen && (
+        <SettleKhataModal
+          customer={selectedCustomer}
+          isOpen={isKhataSettleOpen}
+          onClose={() => setIsKhataSettleOpen(false)}
+        />
+      )}
+
+      {selectedCustomer && isKhataReminderOpen && (
+        <PaymentReminderModal
+          customer={selectedCustomer}
+          isOpen={isKhataReminderOpen}
+          onClose={() => setIsKhataReminderOpen(false)}
+        />
+      )}
+
+      {selectedCustomer && isKhataLedgerOpen && (
+        <CustomerLedgerModal
+          customer={selectedCustomer}
+          isOpen={isKhataLedgerOpen}
+          onClose={() => setIsKhataLedgerOpen(false)}
+          onOpenSettleModal={() => {
+            setIsKhataLedgerOpen(false);
+            setIsKhataSettleOpen(true);
+          }}
+          onOpenReminderModal={() => {
+            setIsKhataLedgerOpen(false);
+            setIsKhataReminderOpen(true);
+          }}
+        />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Product, ClothingCategory, AlterationDetails } from '../../types';
+import { Product, ClothingCategory, AlterationDetails, PaymentMode } from '../../types';
 import {
   Search,
   ShoppingCart,
@@ -38,6 +38,8 @@ import {
   ArrowDown,
   LayoutGrid,
   List,
+  BookOpen,
+  Calendar,
 } from 'lucide-react';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 import { CustomerPurchasesModal } from '../crm/CustomerPurchasesModal';
@@ -108,11 +110,18 @@ export const POSBilling: React.FC = () => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [isCustomerSearchOpen, setIsCustomerSearchOpen] = useState(false);
-  const [paymentMode, setPaymentMode] = useState<'Cash' | 'Card' | 'UPI' | 'Split'>('Cash');
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
   const [cashTendered, setCashTendered] = useState<string>('');
   const [splitCash, setSplitCash] = useState<string>('');
   const [splitUpi, setSplitUpi] = useState<string>('');
   const [splitCard, setSplitCard] = useState<string>('');
+  const [splitCredit, setSplitCredit] = useState<string>('');
+  const [creditDaysOption, setCreditDaysOption] = useState<'7' | '15' | '30' | 'custom'>('15');
+  const [customDueDate, setCustomDueDate] = useState<string>(() => {
+    const d = new Date(Date.now() + 15 * 86400000);
+    return d.toISOString().split('T')[0];
+  });
+  const [creditNotesInput, setCreditNotesInput] = useState<string>('');
   const [saleNotes, setSaleNotes] = useState('');
   const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState(false);
   const [newCustName, setNewCustName] = useState('');
@@ -191,7 +200,8 @@ export const POSBilling: React.FC = () => {
         setPaymentMode((prev) => {
           if (prev === 'Cash') return 'UPI';
           if (prev === 'UPI') return 'Card';
-          if (prev === 'Card') return 'Split';
+          if (prev === 'Card') return 'Credit';
+          if (prev === 'Credit') return 'Split';
           return 'Cash';
         });
       } else if (e.key === 'F6') {
@@ -574,20 +584,23 @@ export const POSBilling: React.FC = () => {
   const splitCashVal = parseFloat(splitCash) || 0;
   const splitUpiVal = parseFloat(splitUpi) || 0;
   const splitCardVal = parseFloat(splitCard) || 0;
-  const splitAllocatedTotal = Math.round((splitCashVal + splitUpiVal + splitCardVal) * 100) / 100;
+  const splitCreditVal = parseFloat(splitCredit) || 0;
+  const splitAllocatedTotal = Math.round((splitCashVal + splitUpiVal + splitCardVal + splitCreditVal) * 100) / 100;
   const splitRemaining = Math.max(0, Math.round((cartSummary.grandTotal - splitAllocatedTotal) * 100) / 100);
   const splitChangeDue = Math.max(0, Math.round((splitAllocatedTotal - cartSummary.grandTotal) * 100) / 100);
 
-  const handleFillSplitRemaining = (tender: 'cash' | 'upi' | 'card') => {
+  const handleFillSplitRemaining = (tender: 'cash' | 'upi' | 'card' | 'credit') => {
     let otherSum = 0;
-    if (tender === 'cash') otherSum = splitUpiVal + splitCardVal;
-    else if (tender === 'upi') otherSum = splitCashVal + splitCardVal;
-    else if (tender === 'card') otherSum = splitCashVal + splitUpiVal;
+    if (tender === 'cash') otherSum = splitUpiVal + splitCardVal + splitCreditVal;
+    else if (tender === 'upi') otherSum = splitCashVal + splitCardVal + splitCreditVal;
+    else if (tender === 'card') otherSum = splitCashVal + splitUpiVal + splitCreditVal;
+    else if (tender === 'credit') otherSum = splitCashVal + splitUpiVal + splitCardVal;
 
     const remainder = Math.max(0, Math.round((cartSummary.grandTotal - otherSum) * 100) / 100);
     if (tender === 'cash') setSplitCash(remainder > 0 ? remainder.toString() : '');
     else if (tender === 'upi') setSplitUpi(remainder > 0 ? remainder.toString() : '');
     else if (tender === 'card') setSplitCard(remainder > 0 ? remainder.toString() : '');
+    else if (tender === 'credit') setSplitCredit(remainder > 0 ? remainder.toString() : '');
   };
 
   const handlePresetSplit = (mode: '50-cash-upi' | '50-cash-card' | '50-upi-card' | 'clear') => {
@@ -595,6 +608,7 @@ export const POSBilling: React.FC = () => {
       setSplitCash('');
       setSplitUpi('');
       setSplitCard('');
+      setSplitCredit('');
       return;
     }
     const half = Math.floor(cartSummary.grandTotal / 2);
@@ -604,19 +618,43 @@ export const POSBilling: React.FC = () => {
       setSplitCash(half.toString());
       setSplitUpi(rest.toString());
       setSplitCard('');
+      setSplitCredit('');
     } else if (mode === '50-cash-card') {
       setSplitCash(half.toString());
       setSplitCard(rest.toString());
       setSplitUpi('');
+      setSplitCredit('');
     } else if (mode === '50-upi-card') {
       setSplitUpi(half.toString());
       setSplitCard(rest.toString());
       setSplitCash('');
+      setSplitCredit('');
     }
   };
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
+
+    const isCreditInvolved = paymentMode === 'Credit' || (paymentMode === 'Split' && splitCreditVal > 0);
+    if (isCreditInvolved) {
+      if (!selectedCustomer) {
+        alert('Credit / Udhaar sales require selecting or registering a customer with their mobile number.');
+        setIsCustomerSearchOpen(true);
+        return;
+      }
+      if (selectedCustomer.creditStatus === 'blocked') {
+        alert(`Customer "${selectedCustomer.name}" is marked as BLOCKED from credit transactions. Please clear previous outstanding debt first.`);
+        return;
+      }
+      const creditPortion = paymentMode === 'Credit' ? cartSummary.grandTotal : splitCreditVal;
+      const currentCredit = selectedCustomer.outstandingCredit || 0;
+      if (selectedCustomer.creditLimit && selectedCustomer.creditLimit > 0 && currentCredit + creditPortion > selectedCustomer.creditLimit) {
+        const confirmCredit = confirm(
+          `Credit Limit Notice:\nCustomer: ${selectedCustomer.name}\nLimit: ₹${selectedCustomer.creditLimit.toLocaleString('en-IN')}\nCurrent Debt: ₹${currentCredit.toLocaleString('en-IN')}\nNew Total: ₹${(currentCredit + creditPortion).toLocaleString('en-IN')}\n\nAuthorize this credit sale?`
+        );
+        if (!confirmCredit) return;
+      }
+    }
 
     if (paymentMode === 'Split') {
       if (cartSummary.grandTotal > 0 && splitAllocatedTotal < cartSummary.grandTotal) {
@@ -626,18 +664,29 @@ export const POSBilling: React.FC = () => {
         return;
       }
       if (cartSummary.grandTotal > 0 && splitAllocatedTotal === 0) {
-        alert('Please enter split amounts across Cash, UPI, or Card.');
+        alert('Please enter split amounts across Cash, UPI, Card, or Credit.');
         return;
       }
     }
 
     try {
+      let resolvedDueDate: string | undefined = undefined;
+      if (isCreditInvolved) {
+        if (creditDaysOption === 'custom') {
+          resolvedDueDate = customDueDate;
+        } else {
+          const days = parseInt(creditDaysOption, 10) || 15;
+          resolvedDueDate = new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
+        }
+      }
+
       const splitBreakdown =
         paymentMode === 'Split'
           ? {
             cash: splitCashVal,
             upi: splitUpiVal,
             card: splitCardVal,
+            credit: splitCreditVal,
           }
           : undefined;
 
@@ -650,13 +699,17 @@ export const POSBilling: React.FC = () => {
             : undefined,
         saleNotes,
         splitBreakdown,
-        isTaxInclusive
+        isTaxInclusive,
+        resolvedDueDate,
+        creditNotesInput.trim() || undefined
       );
       setCashTendered('');
       setSplitCash('');
       setSplitUpi('');
       setSplitCard('');
+      setSplitCredit('');
       setSaleNotes('');
+      setCreditNotesInput('');
     } catch (err: any) {
       alert(err.message || 'Error checking out sale');
     }
@@ -2085,11 +2138,12 @@ export const POSBilling: React.FC = () => {
               <label className="block text-xs font-semibold text-slate-700 mb-1.5 font-sans">
                 Payment Mode (Press F4 to Cycle):
               </label>
-              <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+              <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                 {[
                   { id: 'Cash', icon: Banknote, label: 'Cash' },
                   { id: 'UPI', icon: QrCode, label: 'UPI' },
                   { id: 'Card', icon: CreditCard, label: 'Card' },
+                  { id: 'Credit', icon: BookOpen, label: 'Khata' },
                   { id: 'Split', icon: Tag, label: 'Split' },
                 ].map((mode) => {
                   const Icon = mode.icon;
@@ -2098,13 +2152,13 @@ export const POSBilling: React.FC = () => {
                     <button
                       key={mode.id}
                       onClick={() => setPaymentMode(mode.id as any)}
-                      className={`py-2.5 px-1 min-h-[46px] rounded-lg border text-xs font-semibold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${isSelected
+                      className={`py-2 px-0.5 min-h-[46px] rounded-lg border text-xs font-semibold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${isSelected
                           ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
                           : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                         }`}
                     >
                       <Icon className="w-3.5 h-3.5 shrink-0" />
-                      <span className="text-[11px]">{mode.label}</span>
+                      <span className="text-[10px] sm:text-[11px]">{mode.label}</span>
                     </button>
                   );
                 })}
@@ -2264,6 +2318,34 @@ export const POSBilling: React.FC = () => {
                       </button>
                     </div>
                   </div>
+
+                  {/* Credit / Khata */}
+                  <div className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+                    <div className="flex items-center gap-1.5 font-semibold text-slate-700 min-w-[70px]">
+                      <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Khata:</span>
+                    </div>
+                    <div className="flex items-center gap-1 flex-1 justify-end">
+                      <span className="text-slate-400 font-mono">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={splitCredit}
+                        onChange={(e) => setSplitCredit(e.target.value)}
+                        placeholder="0"
+                        className="w-20 px-2 py-0.5 text-right font-mono font-bold text-xs border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleFillSplitRemaining('credit')}
+                        title="Fill remaining balance into Khata / Credit"
+                        className="px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded cursor-pointer transition-colors"
+                      >
+                        + Bal
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Quick Split Presets */}
@@ -2341,6 +2423,125 @@ export const POSBilling: React.FC = () => {
               </div>
             )}
 
+            {/* Customer Khata Debt & Due Date Box (When Payment Mode is Credit or Split has Credit) */}
+            {(paymentMode === 'Credit' || (paymentMode === 'Split' && splitCreditVal > 0)) && (
+              <div className="space-y-2 animate-in fade-in duration-150">
+                {!selectedCustomer ? (
+                  <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 text-xs space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-amber-900">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Customer Required for Khata / Credit</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 leading-snug">
+                      Credit / Udhaar sales cannot be assigned to anonymous walk-in shoppers. Please select or add a registered customer with a mobile number.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomerSearchOpen(true)}
+                      className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Select / Add Customer (F3)</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-indigo-50/80 rounded-xl border border-indigo-200 text-xs space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-bold text-indigo-950">
+                        <BookOpen className="w-4 h-4 text-indigo-600" />
+                        <span>Customer Khata Summary</span>
+                      </div>
+                      <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
+                        {selectedCustomer.name} · {selectedCustomer.phone}
+                      </span>
+                    </div>
+
+                    {/* 3-column Ledger balances */}
+                    <div className="grid grid-cols-3 gap-1.5 text-center">
+                      <div className="bg-white p-2 rounded-lg border border-slate-200">
+                        <div className="text-[10px] text-slate-500 font-medium">Existing Khata</div>
+                        <div className="font-mono font-bold text-slate-800 text-xs">
+                          ₹{(selectedCustomer.outstandingCredit || 0).toLocaleString('en-IN')}
+                        </div>
+                      </div>
+                      <div className="bg-amber-50 p-2 rounded-lg border border-amber-200">
+                        <div className="text-[10px] text-amber-700 font-medium">This Bill Credit</div>
+                        <div className="font-mono font-bold text-amber-900 text-xs">
+                          +₹{(paymentMode === 'Credit' ? cartSummary.grandTotal : splitCreditVal).toLocaleString('en-IN')}
+                        </div>
+                      </div>
+                      <div className="bg-indigo-100/70 p-2 rounded-lg border border-indigo-200">
+                        <div className="text-[10px] text-indigo-700 font-medium">New Total Debt</div>
+                        <div className="font-mono font-bold text-indigo-950 text-xs">
+                          ₹{((selectedCustomer.outstandingCredit || 0) + (paymentMode === 'Credit' ? cartSummary.grandTotal : splitCreditVal)).toLocaleString('en-IN')}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Promised Payment Due Date Selector */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                          Promised Payment Due:
+                        </span>
+                        <span className="font-mono text-indigo-700 text-[10px] font-bold">
+                          {creditDaysOption === 'custom'
+                            ? customDueDate
+                            : new Date(Date.now() + (parseInt(creditDaysOption, 10) || 15) * 86400000).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1">
+                        {[
+                          { id: '7', label: '7 Days' },
+                          { id: '15', label: '15 Days' },
+                          { id: '30', label: '30 Days' },
+                          { id: 'custom', label: 'Custom' },
+                        ].map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setCreditDaysOption(opt.id as any)}
+                            className={`py-1 text-[11px] font-semibold rounded border transition-colors cursor-pointer ${
+                              creditDaysOption === opt.id
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                      {creditDaysOption === 'custom' && (
+                        <input
+                          type="date"
+                          value={customDueDate}
+                          onChange={(e) => setCustomDueDate(e.target.value)}
+                          min={new Date().toISOString().split('T')[0]}
+                          className="w-full mt-1 px-2.5 py-1 text-xs font-mono border border-slate-300 rounded-md bg-white focus:outline-hidden"
+                        />
+                      )}
+                    </div>
+
+                    {/* Optional Credit Notes */}
+                    <div>
+                      <input
+                        type="text"
+                        value={creditNotesInput}
+                        onChange={(e) => setCreditNotesInput(e.target.value)}
+                        placeholder="Khata remark / promise note (optional)..."
+                        className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded-md bg-white focus:outline-hidden placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Complete Sale Button OR Start Next Sale Button */}
             {lastCompletedSale ? (
               <div className="space-y-2">
@@ -2369,15 +2570,24 @@ export const POSBilling: React.FC = () => {
                   cart.length === 0 ||
                   (paymentMode === 'Split' &&
                     cartSummary.grandTotal > 0 &&
-                    splitAllocatedTotal < cartSummary.grandTotal)
+                    splitAllocatedTotal < cartSummary.grandTotal) ||
+                  ((paymentMode === 'Credit' || (paymentMode === 'Split' && splitCreditVal > 0)) && !selectedCustomer)
                 }
-                className="w-full py-3.5 px-4 min-h-[48px] bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-extrabold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+                className={`w-full py-3.5 px-4 min-h-[48px] text-white font-extrabold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  ((paymentMode === 'Credit' || (paymentMode === 'Split' && splitCreditVal > 0)) && !selectedCustomer)
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed'
+                }`}
               >
                 <Printer className="w-4 h-4" />
                 <span>
-                  {paymentMode === 'Split' && splitRemaining > 0
-                    ? `Allocate ₹${splitRemaining.toFixed(2)} to Complete`
-                    : `Complete & Print Receipt (₹${cartSummary.grandTotal.toFixed(2)})`}
+                  {((paymentMode === 'Credit' || (paymentMode === 'Split' && splitCreditVal > 0)) && !selectedCustomer)
+                    ? 'Select Customer to Give Credit'
+                    : paymentMode === 'Split' && splitRemaining > 0
+                      ? `Allocate ₹${splitRemaining.toFixed(2)} to Complete`
+                      : paymentMode === 'Credit'
+                        ? `Record Khata Sale (₹${cartSummary.grandTotal.toFixed(2)})`
+                        : `Complete & Print Receipt (₹${cartSummary.grandTotal.toFixed(2)})`}
                 </span>
               </button>
             )}
