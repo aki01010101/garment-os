@@ -1,5 +1,6 @@
 {
   "0": "useApp",
+  "1": "AppContextType",
   "2": "escpos.ts",
   "3": "supabase.ts",
   "4": "CustomerCRM.tsx",
@@ -13,12 +14,13 @@
   "12": "vite.config.ts",
   "13": "CompanySettings.tsx",
   "14": "scripts",
-  "15": "StockAuditModal.tsx",
+  "15": "StoreCreditNotesModal.tsx",
   "16": "vercel.json",
   "17": "Garment OS - Retail Clothing POS & CRM",
   "18": "motion@^12.23.24",
-  "19": "qrcode",
+  "19": "dotenv@^17.2.3",
   "20": "react-is@^19.3.1",
-  "21": "recharts",
-  "22": "overrides"
+  "21": "jsbarcode",
+  "22": "overrides",
+  "23": "@vitejs/plugin-react"
 }

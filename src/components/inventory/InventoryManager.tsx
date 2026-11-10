@@ -1,6 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Product, ClothingCategory, ClothingSize, Season } from '../../types';
+import {
+  Product,
+  ClothingCategory,
+  ClothingSize,
+  Season,
+  CLOTHING_SIZE_GROUPS,
+} from '../../types';
 import {
   Package,
   Search,
@@ -58,6 +64,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [stockStatusFilter, setStockStatusFilter] = useState<'all' | 'low' | 'out'>('all');
+  const [sizeFilter, setSizeFilter] = useState<string>('all');
   const [scannerTarget, setScannerTarget] = useState<'search' | 'form' | null>(null);
 
   // Variant Matrix, Stock Audit & Branch Transfers Modals
@@ -75,6 +82,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
   // Edit / Add Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isCustomSizeInput, setIsCustomSizeInput] = useState(false);
 
   // Quick Stock Adjust Modal
   const [adjustingProduct, setAdjustingProduct] = useState<Product | null>(null);
@@ -103,6 +111,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
 
   const handleOpenAdd = () => {
     setEditingProduct(null);
+    setIsCustomSizeInput(false);
     setFormData({
       sku: `VT-GAR-${Date.now().toString().slice(-4)}`,
       barcode: `890${Math.floor(100000000 + Math.random() * 900000000)}`,
@@ -126,6 +135,10 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
 
   const handleOpenEdit = (product: Product) => {
     setEditingProduct(product);
+    const isPreset = CLOTHING_SIZE_GROUPS.some((g) =>
+      g.options.some((o) => o.value.toLowerCase() === (product.size || '').toLowerCase())
+    );
+    setIsCustomSizeInput(!isPreset && Boolean(product.size));
     setFormData({ ...product, taxInclusive: product.taxInclusive !== false });
     setIsModalOpen(true);
   };
@@ -239,13 +252,30 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
     return result;
   };
 
+  // Distinct sorted clothing sizes currently available in catalog
+  const uniqueSizesInCatalog = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach((p) => {
+      if (p.size) set.add(p.size);
+    });
+    return Array.from(set).sort((a, b) => {
+      const numA = parseFloat(a);
+      const numB = parseFloat(b);
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+      if (!isNaN(numA)) return -1;
+      if (!isNaN(numB)) return 1;
+      return a.localeCompare(b);
+    });
+  }, [products]);
+
   // Filter products
   const filteredProducts = products.filter((p) => {
     const matchSearch =
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.barcode.includes(searchQuery) ||
-      p.color.toLowerCase().includes(searchQuery.toLowerCase());
+      p.color.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.size && p.size.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const matchCat = selectedCategory === 'All' || p.category === selectedCategory;
 
@@ -256,7 +286,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
       matchStock = p.stock === 0;
     }
 
-    return matchSearch && matchCat && matchStock;
+    const matchSize = sizeFilter === 'all' || (p.size && p.size.toLowerCase() === sizeFilter.toLowerCase());
+
+    return matchSearch && matchCat && matchStock && matchSize;
   });
 
   // KPI calculations
@@ -591,9 +623,24 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
             onChange={(e) => setStockStatusFilter(e.target.value as any)}
             className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium"
           >
-            <option value="all">All Inventory</option>
+            <option value="all">All Stock Levels</option>
             <option value="low">Low Stock (≤ Alert)</option>
             <option value="out">Out of Stock (0)</option>
+          </select>
+
+          {/* Size Filter */}
+          <select
+            value={sizeFilter}
+            onChange={(e) => setSizeFilter(e.target.value)}
+            className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium font-mono"
+            title="Filter by garment size"
+          >
+            <option value="all">All Sizes</option>
+            {uniqueSizesInCatalog.map((sz) => (
+              <option key={sz} value={sz}>
+                Size: {sz}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -953,22 +1000,53 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Size</label>
-                  <select
-                    value={formData.size}
-                    onChange={(e) =>
-                      setFormData({ ...formData, size: e.target.value as ClothingSize })
-                    }
-                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono"
-                  >
-                    <option value="XS">XS</option>
-                    <option value="S">S</option>
-                    <option value="M">M</option>
-                    <option value="L">L</option>
-                    <option value="XL">XL</option>
-                    <option value="XXL">XXL</option>
-                    <option value="Free Size">Free Size</option>
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-slate-700">Size *</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomSizeInput(!isCustomSizeInput)}
+                      className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                    >
+                      {isCustomSizeInput ? '← Presets' : '+ Custom'}
+                    </button>
+                  </div>
+
+                  {isCustomSizeInput ? (
+                    <input
+                      type="text"
+                      required
+                      value={formData.size}
+                      onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+                      placeholder="e.g. 38, 32/34, Free Size"
+                      className="w-full px-2.5 py-1.5 bg-slate-50 border border-indigo-400 rounded-lg font-mono font-bold text-xs"
+                      autoFocus
+                    />
+                  ) : (
+                    <select
+                      value={formData.size}
+                      onChange={(e) => {
+                        if (e.target.value === '__custom__') {
+                          setIsCustomSizeInput(true);
+                        } else {
+                          setFormData({ ...formData, size: e.target.value as ClothingSize });
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono text-xs font-semibold text-slate-800"
+                    >
+                      {CLOTHING_SIZE_GROUPS.map((group) => (
+                        <optgroup key={group.label} label={group.label}>
+                          {group.options.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                      <optgroup label="Custom Sizing">
+                        <option value="__custom__">+ Enter Custom Size...</option>
+                      </optgroup>
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -980,6 +1058,91 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
                     placeholder="e.g. Navy Blue"
                     className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg"
                   />
+                </div>
+              </div>
+
+              {/* Quick Numeric & Alpha Size Shortcuts */}
+              <div className="p-2 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="font-bold text-slate-600 uppercase tracking-wider">
+                    Quick Size Tap:
+                  </span>
+                  <span className="font-mono font-bold text-indigo-700">
+                    Active: {formData.size || 'None'}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="text-[9px] font-bold text-slate-400 self-center mr-0.5">Waist:</span>
+                  {['28', '30', '32', '34', '36', '38', '40', '42'].map((sz) => (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => {
+                        setIsCustomSizeInput(false);
+                        setFormData({ ...formData, size: sz });
+                      }}
+                      className={`px-1.5 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                        formData.size === sz
+                          ? 'bg-indigo-600 text-white shadow-2xs'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-indigo-50 hover:border-indigo-300'
+                      }`}
+                    >
+                      {sz}
+                    </button>
+                  ))}
+
+                  <span className="text-[9px] font-bold text-slate-400 self-center mx-0.5">Shirt:</span>
+                  {['38', '39', '40', '42', '44'].map((sz) => (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => {
+                        setIsCustomSizeInput(false);
+                        setFormData({ ...formData, size: sz });
+                      }}
+                      className={`px-1.5 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                        formData.size === sz
+                          ? 'bg-indigo-600 text-white shadow-2xs'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-indigo-50 hover:border-indigo-300'
+                      }`}
+                    >
+                      {sz}
+                    </button>
+                  ))}
+
+                  <span className="text-[9px] font-bold text-slate-400 self-center mx-0.5">Alpha:</span>
+                  {['S', 'M', 'L', 'XL', 'XXL', '3XL'].map((sz) => (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => {
+                        setIsCustomSizeInput(false);
+                        setFormData({ ...formData, size: sz });
+                      }}
+                      className={`px-1.5 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                        formData.size === sz
+                          ? 'bg-indigo-600 text-white shadow-2xs'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-indigo-50 hover:border-indigo-300'
+                      }`}
+                    >
+                      {sz}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomSizeInput(false);
+                      setFormData({ ...formData, size: 'Free Size' });
+                    }}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all cursor-pointer ${
+                      formData.size === 'Free Size'
+                        ? 'bg-indigo-600 text-white shadow-2xs'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-indigo-50'
+                    }`}
+                  >
+                    Free Size
+                  </button>
                 </div>
               </div>
 

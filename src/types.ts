@@ -1,6 +1,179 @@
 export type ClothingCategory = 'Men' | 'Women' | 'Kids' | 'Accessories';
 
-export type ClothingSize = 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL' | 'Free Size' | string;
+export type ClothingSize =
+  | 'XXS'
+  | 'XS'
+  | 'S'
+  | 'M'
+  | 'L'
+  | 'XL'
+  | 'XXL'
+  | '3XL'
+  | '4XL'
+  | '5XL'
+  | '6XL'
+  | '26'
+  | '28'
+  | '30'
+  | '32'
+  | '34'
+  | '36'
+  | '38'
+  | '39'
+  | '40'
+  | '41'
+  | '42'
+  | '43'
+  | '44'
+  | '46'
+  | '48'
+  | '50'
+  | '16'
+  | '18'
+  | '20'
+  | '22'
+  | '24'
+  | '26'
+  | '28'
+  | '30'
+  | '32'
+  | '34'
+  | '0-3M'
+  | '3-6M'
+  | '6-12M'
+  | '1-2Y'
+  | '2-3Y'
+  | '3-4Y'
+  | '4-5Y'
+  | '5-6Y'
+  | '6-7Y'
+  | '7-8Y'
+  | '8-9Y'
+  | '9-10Y'
+  | '10-11Y'
+  | '11-12Y'
+  | '13-14Y'
+  | 'UK 5'
+  | 'UK 6'
+  | 'UK 7'
+  | 'UK 8'
+  | 'UK 9'
+  | 'UK 10'
+  | 'UK 11'
+  | 'UK 12'
+  | 'Free Size'
+  | string;
+
+export interface SizeOptionGroup {
+  label: string;
+  options: { value: string; label: string }[];
+}
+
+export const CLOTHING_SIZE_GROUPS: SizeOptionGroup[] = [
+  {
+    label: 'Standard Letter (Alpha)',
+    options: [
+      { value: 'XXS', label: 'XXS' },
+      { value: 'XS', label: 'XS' },
+      { value: 'S', label: 'S' },
+      { value: 'M', label: 'M' },
+      { value: 'L', label: 'L' },
+      { value: 'XL', label: 'XL' },
+      { value: 'XXL', label: 'XXL' },
+      { value: '3XL', label: '3XL' },
+      { value: '4XL', label: '4XL' },
+      { value: '5XL', label: '5XL' },
+      { value: '6XL', label: '6XL' },
+    ],
+  },
+  {
+    label: 'Waist / Trousers / Jeans (Numeric Inches)',
+    options: [
+      { value: '26', label: '26 (Waist 26")' },
+      { value: '28', label: '28 (Waist 28")' },
+      { value: '30', label: '30 (Waist 30")' },
+      { value: '32', label: '32 (Waist 32")' },
+      { value: '34', label: '34 (Waist 34")' },
+      { value: '36', label: '36 (Waist 36")' },
+      { value: '38', label: '38 (Waist 38")' },
+      { value: '40', label: '40 (Waist 40")' },
+      { value: '42', label: '42 (Waist 42")' },
+      { value: '44', label: '44 (Waist 44")' },
+      { value: '46', label: '46 (Waist 46")' },
+      { value: '48', label: '48 (Waist 48")' },
+      { value: '50', label: '50 (Waist 50")' },
+    ],
+  },
+  {
+    label: 'Formal Shirts / Collar (Numeric cm/inches)',
+    options: [
+      { value: '36', label: '36 (14")' },
+      { value: '38', label: '38 (15")' },
+      { value: '39', label: '39 (15.5")' },
+      { value: '40', label: '40 (16")' },
+      { value: '41', label: '41 (16")' },
+      { value: '42', label: '42 (16.5")' },
+      { value: '43', label: '43 (17")' },
+      { value: '44', label: '44 (17.5")' },
+      { value: '46', label: '46 (18")' },
+      { value: '48', label: '48 (18.5")' },
+    ],
+  },
+  {
+    label: 'Kids Numeric Sizes (Chest / Length)',
+    options: [
+      { value: '16', label: '16 (Kids 1-2Y)' },
+      { value: '18', label: '18 (Kids 2-3Y)' },
+      { value: '20', label: '20 (Kids 3-4Y)' },
+      { value: '22', label: '22 (Kids 5-6Y)' },
+      { value: '24', label: '24 (Kids 7-8Y)' },
+      { value: '26', label: '26 (Kids 9-10Y)' },
+      { value: '28', label: '28 (Kids 11-12Y)' },
+      { value: '30', label: '30 (Kids 13-14Y)' },
+      { value: '32', label: '32 (Kids 15-16Y)' },
+      { value: '34', label: '34 (Teen)' },
+    ],
+  },
+  {
+    label: 'Kids Age Groups',
+    options: [
+      { value: '0-3M', label: '0-3M (Infant)' },
+      { value: '3-6M', label: '3-6M (Infant)' },
+      { value: '6-12M', label: '6-12M (Infant)' },
+      { value: '1-2Y', label: '1-2Y' },
+      { value: '2-3Y', label: '2-3Y' },
+      { value: '3-4Y', label: '3-4Y' },
+      { value: '4-5Y', label: '4-5Y' },
+      { value: '5-6Y', label: '5-6Y' },
+      { value: '6-7Y', label: '6-7Y' },
+      { value: '7-8Y', label: '7-8Y' },
+      { value: '8-9Y', label: '8-9Y' },
+      { value: '9-10Y', label: '9-10Y' },
+      { value: '10-11Y', label: '10-11Y' },
+      { value: '11-12Y', label: '11-12Y' },
+      { value: '13-14Y', label: '13-14Y' },
+    ],
+  },
+  {
+    label: 'Footwear (UK / India)',
+    options: [
+      { value: 'UK 5', label: 'UK 5' },
+      { value: 'UK 6', label: 'UK 6' },
+      { value: 'UK 7', label: 'UK 7' },
+      { value: 'UK 8', label: 'UK 8' },
+      { value: 'UK 9', label: 'UK 9' },
+      { value: 'UK 10', label: 'UK 10' },
+      { value: 'UK 11', label: 'UK 11' },
+      { value: 'UK 12', label: 'UK 12' },
+    ],
+  },
+  {
+    label: 'Universal / Other',
+    options: [
+      { value: 'Free Size', label: 'Free Size' },
+    ],
+  },
+];
 
 export type Season = 'Summer' | 'Winter' | 'Festive / Autumn' | 'All-Season';
 

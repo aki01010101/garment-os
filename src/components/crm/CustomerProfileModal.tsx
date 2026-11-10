@@ -51,8 +51,8 @@ const RELATION_OPTIONS: FamilyRelation[] = [
   'Other',
 ];
 
-const SHIRT_SIZE_PRESETS = ['S (38)', 'M (40)', 'L (42)', 'XL (44)', 'XXL (46)', 'Kids 4Y', 'Kids 6Y', 'Kids 8Y', 'Free Size'];
-const WAIST_SIZE_PRESETS = ['28', '30', '32', '34', '36', '38'];
+const SHIRT_SIZE_PRESETS = ['38', '39', '40', '42', '44', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Kids 4Y', 'Kids 6Y', 'Kids 8Y', 'Free Size'];
+const WAIST_SIZE_PRESETS = ['28', '30', '32', '34', '36', '38', '40', '42', '44'];
 
 export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
   customer,

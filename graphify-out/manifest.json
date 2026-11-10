@@ -120,9 +120,9 @@
     "semantic_hash": ""
   },
   "src/components/crm/CustomerProfileModal.tsx": {
-    "mtime": 1793366759.8191078,
-    "seen": 1794298521.7563906,
-    "ast_hash": "ba70aea83c402f7be52e7ab61c8c3a71",
+    "mtime": 1794305972.621971,
+    "seen": 1794306033.3307152,
+    "ast_hash": "4c368de9bf201a0f16d5e8c0aba95060",
     "semantic_hash": ""
   },
   "src/components/crm/CustomerPurchasesModal.tsx": {
@@ -150,15 +150,15 @@
     "semantic_hash": ""
   },
   "src/components/inventory/InventoryManager.tsx": {
-    "mtime": 1793963195.4232523,
-    "seen": 1794298521.7564025,
-    "ast_hash": "31b95e46ea115b2754abec1e3f77984a",
+    "mtime": 1794305945.513987,
+    "seen": 1794306033.3312886,
+    "ast_hash": "c494f7e23ed53c76701f0629981264b1",
     "semantic_hash": ""
   },
   "src/components/inventory/MatrixProductModal.tsx": {
-    "mtime": 1793963196.299497,
-    "seen": 1794298521.7564044,
-    "ast_hash": "2137abbf065ed15893ed597ab708e4f7",
+    "mtime": 1794305961.9311275,
+    "seen": 1794306033.331292,
+    "ast_hash": "0c5f3f230ffede5c54ed814c54ff75e9",
     "semantic_hash": ""
   },
   "src/components/inventory/StockAuditModal.tsx": {
@@ -216,8 +216,8 @@
     "semantic_hash": ""
   },
   "src/components/pos/POSBilling.tsx": {
-    "mtime": 1794304292.4164398,
-    "seen": 1794304573.646133,
+    "mtime": 1794305533.476734,
+    "seen": 1794306033.3325834,
     "ast_hash": "574a868be7aabcd9993be32fd0adb169",
     "semantic_hash": ""
   },
@@ -228,8 +228,8 @@
     "semantic_hash": ""
   },
   "src/components/pos/ThermalReceipt.tsx": {
-    "mtime": 1794304425.4102113,
-    "seen": 1794304573.6463552,
+    "mtime": 1794305534.216563,
+    "seen": 1794306033.3327174,
     "ast_hash": "6d3c14aef74d197222a5e794ec1ab74d",
     "semantic_hash": ""
   },
@@ -306,8 +306,8 @@
     "semantic_hash": ""
   },
   "src/context/AppContext.tsx": {
-    "mtime": 1794303951.8249846,
-    "seen": 1794304573.6490102,
+    "mtime": 1794305535.1908512,
+    "seen": 1794306033.3354297,
     "ast_hash": "76d071e93876cb6f47aefa0ca82decca",
     "semantic_hash": ""
   },
@@ -336,9 +336,9 @@
     "semantic_hash": ""
   },
   "src/types.ts": {
-    "mtime": 1794303909.827296,
-    "seen": 1794304573.6528196,
-    "ast_hash": "5bc4527a0f73555abb385f8220d074ef",
+    "mtime": 1794305760.483246,
+    "seen": 1794306033.3361537,
+    "ast_hash": "d156b3e634cace1dd85bc71ded5aa33e",
     "semantic_hash": ""
   },
   "src/utils/audio.ts": {
@@ -366,8 +366,8 @@
     "semantic_hash": ""
   },
   "src/utils/escpos.ts": {
-    "mtime": 1794304435.5451415,
-    "seen": 1794304573.6537,
+    "mtime": 1794305536.1094992,
+    "seen": 1794306033.3367395,
     "ast_hash": "897ca9c5c028d5eb668d2f92e039564c",
     "semantic_hash": ""
   },
@@ -432,8 +432,8 @@
     "semantic_hash": ""
   },
   "src/components/common/SignaturePadModal.tsx": {
-    "mtime": 1794304478.6630435,
-    "seen": 1794304573.6425333,
+    "mtime": 1794305531.9601622,
+    "seen": 1794306033.3302944,
     "ast_hash": "1e4fc7accffb168eeedb5f21421a9c47",
     "semantic_hash": ""
   },

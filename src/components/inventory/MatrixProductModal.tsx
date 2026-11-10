@@ -24,9 +24,13 @@ interface MatrixProductModalProps {
 
 const PRESET_SIZE_GROUPS: { label: string; sizes: string[] }[] = [
   { label: 'Standard Adult (S - 3XL)', sizes: ['S', 'M', 'L', 'XL', 'XXL', '3XL'] },
-  { label: 'Collar / Shirt (38 - 44)', sizes: ['38', '39', '40', '42', '44'] },
+  { label: 'Adult Plus (3XL - 6XL)', sizes: ['3XL', '4XL', '5XL', '6XL'] },
   { label: 'Waist / Trouser (28 - 40)', sizes: ['28', '30', '32', '34', '36', '38', '40'] },
-  { label: 'Kids Age Groups', sizes: ['2-3Y', '3-4Y', '4-5Y', '6-7Y', '8-9Y', '10-11Y'] },
+  { label: 'Waist Plus (42 - 50)', sizes: ['42', '44', '46', '48', '50'] },
+  { label: 'Shirt / Collar (38 - 44)', sizes: ['38', '39', '40', '42', '44'] },
+  { label: 'Kids Numeric (16 - 32)', sizes: ['16', '18', '20', '22', '24', '26', '28', '30', '32'] },
+  { label: 'Kids Age Groups', sizes: ['0-3M', '3-6M', '6-12M', '1-2Y', '2-3Y', '3-4Y', '4-5Y', '6-7Y', '8-9Y', '10-11Y'] },
+  { label: 'Footwear (UK 6 - 11)', sizes: ['UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10', 'UK 11'] },
   { label: 'One Size', sizes: ['Free Size'] },
 ];
 
