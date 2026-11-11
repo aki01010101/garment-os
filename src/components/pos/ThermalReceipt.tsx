@@ -499,7 +499,7 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-2 sm:p-4 md:p-6 overflow-y-auto no-print">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col my-auto max-h-[95vh] sm:max-h-[90vh] animate-in fade-in zoom-in-95">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-5xl lg:max-w-6xl xl:max-w-[1180px] w-full border border-slate-200 overflow-hidden flex flex-col my-auto max-h-[95vh] sm:max-h-[92vh] animate-in fade-in zoom-in-95">
         {/* Modal Top Header */}
         <div className="px-3.5 sm:px-6 py-3 sm:py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
           <div className="flex items-center gap-2 sm:gap-2.5">
@@ -542,107 +542,108 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
         {/* 2-Column Body: Left = Scrollable Receipt, Right = Controls & Actions */}
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-0">
           {/* LEFT COLUMN: Receipt Preview (Scrollable & Fully Visible) */}
-          <div className="w-full md:w-[380px] lg:w-[410px] bg-slate-100/90 border-b md:border-b-0 md:border-r border-slate-200 p-3 sm:p-5 flex flex-col items-center overflow-y-auto shrink-0 select-text max-h-[45vh] md:max-h-none">
-            {/* Quick Settings Bar: Format, Bold, UPI, & QR Size */}
-            <div className="w-full flex flex-col gap-1.5 mb-2.5 px-0.5">
-              <div className="flex items-center justify-between">
+          <div className="w-full md:w-[440px] lg:w-[460px] bg-slate-100/90 border-b md:border-b-0 md:border-r border-slate-200 p-3 sm:p-4 flex flex-col items-center overflow-y-auto overflow-x-hidden shrink-0 select-text max-h-[48vh] md:max-h-none">
+            {/* Quick Settings Bar: Standardized 3x2 Grid + QR Size Bar */}
+            <div className="w-full flex flex-col gap-2 mb-3 px-0.5">
+              {/* Standardized 3x2 Grid of Control Buttons */}
+              <div className="grid grid-cols-3 gap-1.5 w-full">
+                {/* 1. Paper Width (58mm / 80mm) */}
                 <button
                   type="button"
                   onClick={() => setAndSavePaperColumns(paperColumns === 32 ? 48 : 32)}
                   title="Click to toggle between 58mm (2-inch) and 80mm (3-inch) paper width"
-                  className="text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-white border border-slate-200 hover:border-slate-300 px-2 py-0.5 rounded-md flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  className="h-8 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all cursor-pointer shadow-2xs whitespace-nowrap"
                 >
-                  <Printer className="w-3.5 h-3.5 text-indigo-600" />
+                  <Printer className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                   <span>{paperColumns === 32 ? '58mm Roll' : '80mm Roll'}</span>
                 </button>
-                <div className="flex items-center gap-1.5">
-                  {/* Code Format Toggle (Barcode / QR) */}
-                  <button
-                    type="button"
-                    onClick={() => setCodePrintType(codePrintType === 'barcode' ? 'qr' : 'barcode')}
-                    title="Toggle between 1D Barcode and 2D QR Code on receipts"
-                    className="px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all cursor-pointer shadow-2xs"
-                  >
-                    {codePrintType === 'qr' ? (
-                      <>
-                        <QrCode className="w-3 h-3 text-indigo-600" />
-                        <span>QR Mode</span>
-                      </>
-                    ) : (
-                      <>
-                        <Barcode className="w-3 h-3 text-indigo-600" />
-                        <span>Barcode</span>
-                      </>
-                    )}
-                  </button>
 
-                  {/* Bold Thermal Print Toggle */}
-                  <button
-                    type="button"
-                    onClick={toggleBoldThermal}
-                    title="Toggle heavy bold text for faint thermal paper"
-                    className={`px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
-                      isBoldThermal
-                        ? "bg-slate-900 text-white border-slate-900 shadow-2xs ring-1 ring-slate-800"
-                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>{isBoldThermal ? "🖨️ Bold: ON" : "🖨️ Bold: OFF"}</span>
-                  </button>
-
-                  {/* UPI QR Print Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => setIncludeUpiQr(!includeUpiQr)}
-                    title="Toggle dynamic UPI Payment QR code on thermal bill"
-                    className={`px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
-                      includeUpiQr
-                        ? "bg-emerald-700 text-white border-emerald-700 shadow-2xs"
-                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    <Smartphone className="w-3 h-3" />
-                    <span>{includeUpiQr ? "UPI QR: ON" : "UPI QR: OFF"}</span>
-                  </button>
-
-                  {/* Composition GST Mode Toggle */}
-                  <button
-                    type="button"
-                    onClick={toggleCompositionGst}
-                    title="Toggle Composition GST: When ON, suppresses CGST/SGST tax breakdown lines and shows 'GST: Included in Price'"
-                    className={`px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
-                      isCompositionGst
-                        ? "bg-purple-700 text-white border-purple-700 shadow-2xs"
-                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>{isCompositionGst ? "✨ Comp. GST: ON" : "✨ Comp. GST: OFF"}</span>
-                  </button>
-
-                  {/* Google Review QR Print Toggle */}
-                  {effectiveReviewUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setIncludeReviewQr(!includeReviewQr)}
-                      title="Toggle Google Profile / Review QR code on thermal bill to increase customer Google ratings"
-                      className={`px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
-                        includeReviewQr
-                          ? "bg-amber-500 text-slate-950 border-amber-600 shadow-2xs font-extrabold"
-                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      <Star className="w-3 h-3 fill-current text-amber-950" />
-                      <span>{includeReviewQr ? "Review QR: ON" : "Review QR: OFF"}</span>
-                    </button>
+                {/* 2. Code Format Toggle (Barcode / QR) */}
+                <button
+                  type="button"
+                  onClick={() => setCodePrintType(codePrintType === 'barcode' ? 'qr' : 'barcode')}
+                  title="Toggle between 1D Barcode and 2D QR Code on receipts"
+                  className="h-8 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all cursor-pointer shadow-2xs whitespace-nowrap"
+                >
+                  {codePrintType === 'qr' ? (
+                    <>
+                      <QrCode className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <span>QR Mode</span>
+                    </>
+                  ) : (
+                    <>
+                      <Barcode className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <span>Barcode</span>
+                    </>
                   )}
-                </div>
+                </button>
+
+                {/* 3. Bold Thermal Print Toggle */}
+                <button
+                  type="button"
+                  onClick={toggleBoldThermal}
+                  title="Toggle heavy bold text for faint thermal paper"
+                  className={`h-8 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                    isBoldThermal
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                  }`}
+                >
+                  <Zap className={`w-3.5 h-3.5 shrink-0 ${isBoldThermal ? 'text-amber-400 fill-current' : 'text-slate-400'}`} />
+                  <span>{isBoldThermal ? 'Bold: ON' : 'Bold: OFF'}</span>
+                </button>
+
+                {/* 4. UPI QR Print Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIncludeUpiQr(!includeUpiQr)}
+                  title="Toggle dynamic UPI Payment QR code on thermal bill"
+                  className={`h-8 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                    includeUpiQr
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                  <span>{includeUpiQr ? 'UPI QR: ON' : 'UPI QR: OFF'}</span>
+                </button>
+
+                {/* 5. Composition GST Mode Toggle */}
+                <button
+                  type="button"
+                  onClick={toggleCompositionGst}
+                  title="Toggle Composition GST: When ON, suppresses CGST/SGST tax breakdown lines and shows 'GST: Included in Price'"
+                  className={`h-8 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                    isCompositionGst
+                      ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                  <span>{isCompositionGst ? 'Comp GST: ON' : 'Comp GST: OFF'}</span>
+                </button>
+
+                {/* 6. Google Review QR Print Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIncludeReviewQr(!includeReviewQr)}
+                  title="Toggle Google Profile / Review QR code on thermal bill to increase customer Google ratings"
+                  className={`h-8 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                    includeReviewQr
+                      ? 'bg-amber-500 text-slate-950 border-amber-500 font-extrabold shadow-xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                  }`}
+                >
+                  <Star className={`w-3.5 h-3.5 shrink-0 ${includeReviewQr ? 'fill-current text-slate-950' : 'text-slate-400'}`} />
+                  <span>{includeReviewQr ? 'Review QR: ON' : 'Review QR: OFF'}</span>
+                </button>
               </div>
 
               {/* QR Print Size Selector (shows if UPI QR is active OR codePrintType is QR OR Review QR is active) */}
               {(includeUpiQr || codePrintType === 'qr' || includeReviewQr) && (
-                <div className="flex items-center justify-between bg-white px-2 py-1 rounded-lg border border-slate-200 text-xs shadow-2xs">
-                  <span className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1">
-                    <QrCode className="w-3 h-3 text-indigo-600" />
+                <div className="flex items-center justify-between bg-white px-2.5 h-8 rounded-lg border border-slate-200 text-xs shadow-2xs w-full">
+                  <span className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1.5 shrink-0">
+                    <QrCode className="w-3.5 h-3.5 text-indigo-600" />
                     <span>QR Size:</span>
                   </span>
                   <div className="flex items-center gap-1 font-mono text-[10px] font-bold">
@@ -656,7 +657,7 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                         key={item.key}
                         type="button"
                         onClick={() => setQrPrintSize(item.key as any)}
-                        className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
+                        className={`px-2 py-0.5 rounded-md cursor-pointer transition-all ${
                           qrPrintSize === item.key
                             ? 'bg-indigo-600 text-white font-black shadow-2xs'
                             : 'text-slate-600 hover:bg-slate-100'
