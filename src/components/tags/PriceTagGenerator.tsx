@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { BarcodeSvg } from '../common/BarcodeSvg';
-import { printPriceTagsHtml } from '../../utils/printReceipt';
+import { printPriceTagsHtml, PriceTagFormat } from '../../utils/printReceipt';
 import { CodePrintType } from '../../types';
 import {
   formatPriceTagsToEscPos,
@@ -48,9 +48,9 @@ export const PriceTagGenerator: React.FC = () => {
   const [layoutMode, setLayoutMode] = useState<'roll' | 'sheet'>('roll');
   const [saleOfferPercentage, setSaleOfferPercentage] = useState<number>(0);
 
-  // Sticker Roll Dimensions (Defaults to 50x25mm as requested by user)
-  const [rollSize, setRollSize] = useState<'50x25' | '50x32'>(() => {
-    return (localStorage.getItem('tag_roll_size') as any) || '50x25';
+  // Tag & Sticker Dimensions (Defaults to 50x25mm roll)
+  const [rollSize, setRollSize] = useState<PriceTagFormat>(() => {
+    return (localStorage.getItem('tag_roll_size') as PriceTagFormat) || '50x25';
   });
 
   // Print Orientation (Defaults to Portrait to prevent Chrome from auto-switching to Landscape)
@@ -82,9 +82,12 @@ export const PriceTagGenerator: React.FC = () => {
     localStorage.setItem('tag_print_method', method);
   };
 
-  const setAndSaveRollSize = (size: '50x25' | '50x32') => {
+  const setAndSaveRollSize = (size: PriceTagFormat) => {
     setRollSize(size);
     localStorage.setItem('tag_roll_size', size);
+    if (size.startsWith('a4-') || size === 'hang-tag') {
+      setAndSavePrintMethod('browser');
+    }
   };
 
   const setAndSaveOrientation = (orient: 'portrait' | 'landscape') => {
@@ -169,10 +172,10 @@ export const PriceTagGenerator: React.FC = () => {
         contactNumber,
         codeType: tagCodeType,
         saleOfferPercentage,
-        rollSize,
+        rollSize: rollSize === '50x32' ? '50x32' : '50x25',
       }));
 
-      const payload = formatPriceTagsToEscPos(tagItems, { columns: 32, rollSize });
+      const payload = formatPriceTagsToEscPos(tagItems, { columns: 32, rollSize: rollSize === '50x32' ? '50x32' : '50x25' });
 
       if (printMethod === 'usb') {
         const res = await printViaWebUsb(payload, (status) => setPrintStatus(status));
@@ -424,15 +427,25 @@ export const PriceTagGenerator: React.FC = () => {
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <div>
                   <label className="block text-slate-600 font-medium mb-1">
-                    Sticker Roll Size
+                    Tag & Label Format
                   </label>
                   <select
                     value={rollSize}
-                    onChange={(e) => setAndSaveRollSize(e.target.value as '50x25' | '50x32')}
+                    onChange={(e) => setAndSaveRollSize(e.target.value as PriceTagFormat)}
                     className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
                   >
-                    <option value="50x25">50mm x 25mm (Standard 2"x1")</option>
-                    <option value="50x32">50mm x 32mm (2"x1.25")</option>
+                    <optgroup label="Thermal Roll Printers (Everycom / Zebra / TVS)">
+                      <option value="50x25">50mm x 25mm (Standard 2"x1" Roll)</option>
+                      <option value="50x32">50mm x 32mm (Extended 2"x1.25" Roll)</option>
+                    </optgroup>
+                    <optgroup label="Boutique Luxury Tag (Laser / Inkjet / Card)">
+                      <option value="hang-tag">Cardboard Hang-Tag (48x82mm + String Hole)</option>
+                    </optgroup>
+                    <optgroup label="Standard A4 Laser Sticker Sheets (Avery)">
+                      <option value="a4-24">A4 Sheet 24-Up (3 cols × 8 rows · 70x37mm)</option>
+                      <option value="a4-40">A4 Sheet 40-Up (4 cols × 10 rows · 48.5x25.4mm)</option>
+                      <option value="a4-65">A4 Sheet 65-Up (5 cols × 13 rows · 38x21.2mm)</option>
+                    </optgroup>
                   </select>
                 </div>
 
@@ -682,15 +695,136 @@ export const PriceTagGenerator: React.FC = () => {
                       saleOfferPercentage > 0
                         ? Math.round(product.sellingPrice * (1 - saleOfferPercentage / 100))
                         : product.sellingPrice;
-                    const is25mm = rollSize === '50x25';
+
+                    if (rollSize === 'hang-tag') {
+                      return (
+                        <div
+                          key={`${product.id}-${index}`}
+                          className="thermal-tag-roll border border-slate-300 shadow-md bg-white rounded-lg p-2 relative"
+                          style={{
+                            width: '48mm',
+                            height: '82mm',
+                            boxSizing: 'border-box',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            padding: '3mm',
+                            background: '#ffffff',
+                            overflow: 'hidden',
+                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                          }}
+                        >
+                          {/* Hang Tag String Hole Marker */}
+                          <div style={{ textAlign: 'center', marginBottom: '1px' }}>
+                            <div
+                              style={{
+                                width: '4.5mm',
+                                height: '4.5mm',
+                                borderRadius: '50%',
+                                border: '1.2px dashed #64748b',
+                                margin: '0 auto',
+                                background: '#f8fafc',
+                              }}
+                            />
+                          </div>
+
+                          {/* Brand & Subtitle */}
+                          <div style={{ textAlign: 'center', borderBottom: '1.2px solid #000', paddingBottom: '2px' }}>
+                            <div style={{ fontWeight: 900, fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', color: '#000' }}>
+                              {brandTitle || 'FANTASY'}
+                            </div>
+                            <div style={{ fontSize: '6px', color: '#64748b', letterSpacing: '0.8px', textTransform: 'uppercase', marginTop: '1px' }}>
+                              PREMIUM APPAREL & BOUTIQUE
+                            </div>
+                          </div>
+
+                          {/* Garment Title, Category & Color */}
+                          <div style={{ margin: '2px 0', textAlign: 'center' }}>
+                            <div style={{ fontWeight: 800, fontSize: '9px', color: '#000', lineHeight: '1.2' }}>
+                              {product.name}
+                            </div>
+                            <div style={{ fontSize: '7px', color: '#475569', marginTop: '1px' }}>
+                              {product.category} {product.subCategory ? `· ${product.subCategory}` : ''} · {product.color}
+                            </div>
+                          </div>
+
+                          {/* Size Badge */}
+                          <div style={{ display: 'flex', justifyContent: 'center', margin: '1px 0' }}>
+                            <div style={{ border: '1.2px solid #000', padding: '1px 8px', borderRadius: '4px', fontSize: '9px', fontWeight: 900 }}>
+                              SIZE: {product.size}
+                            </div>
+                          </div>
+
+                          {/* Care Guide */}
+                          <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', fontSize: '6.5px', color: '#64748b' }}>
+                            <span>🧺 30°C Hand Wash</span>
+                            <span>🚫 No Bleach</span>
+                            <span>♨️ Low Iron</span>
+                          </div>
+
+                          {/* QR Code / Barcode */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1px 0' }}>
+                            <BarcodeSvg
+                              value={product.barcode || product.sku}
+                              type={tagCodeType}
+                              qrSize={40}
+                              height={16}
+                              width={80}
+                              showText={tagCodeType === 'barcode'}
+                            />
+                            {tagCodeType === 'qr' && (
+                              <span style={{ fontSize: '6.5px', fontFamily: 'monospace', fontWeight: 700, marginTop: '1px' }}>
+                                {product.barcode || product.sku}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Price Box */}
+                          <div style={{ borderTop: '1.2px solid #000', paddingTop: '2px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '6px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                              MAXIMUM RETAIL PRICE
+                            </div>
+                            <div style={{ fontSize: '15px', fontWeight: 900, color: '#000', fontFamily: 'monospace', lineHeight: '1.1' }}>
+                              ₹{discountedPrice}
+                            </div>
+                            <div style={{ fontSize: '5.5px', color: '#64748b' }}>
+                              (INCLUSIVE OF ALL TAXES)
+                            </div>
+                            <div style={{ fontSize: '6px', color: '#000', marginTop: '1.5px', fontWeight: 600 }}>
+                              📞 {contactNumber}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const is25mm = rollSize === '50x25' || rollSize === 'a4-40' || rollSize === 'a4-65';
+                    const customWidth =
+                      rollSize === 'a4-24'
+                        ? '66mm'
+                        : rollSize === 'a4-40'
+                        ? '48.5mm'
+                        : rollSize === 'a4-65'
+                        ? '38mm'
+                        : '50mm';
+                    const customHeight =
+                      rollSize === 'a4-24'
+                        ? '34mm'
+                        : rollSize === 'a4-40'
+                        ? '25.4mm'
+                        : rollSize === 'a4-65'
+                        ? '21.2mm'
+                        : is25mm
+                        ? '25mm'
+                        : '32mm';
 
                     return (
                       <div
                         key={`${product.id}-${index}`}
                         className="thermal-tag-roll border border-slate-300 shadow-sm bg-white rounded-xs p-1"
                         style={{
-                          width: '50mm',
-                          height: is25mm ? '25mm' : '32mm',
+                          width: customWidth,
+                          height: customHeight,
                           boxSizing: 'border-box',
                           display: 'flex',
                           flexDirection: 'column',

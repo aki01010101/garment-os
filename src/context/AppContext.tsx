@@ -43,6 +43,7 @@ import {
   CustomerCreditPaymentAllocation,
   GiftVoucher,
   GiftVoucherRedemption,
+  getCustomerTier,
 } from '../types';
 import {
   INITIAL_COMPANIES,
@@ -84,6 +85,7 @@ import {
   asyncSyncCreditNote,
   asyncSyncDayRegister,
   asyncSyncSetting,
+  asyncSyncGiftVoucher,
   SupabaseConfig,
   SUPABASE_STORAGE_KEYS,
 } from '../services/supabase';
@@ -607,6 +609,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         storeUpiId,
         storeUpiName,
       },
+      giftVouchers,
     });
     if (res.success) {
       setLastSupabaseSync(new Date().toISOString());
@@ -628,6 +631,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (res.data.creditNotes && res.data.creditNotes.length > 0) setCreditNotes(res.data.creditNotes);
       if (res.data.dayRegister) setDayRegister(res.data.dayRegister);
       if (res.data.users && res.data.users.length > 0) setUsers(res.data.users);
+      if (res.data.giftVouchers && res.data.giftVouchers.length > 0) setGiftVouchers(res.data.giftVouchers);
       if (res.data.loyaltyConfig) setLoyaltyConfig(res.data.loyaltyConfig);
       if (res.data.settings) {
         if (res.data.settings.storeUpiId) setStoreUpiId(res.data.settings.storeUpiId);
@@ -2336,7 +2340,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     );
 
-    const pointsEarned = Math.floor(finalGrandTotal / 100) * loyaltyConfig.pointsPerHundredSpent;
+    const tierMultiplier = selectedCustomer
+      ? getCustomerTier(selectedCustomer.totalSpend).multiplier
+      : 1.0;
+    const pointsEarned = Math.floor(
+      (finalGrandTotal / 100) * loyaltyConfig.pointsPerHundredSpent * tierMultiplier
+    );
 
     const changeDue =
       paymentMode === 'Cash' && cashTendered !== undefined
@@ -2441,11 +2450,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const creditAmt = creditAmount || 0;
             const newOutstanding = (cust.outstandingCredit || 0) + creditAmt;
             const oldestDate = cust.oldestCreditDate || (creditAmt > 0 ? transaction.date : undefined);
+            const newTotalSpend = cust.totalSpend + finalGrandTotal;
+            const newTier = getCustomerTier(newTotalSpend).tier;
             return {
               ...cust,
               loyaltyPoints: netPoints,
-              totalSpend: cust.totalSpend + finalGrandTotal,
+              totalSpend: newTotalSpend,
               totalVisits: cust.totalVisits + 1,
+              vipTier: newTier,
+              isVip: newTier !== 'Regular',
               lastPurchaseDate: new Date().toISOString().split('T')[0],
               outstandingCredit: newOutstanding,
               oldestCreditDate: oldestDate,
@@ -2849,6 +2862,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       redemptionHistory: [],
     };
     setGiftVouchers((prev) => [newVoucher, ...prev]);
+    asyncSyncGiftVoucher(newVoucher);
     return newVoucher;
   };
 
@@ -2894,18 +2908,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cashierName: details?.cashierName || currentUser?.fullName || currentUser?.username || 'Cashier',
     };
 
+    const updatedVoucher = {
+      ...voucher,
+      currentBalance: newBal,
+      isActive: newBal > 0,
+      redemptionHistory: [record, ...(voucher.redemptionHistory || [])],
+    };
+
     setGiftVouchers((prev) =>
-      prev.map((v) =>
-        v.id === voucher.id
-          ? {
-              ...v,
-              currentBalance: newBal,
-              isActive: newBal > 0,
-              redemptionHistory: [record, ...(v.redemptionHistory || [])],
-            }
-          : v
-      )
+      prev.map((v) => (v.id === voucher.id ? updatedVoucher : v))
     );
+    asyncSyncGiftVoucher(updatedVoucher);
 
     return { success: true, redeemedAmount: toDeduct, remainingBalance: newBal };
   };

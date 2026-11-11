@@ -32,6 +32,7 @@ import {
   Truck,
   Flame,
   TrendingUp,
+  BookOpen,
 } from 'lucide-react';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 import { BulkUpdateModal } from './BulkUpdateModal';
@@ -41,6 +42,7 @@ import { StockAuditModal } from './StockAuditModal';
 import { StockTransferModal } from './StockTransferModal';
 import { DeadStockLiquidatorModal } from './DeadStockLiquidatorModal';
 import { SmartRestockPredictorModal } from './SmartRestockPredictorModal';
+import { WhatsAppLookbookModal } from '../crm/WhatsAppLookbookModal';
 import { BulkProductUpdate, BulkCsvImportRow } from '../../types';
 
 interface InventoryManagerProps {
@@ -77,6 +79,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isDeadStockModalOpen, setIsDeadStockModalOpen] = useState(false);
   const [isRestockPredictorOpen, setIsRestockPredictorOpen] = useState(false);
+  const [isLookbookModalOpen, setIsLookbookModalOpen] = useState(false);
 
   // Bulk Selection States
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
@@ -391,6 +394,16 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
           >
             <TrendingUp className="w-3.5 h-3.5 text-amber-600" />
             <span>Restock Predictor</span>
+          </button>
+
+          {/* WhatsApp Digital Lookbook */}
+          <button
+            onClick={() => setIsLookbookModalOpen(true)}
+            className="px-3.5 py-1.5 text-xs font-semibold text-emerald-900 bg-emerald-100/70 hover:bg-emerald-200/80 border border-emerald-300 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            title="Curate new arrival catalog and broadcast via WhatsApp"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
+            <span>WhatsApp Lookbook</span>
           </button>
 
           <button
@@ -1477,6 +1490,12 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
       <SmartRestockPredictorModal
         isOpen={isRestockPredictorOpen}
         onClose={() => setIsRestockPredictorOpen(false)}
+      />
+
+      {/* WhatsApp Lookbook / Digital Showcase Modal */}
+      <WhatsAppLookbookModal
+        isOpen={isLookbookModalOpen}
+        onClose={() => setIsLookbookModalOpen(false)}
       />
     </div>
   );

@@ -53,7 +53,9 @@ import { CustomerPurchasesModal } from '../crm/CustomerPurchasesModal';
 import { CustomerProfileModal } from '../crm/CustomerProfileModal';
 import { CustomerMeasurementModal } from '../crm/CustomerMeasurementModal';
 import { GiftVouchersModal } from './GiftVouchersModal';
+import { ManagerPinOverrideModal } from '../common/ManagerPinOverrideModal';
 import { computeCustomerSpendMetrics } from '../../utils/crmUtils';
+import { getCustomerTier } from '../../types';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
 import { DigitalReceiptModal } from './DigitalReceiptModal';
 import { StoreCreditNotesModal } from './StoreCreditNotesModal';
@@ -149,6 +151,19 @@ export const POSBilling: React.FC = () => {
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
+
+  // Anti-Theft RBAC Manager PIN Override Guard
+  const [managerOverrideConfig, setManagerOverrideConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    actionDescription: string;
+    onSuccess: (authorizedBy: string) => void;
+  }>({
+    isOpen: false,
+    title: '',
+    actionDescription: '',
+    onSuccess: () => {},
+  });
 
   // Cart display mode ('tiles' by default for mobile/tablet screens, 'table' for desktop)
   const [cartDisplayMode, setCartDisplayMode] = useState<'tiles' | 'table'>(() => {
@@ -369,6 +384,41 @@ export const POSBilling: React.FC = () => {
     setIsParkModalOpen(false);
     setTicketToRecall(null);
     setScanFeedback(`Resumed: ${ticketToRecall.label}`);
+  };
+
+  const handleClearCartWithGuard = () => {
+    const isCashier = currentUser?.role === 'sales_cashier';
+    if (isCashier && cart.length >= 2) {
+      const approxTotal = cart.reduce((sum, i) => sum + i.product.sellingPrice * i.quantity, 0);
+      setManagerOverrideConfig({
+        isOpen: true,
+        title: 'Manager Approval: Void Active Bill',
+        actionDescription: `Clear active cart containing ${cart.length} items (Total: ₹${approxTotal.toFixed(2)})`,
+        onSuccess: (authorizedBy) => {
+          clearCart();
+          setScanFeedback(`Cart voided with authorization by ${authorizedBy}`);
+        },
+      });
+      return;
+    }
+    clearCart();
+  };
+
+  const handleUpdateDiscountWithGuard = (productId: string, val: number, productName: string) => {
+    const isCashier = currentUser?.role === 'sales_cashier';
+    if (isCashier && val > 20) {
+      setManagerOverrideConfig({
+        isOpen: true,
+        title: 'Manager Approval: High Discount (>20%)',
+        actionDescription: `Apply ${val}% custom discount on "${productName}"`,
+        onSuccess: (authorizedBy) => {
+          updateCartItemDiscount(productId, val);
+          setScanFeedback(`${val}% discount authorized by ${authorizedBy}`);
+        },
+      });
+      return;
+    }
+    updateCartItemDiscount(productId, val);
   };
 
   const handleCameraScan = (scannedText: string) => {
@@ -1091,6 +1141,19 @@ export const POSBilling: React.FC = () => {
                         </span>
                       )}
 
+                      {(() => {
+                        const tierInfo = getCustomerTier(selectedCustomer.totalSpend);
+                        return (
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 shadow-2xs ${tierInfo.badgeClass}`}
+                            title={`Tier: ${tierInfo.tier} (${tierInfo.multiplier}x points multiplier). Perks: ${tierInfo.perks}`}
+                          >
+                            <Sparkles className="w-2.5 h-2.5" />
+                            <span>{tierInfo.tier} Tier ({tierInfo.multiplier}x)</span>
+                          </span>
+                        );
+                      })()}
+
                       <span className="text-[11px] font-mono text-slate-500">
                         ({selectedCustomer.phone})
                       </span>
@@ -1530,8 +1593,9 @@ export const POSBilling: React.FC = () => {
               {cart.length > 0 && (
                 <button
                   type="button"
-                  onClick={clearCart}
+                  onClick={handleClearCartWithGuard}
                   className="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded hover:bg-rose-50 cursor-pointer shrink-0"
+                  title="Void active cart (Manager approval required for cashier)"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Clear</span>
@@ -1706,9 +1770,10 @@ export const POSBilling: React.FC = () => {
                               max="100"
                               value={item.discountPercent}
                               onChange={(e) =>
-                                updateCartItemDiscount(
+                                handleUpdateDiscountWithGuard(
                                   item.product.id,
-                                  parseFloat(e.target.value) || 0
+                                  parseFloat(e.target.value) || 0,
+                                  item.product.name
                                 )
                               }
                               className="w-14 px-1 py-0.5 border border-slate-200 rounded text-center font-mono text-xs font-semibold"
@@ -1942,9 +2007,10 @@ export const POSBilling: React.FC = () => {
                             max="100"
                             value={item.discountPercent}
                             onChange={(e) =>
-                              updateCartItemDiscount(
+                              handleUpdateDiscountWithGuard(
                                 item.product.id,
-                                parseFloat(e.target.value) || 0
+                                parseFloat(e.target.value) || 0,
+                                item.product.name
                               )
                             }
                             className="w-11 h-8 px-1 border border-slate-200 rounded-lg text-center font-mono text-xs font-semibold bg-white"
@@ -3652,6 +3718,15 @@ export const POSBilling: React.FC = () => {
         isOpen={isGiftVoucherModalOpen}
         onClose={() => setIsGiftVoucherModalOpen(false)}
         onApplyToSale={(code) => setAppliedGiftCode(code)}
+      />
+
+      {/* 14. MANAGER PIN OVERRIDE MODAL (RBAC & ANTI-THEFT GUARD) */}
+      <ManagerPinOverrideModal
+        isOpen={managerOverrideConfig.isOpen}
+        onClose={() => setManagerOverrideConfig((prev) => ({ ...prev, isOpen: false }))}
+        title={managerOverrideConfig.title}
+        actionDescription={managerOverrideConfig.actionDescription}
+        onSuccess={managerOverrideConfig.onSuccess}
       />
     </div>
   );

@@ -422,26 +422,44 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
   }
 }
 
+export type PriceTagFormat = '50x25' | '50x32' | 'hang-tag' | 'a4-24' | 'a4-40' | 'a4-65';
+
 export interface PriceTagPrintOptions {
-  rollSize?: '50x25' | '50x32';
+  rollSize?: PriceTagFormat;
   orientation?: 'portrait' | 'landscape';
 }
 
 /**
- * Dedicated high-precision 50mm clothing price tag printing utility (50x25mm / 50x32mm sticker rolls).
- * Creates an isolated, zero-margin printable iframe specifically sized to apparel sticker rolls.
- * Guarantees exact 1:1 match with UI preview:
- * - Proper @page { size: portrait; margin: 0; } preventing Chrome from auto-switching to Landscape
- * - Zero font-weight/stroke distortion (no blotchy text)
- * - Zero extra margins or dashed borders
- * - Strict per-tag page break so each tag prints on its own physical sticker
+ * Dedicated high-precision clothing price tag printing utility supporting:
+ * - 50x25mm / 50x32mm thermal sticker rolls
+ * - Luxury boutique punch-hole hang-tags (48x82mm)
+ * - Standard A4 laser barcode sheets (Avery 24-up, 40-up, 65-up)
  */
 export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOptions) {
   try {
-    const rollSize = options?.rollSize || '50x25';
+    const format = options?.rollSize || '50x25';
     const orientation = options?.orientation || 'portrait';
-    const tagHeight = rollSize === '50x25' ? '25mm' : '32mm';
-    const tagWidth = '50mm';
+    const isA4 = format.startsWith('a4-');
+    const isHangTag = format === 'hang-tag';
+    
+    let tagWidth = '50mm';
+    let tagHeight = '25mm';
+
+    if (format === '50x32') {
+      tagHeight = '32mm';
+    } else if (isHangTag) {
+      tagWidth = '48mm';
+      tagHeight = '82mm';
+    } else if (format === 'a4-24') {
+      tagWidth = '66mm';
+      tagHeight = '34mm';
+    } else if (format === 'a4-40') {
+      tagWidth = '48.5mm';
+      tagHeight = '25.4mm';
+    } else if (format === 'a4-65') {
+      tagWidth = '38mm';
+      tagHeight = '21.2mm';
+    }
 
     // 1. Mount point for DOM / fallback print
     let printMount = document.getElementById('print-mount-point');
@@ -454,7 +472,7 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
     }
     printMount.innerHTML = tagsHtml;
     printMount.classList.add('is-tag-print');
-    if (rollSize === '50x25') {
+    if (format === '50x25') {
       printMount.classList.add('is-tag-25mm');
     } else {
       printMount.classList.remove('is-tag-25mm');
@@ -484,6 +502,38 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
       return;
     }
 
+    const pageCss = isA4
+      ? `@page { size: A4 portrait; margin: 8mm 6mm; }`
+      : `@page { size: ${orientation}; margin: 0mm; }`;
+
+    const containerCss = isA4
+      ? `
+        .tags-container {
+          display: grid !important;
+          grid-template-columns: ${format === 'a4-24' ? 'repeat(3, 1fr)' : format === 'a4-40' ? 'repeat(4, 1fr)' : 'repeat(5, 1fr)'} !important;
+          gap: 2mm !important;
+          justify-items: center !important;
+        }
+        .thermal-tag-roll {
+          page-break-after: auto !important;
+          break-after: auto !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+      `
+      : `
+        .thermal-tag-roll {
+          page-break-after: always !important;
+          break-after: page !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        .thermal-tag-roll:last-of-type {
+          page-break-after: auto !important;
+          break-after: auto !important;
+        }
+      `;
+
     doc.open();
     doc.write(`
       <!DOCTYPE html>
@@ -492,10 +542,7 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
           <meta charset="UTF-8">
           <title>Apparel Price Tags (${tagWidth} x ${tagHeight})</title>
           <style>
-            @page {
-              size: ${orientation};
-              margin: 0mm;
-            }
+            ${pageCss}
             * {
               box-sizing: border-box;
               margin: 0;
@@ -505,8 +552,8 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
               color-adjust: exact !important;
             }
             html, body {
-              width: ${tagWidth};
-              height: ${tagHeight};
+              width: ${isA4 ? '210mm' : tagWidth};
+              height: auto;
               margin: 0;
               padding: 0;
               background-color: #ffffff;
@@ -527,22 +574,15 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
               padding: 1.2mm 1.5mm !important;
               box-sizing: border-box !important;
               background: #ffffff !important;
-              border: none !important;
+              border: 0.5px solid #cccccc !important;
               box-shadow: none !important;
               margin: 0 !important;
               overflow: hidden !important;
               display: flex !important;
               flex-direction: column !important;
               justify-content: space-between !important;
-              page-break-after: always !important;
-              break-after: page !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
             }
-            .thermal-tag-roll:last-of-type {
-              page-break-after: auto !important;
-              break-after: auto !important;
-            }
+            ${containerCss}
             svg {
               display: block !important;
               margin: 0 auto !important;
@@ -561,7 +601,9 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
           </style>
         </head>
         <body>
-          ${tagsHtml}
+          <div class="tags-container">
+            ${tagsHtml}
+          </div>
         </body>
       </html>
     `);

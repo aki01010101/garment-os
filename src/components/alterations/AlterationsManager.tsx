@@ -18,6 +18,10 @@ import {
   MessageCircle,
   Check,
   Camera,
+  LayoutGrid,
+  List,
+  ArrowRight,
+  Sparkles,
 } from 'lucide-react';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 
@@ -33,6 +37,7 @@ export const AlterationsManager: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const printTagRef = useRef<HTMLDivElement>(null);
@@ -156,25 +161,213 @@ export const AlterationsManager: React.FC = () => {
           </button>
         </div>
 
-        <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-lg text-xs">
-          {['all', 'In Progress', 'Ready for Pickup', 'Delivered'].map((st) => (
+        <div className="flex items-center gap-2">
+          {/* View Mode Toggle: Kanban vs List */}
+          <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-lg text-xs">
             <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                statusFilter === st
-                  ? 'bg-white text-slate-900 shadow-xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
+              onClick={() => setViewMode('kanban')}
+              title="Tailor Kanban Board"
+              className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'kanban' ? 'bg-white text-indigo-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {st === 'all' ? 'All Jobs' : st}
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Kanban Board</span>
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode('list')}
+              title="Detailed Table List"
+              className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'list' ? 'bg-white text-indigo-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">List View</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-lg text-xs">
+            {['all', 'In Progress', 'Ready for Pickup', 'Delivered'].map((st) => (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                  statusFilter === st
+                    ? 'bg-white text-slate-900 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {st === 'all' ? 'All Jobs' : st}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Alterations Grid / Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* Alterations Main View: Kanban vs Table List */}
+      {viewMode === 'kanban' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {[
+            {
+              status: 'Pending',
+              title: 'Job Inwarded / Cutting',
+              badgeColor: 'bg-amber-100 text-amber-900 border-amber-300',
+              columnBg: 'bg-amber-50/40 border-amber-200',
+              nextStatus: 'In Progress',
+              nextLabel: 'Start Cutting',
+            },
+            {
+              status: 'In Progress',
+              title: 'With Master Tailor',
+              badgeColor: 'bg-blue-100 text-blue-900 border-blue-300',
+              columnBg: 'bg-blue-50/40 border-blue-200',
+              nextStatus: 'Ready for Pickup',
+              nextLabel: 'Ready for Trial',
+            },
+            {
+              status: 'Ready for Pickup',
+              title: 'Ready for Trial / Pickup',
+              badgeColor: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+              columnBg: 'bg-emerald-50/40 border-emerald-200',
+              nextStatus: 'Delivered',
+              nextLabel: 'Deliver to Customer',
+            },
+            {
+              status: 'Delivered',
+              title: 'Completed & Delivered',
+              badgeColor: 'bg-slate-200 text-slate-800 border-slate-300',
+              columnBg: 'bg-slate-50 border-slate-200',
+              nextStatus: null,
+              nextLabel: null,
+            },
+          ].map((col) => {
+            const columnJobs = filtered.filter((a) => a.status === col.status);
+            return (
+              <div
+                key={col.status}
+                className={`rounded-xl border ${col.columnBg} p-3 flex flex-col flex-1 min-h-[460px]`}
+              >
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-black/10">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                    <span>{col.title}</span>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${col.badgeColor}`}>
+                    {columnJobs.length}
+                  </span>
+                </div>
+
+                <div className="space-y-2.5 overflow-y-auto max-h-[600px] flex-1 pr-0.5">
+                  {columnJobs.length === 0 ? (
+                    <div className="py-12 text-center text-xs text-slate-400 italic">
+                      No jobs in this stage
+                    </div>
+                  ) : (
+                    columnJobs.map((alt) => {
+                      const todayStr = new Date().toISOString().split('T')[0];
+                      const isToday = alt.promisedDate === todayStr;
+                      const isOverdue = alt.promisedDate < todayStr && alt.status !== 'Delivered';
+
+                      return (
+                        <div
+                          key={alt.id}
+                          className="bg-white p-3 rounded-lg border border-slate-200 shadow-xs hover:shadow-sm transition-all space-y-2 text-xs"
+                        >
+                          <div className="flex items-start justify-between gap-1.5">
+                            <div>
+                              <div className="font-extrabold text-slate-900 text-xs leading-snug">
+                                {alt.garmentName}
+                              </div>
+                              <div className="text-[10.5px] text-slate-500 font-medium">
+                                Size: <span className="font-bold text-slate-800 font-mono">{alt.size}</span> · {alt.color}
+                              </div>
+                            </div>
+                            <span className="font-mono text-[9.5px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200 shrink-0">
+                              {alt.invoiceNumber}
+                            </span>
+                          </div>
+
+                          <div className="bg-slate-50 p-2 rounded-md border border-slate-100 text-[11px] text-slate-700">
+                            <span className="font-bold text-slate-900 block mb-0.5">Fitting Notes:</span>
+                            {alt.alterationNotes}
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10.5px] text-slate-500 pt-0.5 border-t border-slate-100">
+                            <div className="truncate">
+                              <span className="font-semibold text-slate-800">{alt.customerName}</span>
+                              <span className="font-mono ml-1 text-slate-500">{alt.customerPhone}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10.5px]">
+                            <span
+                              className={`px-1.5 py-0.5 rounded font-semibold text-[10px] flex items-center gap-1 ${
+                                isOverdue
+                                  ? 'bg-rose-100 text-rose-800 font-bold'
+                                  : isToday
+                                  ? 'bg-amber-100 text-amber-900 font-bold'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              <Calendar className="w-3 h-3" />
+                              {isOverdue ? `Overdue (${alt.promisedDate})` : isToday ? 'Due Today' : `Trial: ${alt.promisedDate}`}
+                            </span>
+
+                            {alt.tailorName && (
+                              <span className="text-[10px] text-indigo-700 font-semibold bg-indigo-50 px-1.5 py-0.5 rounded">
+                                ✂️ {alt.tailorName}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handlePrintTag(alt)}
+                                title="Print 58mm Tailor Tag"
+                                className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded border border-slate-200 cursor-pointer"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </button>
+
+                              {alt.status === 'Ready for Pickup' && (
+                                <button
+                                  onClick={() => setNotifyAlt(alt)}
+                                  title="Send WhatsApp Ready for Trial Notification"
+                                  className="px-2 py-1 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded flex items-center gap-1 cursor-pointer"
+                                >
+                                  <MessageCircle className="w-3 h-3" />
+                                  <span>WhatsApp</span>
+                                </button>
+                              )}
+                            </div>
+
+                            {col.nextStatus && (
+                              <button
+                                onClick={() => {
+                                  updateAlterationStatus(alt.id, col.nextStatus as any);
+                                  if (col.nextStatus === 'Ready for Pickup') {
+                                    setNotifyAlt({ ...alt, status: 'Ready for Pickup' });
+                                  }
+                                }}
+                                className="px-2 py-1 text-[10.5px] font-bold text-indigo-700 hover:text-white bg-indigo-50 hover:bg-indigo-600 border border-indigo-200 rounded flex items-center gap-1 transition-colors cursor-pointer ml-auto"
+                              >
+                                <span>{col.nextLabel}</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* Alterations Grid / Table */
+        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         {filtered.length === 0 ? (
           <div className="py-16 text-center text-xs text-slate-400">
             No alteration jobs found under this filter.
@@ -272,6 +465,7 @@ export const AlterationsManager: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* New Alteration Job Modal */}
       {isAddModalOpen && (

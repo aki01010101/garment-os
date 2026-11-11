@@ -358,6 +358,62 @@ CREATE TABLE IF NOT EXISTS campaign_templates (
   discount_text TEXT
 );
 
+-- 19. DIGITAL GIFT CARDS & VOUCHERS
+CREATE TABLE IF NOT EXISTS gift_vouchers (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  barcode TEXT NOT NULL,
+  initial_amount NUMERIC(12,2) NOT NULL,
+  current_balance NUMERIC(12,2) NOT NULL,
+  issued_to_name TEXT NOT NULL,
+  issued_to_phone TEXT NOT NULL,
+  sender_name TEXT,
+  message TEXT,
+  expiry_date DATE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  issued_by TEXT,
+  redemptions JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_gift_vouchers_code ON gift_vouchers (code);
+CREATE INDEX IF NOT EXISTS idx_gift_vouchers_barcode ON gift_vouchers (barcode);
+CREATE INDEX IF NOT EXISTS idx_gift_vouchers_phone ON gift_vouchers (issued_to_phone);
+
+-- 20. CUSTOMER BESPOKE MEASUREMENT PROFILES
+CREATE TABLE IF NOT EXISTS customer_measurements (
+  id TEXT PRIMARY KEY,
+  customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  profile_name TEXT NOT NULL,
+  garment_type TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  notes TEXT,
+  values JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_customer_measurements_cust ON customer_measurements (customer_id);
+
+-- 21. ASSOCIATE COMMISSION PAYOUTS
+CREATE TABLE IF NOT EXISTS associate_commission_payouts (
+  id TEXT PRIMARY KEY,
+  associate_name TEXT NOT NULL,
+  period_month TEXT NOT NULL,
+  total_sales_revenue NUMERIC(12,2) NOT NULL DEFAULT 0,
+  bills_handled INTEGER NOT NULL DEFAULT 0,
+  target_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  target_achieved_percent NUMERIC(6,2) NOT NULL DEFAULT 0,
+  commission_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  bonus_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  total_payout NUMERIC(12,2) NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending',
+  paid_at TIMESTAMPTZ,
+  paid_by TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- =============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- =============================================================================
@@ -380,6 +436,9 @@ ALTER TABLE stock_audits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_transfers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE associate_commissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaign_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE gift_vouchers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customer_measurements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE associate_commission_payouts ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
@@ -436,5 +495,14 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'pos_campaign_templates_all') THEN
     CREATE POLICY pos_campaign_templates_all ON campaign_templates FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'pos_gift_vouchers_all') THEN
+    CREATE POLICY pos_gift_vouchers_all ON gift_vouchers FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'pos_customer_measurements_all') THEN
+    CREATE POLICY pos_customer_measurements_all ON customer_measurements FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'pos_associate_commission_payouts_all') THEN
+    CREATE POLICY pos_associate_commission_payouts_all ON associate_commission_payouts FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;

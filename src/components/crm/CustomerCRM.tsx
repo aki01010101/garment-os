@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Customer, FamilyMember, SaleTransaction } from '../../types';
+import { Customer, FamilyMember, SaleTransaction, getCustomerTier } from '../../types';
 import {
   computeCustomerSpendMetrics,
   buildCustomerWhatsAppSummary,
@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { RFMCampaignsManager } from './RFMCampaignsManager';
 import { CelebrationsManager } from './CelebrationsManager';
+import { WhatsAppLookbookModal } from './WhatsAppLookbookModal';
 
 export const CustomerCRM: React.FC = () => {
   const {
@@ -86,6 +87,10 @@ export const CustomerCRM: React.FC = () => {
 
   // Customer Measurement Modal
   const [isMeasurementModalOpen, setIsMeasurementModalOpen] = useState(false);
+
+  // WhatsApp Digital Lookbook Modal
+  const [isLookbookModalOpen, setIsLookbookModalOpen] = useState(false);
+  const [lookbookTargetCustomer, setLookbookTargetCustomer] = useState<Customer | null>(null);
 
   // New Customer Modal
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
@@ -372,6 +377,19 @@ export const CustomerCRM: React.FC = () => {
           <span className="px-1.5 py-0.2 bg-pink-100 text-pink-800 rounded-full text-[10px] font-bold">
             GREETINGS
           </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setLookbookTargetCustomer(selectedCustomer || null);
+            setIsLookbookModalOpen(true);
+          }}
+          className="px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-300 font-bold ml-auto shadow-2xs"
+          title="Curate and send new arrival styles via WhatsApp"
+        >
+          <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+          <span>WhatsApp Digital Lookbook</span>
         </button>
       </div>
 
@@ -693,6 +711,18 @@ export const CustomerCRM: React.FC = () => {
                   </button>
 
                   <button
+                    onClick={() => {
+                      setLookbookTargetCustomer(selectedCustomer);
+                      setIsLookbookModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg flex items-center gap-1.5 border border-emerald-200 transition-colors shadow-2xs cursor-pointer"
+                    title="Send WhatsApp New Arrivals Lookbook to this customer"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Send Lookbook</span>
+                  </button>
+
+                  <button
                     onClick={() => openPurchasesModal(selectedCustomer)}
                     className="px-3.5 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
                     title="View itemized past bills and receipts"
@@ -780,6 +810,28 @@ export const CustomerCRM: React.FC = () => {
                     {selectedMetrics.progressPercent}% achieved
                   </span>
                 </div>
+
+                {/* Lifetime VIP Club Tier */}
+                {(() => {
+                  const tier = getCustomerTier(selectedCustomer.totalSpend);
+                  return (
+                    <div className="mt-3 pt-3 border-t border-black/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border shadow-2xs ${tier.badgeClass}`}>
+                          {tier.tier} Tier ({tier.multiplier}x Points)
+                        </span>
+                        <span className="text-[11px] text-slate-600 font-medium">
+                          {tier.perks}
+                        </span>
+                      </div>
+                      {tier.amountToNextTier && tier.amountToNextTier > 0 && (
+                        <div className="text-[10.5px] text-slate-500 font-medium">
+                          ₹{tier.amountToNextTier.toLocaleString('en-IN')} more to unlock next tier
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Stats Grid */}
@@ -1698,6 +1750,15 @@ export const CustomerCRM: React.FC = () => {
           }}
         />
       )}
+      {/* WhatsApp Lookbook / Digital Showcase Modal */}
+      <WhatsAppLookbookModal
+        isOpen={isLookbookModalOpen}
+        onClose={() => {
+          setIsLookbookModalOpen(false);
+          setLookbookTargetCustomer(null);
+        }}
+        targetCustomer={lookbookTargetCustomer}
+      />
     </div>
   );
 };

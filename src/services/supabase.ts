@@ -13,6 +13,8 @@ import {
   UserAccount,
   CouponCode,
   LoyaltyConfig,
+  GiftVoucher,
+  GarmentMeasurementProfile,
 } from '../types';
 
 export const SUPABASE_STORAGE_KEYS = {
@@ -619,6 +621,69 @@ export function mapStaffUserFromDb(row: any): UserAccount {
   };
 }
 
+// 12. DIGITAL GIFT CARDS & VOUCHERS
+export function mapGiftVoucherToDb(v: GiftVoucher) {
+  return {
+    id: v.id,
+    code: v.code,
+    barcode: v.barcode,
+    initial_amount: v.initialAmount,
+    current_balance: v.currentBalance,
+    issued_to_name: v.issuedToName,
+    issued_to_phone: v.issuedToPhone,
+    sender_name: v.senderName || null,
+    message: v.message || null,
+    expiry_date: v.expiryDate,
+    status: v.isActive ? 'active' : 'inactive',
+    issued_at: v.createdAt,
+    redemptions: v.redemptionHistory || [],
+    created_at: v.createdAt || new Date().toISOString(),
+  };
+}
+
+export function mapGiftVoucherFromDb(row: any): GiftVoucher {
+  return {
+    id: row.id,
+    code: row.code,
+    barcode: row.barcode,
+    initialAmount: Number(row.initial_amount) || 0,
+    currentBalance: Number(row.current_balance) || 0,
+    issuedToName: row.issued_to_name || '',
+    issuedToPhone: row.issued_to_phone || '',
+    senderName: row.sender_name || undefined,
+    message: row.message || undefined,
+    expiryDate: row.expiry_date || '',
+    isActive: row.status === 'active' || (Number(row.current_balance) > 0),
+    createdAt: row.issued_at || row.created_at || new Date().toISOString().split('T')[0],
+    redemptionHistory: row.redemptions || [],
+  };
+}
+
+// 13. CUSTOMER MEASUREMENT PROFILES
+export function mapCustomerMeasurementToDb(m: GarmentMeasurementProfile) {
+  return {
+    id: m.id,
+    customer_id: m.customerId,
+    profile_name: m.profileName,
+    garment_type: m.garmentType,
+    updated_at: m.updatedAt || new Date().toISOString(),
+    notes: m.notes || null,
+    values: m.values || {},
+  };
+}
+
+export function mapCustomerMeasurementFromDb(row: any): GarmentMeasurementProfile {
+  return {
+    id: row.id,
+    customerId: row.customer_id,
+    profileName: row.profile_name || 'Bespoke Fit',
+    garmentType: row.garment_type || 'Custom Dress',
+    updatedAt: row.updated_at || '',
+    notes: row.notes || undefined,
+    values: row.values || {},
+  };
+}
+
 // -----------------------------------------------------------------------------
 // COMPREHENSIVE PUSH ALL TO SUPABASE (COVERS EVERY SINGLE PAGE)
 // -----------------------------------------------------------------------------
@@ -638,6 +703,7 @@ export async function pushAllToSupabase(payload: {
   coupons?: CouponCode[];
   loyaltyConfig?: LoyaltyConfig;
   settings?: Record<string, any>;
+  giftVouchers?: GiftVoucher[];
 }): Promise<{ success: boolean; message: string; stats?: any }> {
   const supabase = getSupabase();
   if (!supabase) {
@@ -755,6 +821,15 @@ export async function pushAllToSupabase(payload: {
       });
     }
 
+    // 14. Digital Gift Vouchers
+    if (payload.giftVouchers && payload.giftVouchers.length > 0) {
+      try {
+        await supabase.from('gift_vouchers').upsert(payload.giftVouchers.map(mapGiftVoucherToDb));
+      } catch (err) {
+        console.warn('Gift vouchers push warning:', err);
+      }
+    }
+
     const now = new Date().toISOString();
     try {
       localStorage.setItem(SUPABASE_STORAGE_KEYS.LAST_SYNC, now);
@@ -802,6 +877,7 @@ export async function pullAllFromSupabase(): Promise<{
     coupons?: CouponCode[];
     loyaltyConfig?: LoyaltyConfig;
     settings?: Record<string, any>;
+    giftVouchers?: GiftVoucher[];
   };
 }> {
   const supabase = getSupabase();
@@ -822,6 +898,7 @@ export async function pullAllFromSupabase(): Promise<{
       creditNotesRes,
       dayRegRes,
       settingsRes,
+      giftVouchersRes,
     ] = await Promise.all([
       supabase.from('companies').select('*'),
       supabase.from('products').select('*'),
@@ -834,6 +911,7 @@ export async function pullAllFromSupabase(): Promise<{
       supabase.from('credit_notes').select('*'),
       supabase.from('day_registers').select('*').order('date', { ascending: false }).limit(1),
       supabase.from('app_settings').select('*'),
+      supabase.from('gift_vouchers').select('*'),
     ]);
 
     // Parse App Settings
@@ -866,6 +944,7 @@ export async function pullAllFromSupabase(): Promise<{
       coupons: couponsFromDb,
       loyaltyConfig: loyaltyFromDb,
       settings: terminalSettings,
+      giftVouchers: giftVouchersRes && giftVouchersRes.data && giftVouchersRes.data.length > 0 ? giftVouchersRes.data.map(mapGiftVoucherFromDb) : undefined,
     };
 
     const now = new Date().toISOString();
@@ -979,5 +1058,25 @@ export async function asyncSyncSetting(key: string, value: any) {
     });
   } catch (err) {
     console.warn(`Background Supabase setting sync (${key}) error:`, err);
+  }
+}
+
+export async function asyncSyncGiftVoucher(voucher: GiftVoucher) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('gift_vouchers').upsert(mapGiftVoucherToDb(voucher));
+  } catch (err) {
+    console.warn('Background Supabase gift voucher sync error:', err);
+  }
+}
+
+export async function asyncSyncCustomerMeasurement(measurement: GarmentMeasurementProfile) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from('customer_measurements').upsert(mapCustomerMeasurementToDb(measurement));
+  } catch (err) {
+    console.warn('Background Supabase measurement sync error:', err);
   }
 }

@@ -337,11 +337,62 @@ export interface Customer {
   lastPurchaseDate?: string;
   notes?: string;
   isVip?: boolean;
+  vipTier?: 'Regular' | 'Silver' | 'Gold' | 'Platinum';
   profile?: CustomerProfile;
   creditLimit?: number;
   outstandingCredit?: number;
   creditStatus?: 'good' | 'overdue' | 'blocked';
   oldestCreditDate?: string;
+}
+
+export type CustomerVipTier = 'Regular' | 'Silver' | 'Gold' | 'Platinum';
+
+export interface CustomerTierInfo {
+  tier: CustomerVipTier;
+  multiplier: number;
+  perks: string;
+  badgeClass: string;
+  nextTierThreshold?: number;
+  amountToNextTier?: number;
+}
+
+export function getCustomerTier(totalSpend: number): CustomerTierInfo {
+  if (totalSpend >= 50000) {
+    return {
+      tier: 'Platinum',
+      multiplier: 2.0,
+      perks: '2x Points · Free Alterations · Personal Stylist',
+      badgeClass: 'bg-purple-100 text-purple-900 border-purple-300',
+    };
+  }
+  if (totalSpend >= 25000) {
+    return {
+      tier: 'Gold',
+      multiplier: 1.5,
+      perks: '1.5x Points · 5% Birthday Bonus · Priority Fitting',
+      badgeClass: 'bg-amber-100 text-amber-900 border-amber-300',
+      nextTierThreshold: 50000,
+      amountToNextTier: 50000 - totalSpend,
+    };
+  }
+  if (totalSpend >= 10000) {
+    return {
+      tier: 'Silver',
+      multiplier: 1.25,
+      perks: '1.25x Points · Advance Festive Sale Access',
+      badgeClass: 'bg-slate-200 text-slate-800 border-slate-300',
+      nextTierThreshold: 25000,
+      amountToNextTier: 25000 - totalSpend,
+    };
+  }
+  return {
+    tier: 'Regular',
+    multiplier: 1.0,
+    perks: '1x Points · Standard Member',
+    badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    nextTierThreshold: 10000,
+    amountToNextTier: 10000 - totalSpend,
+  };
 }
 
 export interface SaleItem {
