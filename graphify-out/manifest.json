@@ -192,8 +192,8 @@
     "semantic_hash": ""
   },
   "src/components/khata/SettleKhataModal.tsx": {
-    "mtime": 1794400843.8850472,
-    "seen": 1794401017.729696,
+    "mtime": 1794401063.1746647,
+    "seen": 1794403021.064209,
     "ast_hash": "e14ab955365724913a0213f58663a7fc",
     "semantic_hash": ""
   },
@@ -216,9 +216,9 @@
     "semantic_hash": ""
   },
   "src/components/pos/POSBilling.tsx": {
-    "mtime": 1794396276.0171907,
-    "seen": 1794401017.7307324,
-    "ast_hash": "284812282482e2b96f0f63bd8413c91f",
+    "mtime": 1794402994.031623,
+    "seen": 1794403021.0650306,
+    "ast_hash": "afa0da6ddf24f4292bb9ae2cec3c1d7b",
     "semantic_hash": ""
   },
   "src/components/pos/StoreCreditNotesModal.tsx": {
@@ -228,8 +228,8 @@
     "semantic_hash": ""
   },
   "src/components/pos/ThermalReceipt.tsx": {
-    "mtime": 1794400970.3819575,
-    "seen": 1794401017.730964,
+    "mtime": 1794401063.6774404,
+    "seen": 1794403021.065191,
     "ast_hash": "c6f665f847f927275a80ee0a71ba29b8",
     "semantic_hash": ""
   },
@@ -306,9 +306,9 @@
     "semantic_hash": ""
   },
   "src/context/AppContext.tsx": {
-    "mtime": 1794396086.6975594,
-    "seen": 1794401017.7335823,
-    "ast_hash": "7e1fcfb95071f9912b6def91945bcf6b",
+    "mtime": 1794402418.3610392,
+    "seen": 1794403021.0673416,
+    "ast_hash": "fecc824f5bf8e7d10d8975eadf1b1469",
     "semantic_hash": ""
   },
   "src/data/seedData.ts": {
@@ -366,8 +366,8 @@
     "semantic_hash": ""
   },
   "src/utils/escpos.ts": {
-    "mtime": 1794400834.324892,
-    "seen": 1794401017.7365286,
+    "mtime": 1794401063.9335425,
+    "seen": 1794403021.0689745,
     "ast_hash": "42b8ce11bdcf90ae5e0a6df78156809d",
     "semantic_hash": ""
   },
@@ -507,6 +507,12 @@
     "mtime": 1794394312.2204466,
     "seen": 1794401017.7365317,
     "ast_hash": "5d461a7e279ae7b1935be48d638949c1",
+    "semantic_hash": ""
+  },
+  "src/components/pos/CustomItemModal.tsx": {
+    "mtime": 1794402552.235088,
+    "seen": 1794403021.064554,
+    "ast_hash": "b5aa823aba3b3d9200022da362d17061",
     "semantic_hash": ""
   },
   "package-lock.json": {

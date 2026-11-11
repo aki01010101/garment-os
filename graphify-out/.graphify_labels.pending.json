@@ -1,10 +1,10 @@
 {
-  "0": "useApp",
-  "1": "AppContextType",
+  "0": "lucide-react",
+  "1": "react",
   "2": "escpos.ts",
   "3": "supabase.ts",
   "4": "CustomerCRM.tsx",
-  "5": "types.ts",
+  "5": "StockAuditModal.tsx",
   "6": "AppContext.tsx",
   "7": "CustomerDisplay.tsx",
   "8": "package.json",
@@ -12,17 +12,9 @@
   "10": "dependencies",
   "11": "compilerOptions",
   "12": "vite.config.ts",
-  "13": "CompanySettings.tsx",
+  "13": "@types/qrcode@^1.5.6",
   "14": "scripts",
   "15": "OfflineSyncIndicator.tsx",
   "16": "vercel.json",
-  "17": "Garment OS - Retail Clothing POS & CRM",
-  "18": "motion@^12.23.24",
-  "19": "dotenv@^17.2.3",
-  "20": "react-is@^19.3.1",
-  "21": "jsbarcode",
-  "22": "overrides",
-  "23": "@vitejs/plugin-react",
-  "24": "EditSaleModal.tsx",
-  "25": "SmartRestockPredictorModal.tsx"
+  "17": "Garment OS - Retail Clothing POS & CRM"
 }

@@ -60,10 +60,12 @@ import { UpiPaymentQr } from '../common/UpiPaymentQr';
 import { DigitalReceiptModal } from './DigitalReceiptModal';
 import { StoreCreditNotesModal } from './StoreCreditNotesModal';
 import { SignaturePadModal } from '../common/SignaturePadModal';
+import { CustomItemModal, CustomItemPayload } from './CustomItemModal';
 
 export const POSBilling: React.FC = () => {
   const {
     products,
+    addProduct,
     companies,
     activeCompanyId,
     activeCompany,
@@ -72,6 +74,7 @@ export const POSBilling: React.FC = () => {
     addToCart,
     removeFromCart,
     updateCartItemQty,
+    updateCartItemPrice,
     updateCartItemDiscount,
     updateCartItemAlteration,
     clearCart,
@@ -225,10 +228,58 @@ export const POSBilling: React.FC = () => {
   } | null>(null);
 
   const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
+  const [isCustomItemModalOpen, setIsCustomItemModalOpen] = useState(false);
+  const [customItemInitialName, setCustomItemInitialName] = useState('');
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Keyboard Shortcuts (F2 / Slash for Search, F4 for Payment mode, Ctrl+Enter for Checkout)
+  // Quick Custom Item Handler (Instant billing with item name & sale price)
+  const handleAddCustomItem = (payload: CustomItemPayload) => {
+    let targetProduct: Product;
+
+    if (payload.saveToCatalog) {
+      targetProduct = addProduct({
+        name: payload.name,
+        sellingPrice: payload.salePrice,
+        costPrice: 0,
+        sku: `CUST-${Date.now().toString().slice(-4)}`,
+        barcode: `CUST-${Date.now().toString().slice(-6)}`,
+        category: payload.category,
+        subCategory: 'Custom Item',
+        size: payload.size,
+        color: 'Standard',
+        season: 'All Season',
+        stock: 999,
+        minStockAlert: 0,
+        taxRate: activeCompany.type === 'billed' ? (payload.salePrice > 1000 ? 12 : 5) : 0,
+        taxInclusive: activeCompany.taxInclusive !== false,
+      });
+    } else {
+      targetProduct = {
+        id: `custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        name: payload.name,
+        sellingPrice: payload.salePrice,
+        costPrice: 0,
+        sku: `CUST-${Date.now().toString().slice(-4)}`,
+        barcode: `CUST-${Date.now().toString().slice(-6)}`,
+        category: payload.category,
+        subCategory: 'Custom Item',
+        size: payload.size,
+        color: 'Standard',
+        season: 'All Season',
+        stock: 999,
+        minStockAlert: 0,
+        taxRate: activeCompany.type === 'billed' ? (payload.salePrice > 1000 ? 12 : 5) : 0,
+        taxInclusive: activeCompany.taxInclusive !== false,
+      };
+    }
+
+    safeAddToCart(targetProduct, payload.quantity);
+    setScanFeedback(`Added Custom: ${payload.name} (₹${payload.salePrice.toFixed(0)})`);
+    setSearchQuery('');
+  };
+
+  // Keyboard Shortcuts (F2 / Slash for Search, F4 for Payment mode, F7 for Custom Item, Ctrl+Enter for Checkout)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Avoid firing when typing inside an input/textarea (except function keys)
@@ -254,6 +305,10 @@ export const POSBilling: React.FC = () => {
         } else {
           setIsParkModalOpen(true);
         }
+      } else if (e.key === 'F7') {
+        e.preventDefault();
+        setCustomItemInitialName('');
+        setIsCustomItemModalOpen(true);
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         if (cart.length > 0) {
@@ -318,7 +373,13 @@ export const POSBilling: React.FC = () => {
         safeAddToCart(searchResults[0], 1);
         setScanFeedback(`Added: ${searchResults[0].name} (${searchResults[0].size})`);
         setSearchQuery('');
+        return;
       }
+
+      // No catalog garment found -> open Custom Item modal with this query prefilled
+      setCustomItemInitialName(searchQuery.trim());
+      setIsCustomItemModalOpen(true);
+      setIsSearchFocused(false);
     }
   };
 
@@ -1417,6 +1478,22 @@ export const POSBilling: React.FC = () => {
 
           <button
             type="button"
+            onClick={() => {
+              setCustomItemInitialName(searchQuery.trim());
+              setIsCustomItemModalOpen(true);
+            }}
+            title="Add Custom / Miscellaneous Item with just Name and Sale Price (F7)"
+            className="px-3 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 active:bg-indigo-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-2xs"
+          >
+            <PlusCircle className="w-4 h-4 text-indigo-600" />
+            <span>+ Custom Item</span>
+            <kbd className="hidden sm:inline-block px-1 py-0.2 text-[9px] font-mono bg-white border border-indigo-200 text-indigo-600 rounded font-bold">
+              F7
+            </kbd>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsCameraScannerOpen(true)}
             title="Scan Garment Barcode / QR Code with Device Camera"
             className="px-3 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-xs"
@@ -1440,7 +1517,7 @@ export const POSBilling: React.FC = () => {
               <span>Matching catalog garments ({searchResults.length} results):</span>
               <button
                 onClick={() => setIsSearchFocused(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1484,7 +1561,59 @@ export const POSBilling: React.FC = () => {
                   </div>
                 </div>
               ))}
+
+              {/* Option to add custom item with current query */}
+              {searchQuery.trim() && (
+                <div
+                  onClick={() => {
+                    setCustomItemInitialName(searchQuery.trim());
+                    setIsCustomItemModalOpen(true);
+                    setIsSearchFocused(false);
+                  }}
+                  className="p-2.5 bg-indigo-50/80 hover:bg-indigo-100 cursor-pointer flex items-center justify-between text-xs text-indigo-950 font-bold transition-colors border-t border-indigo-100"
+                >
+                  <div className="flex items-center gap-2">
+                    <PlusCircle className="w-4 h-4 text-indigo-600" />
+                    <span>Add <strong>"{searchQuery}"</strong> as Custom Item (Sale Price)</span>
+                  </div>
+                  <span className="text-[10px] font-mono bg-white border border-indigo-300 text-indigo-700 px-1.5 py-0.5 rounded font-bold">
+                    F7
+                  </span>
+                </div>
+              )}
             </div>
+          </div>
+        )}
+
+        {/* Live Search: Zero Results Fallback Prompt */}
+        {isSearchFocused && searchQuery.trim() && searchResults.length === 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-3 text-xs animate-fade-in">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span>No catalog garments match "{searchQuery}".</span>
+              <button
+                onClick={() => setIsSearchFocused(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCustomItemInitialName(searchQuery.trim());
+                setIsCustomItemModalOpen(true);
+                setIsSearchFocused(false);
+              }}
+              className="w-full py-2.5 px-3 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg flex items-center justify-between transition-colors cursor-pointer shadow-2xs"
+            >
+              <div className="flex items-center gap-2">
+                <PlusCircle className="w-4 h-4 text-indigo-600" />
+                <span>Add <strong>"{searchQuery}"</strong> as Custom Item with Sale Price</span>
+              </div>
+              <span className="text-[10px] font-mono bg-white border border-indigo-200 text-indigo-700 px-1.5 py-0.5 rounded font-bold">
+                Enter / F7
+              </span>
+            </button>
           </div>
         )}
       </div>
@@ -1576,6 +1705,20 @@ export const POSBilling: React.FC = () => {
                 <span>Gift<span className="hidden sm:inline"> Cards</span></span>
               </button>
 
+              {/* Add Custom Item Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomItemInitialName('');
+                  setIsCustomItemModalOpen(true);
+                }}
+                className="text-xs px-2 sm:px-2.5 py-1 rounded-md font-semibold flex items-center gap-1 sm:gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer shadow-2xs shrink-0"
+                title="Add Custom / Miscellaneous Item with just Name and Sale Price (F7)"
+              >
+                <PlusCircle className="w-3.5 h-3.5 text-indigo-600" />
+                <span>+ Custom<span className="hidden sm:inline"> Item</span></span>
+              </button>
+
               {/* Hold Current Cart Button */}
               {cart.length > 0 && (
                 <button
@@ -1643,6 +1786,17 @@ export const POSBilling: React.FC = () => {
                 <p className="text-[11px] text-slate-400 max-w-sm">
                   Scan a garment barcode with your barcode reader, or type garment name / SKU in the search bar above to add items.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomItemInitialName('');
+                    setIsCustomItemModalOpen(true);
+                  }}
+                  className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                >
+                  <PlusCircle className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>+ Add Custom Item (F7)</span>
+                </button>
               </div>
             ) : cartDisplayMode === 'table' ? (
               /* Table View (Active when Table mode is selected) */
@@ -1696,8 +1850,13 @@ export const POSBilling: React.FC = () => {
                           </td>
 
                           <td className="py-3 px-3">
-                            <div className="font-bold text-slate-900 text-xs">
-                              {item.product.name}
+                            <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 flex-wrap">
+                              <span>{item.product.name}</span>
+                              {item.product.id.startsWith('custom-') && (
+                                <span className="text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.2 rounded-md">
+                                  Custom
+                                </span>
+                              )}
                             </div>
                             <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5">
                               <span className="font-semibold text-slate-700">{item.product.sku}</span>
@@ -1724,7 +1883,27 @@ export const POSBilling: React.FC = () => {
                           </td>
 
                           <td className="py-3 px-3 text-right font-mono text-slate-800">
-                            ₹{item.unitPrice.toFixed(2)}
+                            {item.product.id.startsWith('custom-') ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="text-slate-400 text-[10px]">₹</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={item.unitPrice}
+                                  onChange={(e) =>
+                                    updateCartItemPrice(
+                                      item.product.id,
+                                      Math.max(0, parseFloat(e.target.value) || 0)
+                                    )
+                                  }
+                                  className="w-16 py-0.5 text-right font-mono font-bold text-xs border border-amber-300 rounded bg-amber-50/70 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+                                  title="Edit custom item sale price directly"
+                                />
+                              </div>
+                            ) : (
+                              <span>₹{item.unitPrice.toFixed(2)}</span>
+                            )}
                           </td>
 
                           {/* Interactive Quantity Control */}
@@ -1922,8 +2101,13 @@ export const POSBilling: React.FC = () => {
 
                       {/* Row 2: Garment Name & Category */}
                       <div>
-                        <div className="font-bold text-slate-900 text-sm leading-snug line-clamp-2">
-                          {item.product.name}
+                        <div className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 flex items-center gap-1.5 flex-wrap">
+                          <span>{item.product.name}</span>
+                          {item.product.id.startsWith('custom-') && (
+                            <span className="text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.2 rounded-md">
+                              Custom Item
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
                           <span className="font-semibold text-slate-700">{item.product.sku}</span>
@@ -2085,6 +2269,9 @@ export const POSBilling: React.FC = () => {
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="px-1 py-0.5 bg-white border border-slate-300 rounded font-bold text-[10px]">F4</kbd> Tender Mode
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1 py-0.5 bg-white border border-slate-300 rounded font-bold text-[10px]">F7</kbd> Custom Item
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="px-1 py-0.5 bg-white border border-slate-300 rounded font-bold text-[10px]">Ctrl+Enter</kbd> Print Bill
@@ -3720,7 +3907,18 @@ export const POSBilling: React.FC = () => {
         onApplyToSale={(code) => setAppliedGiftCode(code)}
       />
 
-      {/* 14. MANAGER PIN OVERRIDE MODAL (RBAC & ANTI-THEFT GUARD) */}
+      {/* 14. QUICK CUSTOM ITEM MODAL (NAME & SALE PRICE BILLING) */}
+      <CustomItemModal
+        isOpen={isCustomItemModalOpen}
+        onClose={() => {
+          setIsCustomItemModalOpen(false);
+          setCustomItemInitialName('');
+        }}
+        initialName={customItemInitialName}
+        onAddCustomItem={handleAddCustomItem}
+      />
+
+      {/* 15. MANAGER PIN OVERRIDE MODAL (RBAC & ANTI-THEFT GUARD) */}
       <ManagerPinOverrideModal
         isOpen={managerOverrideConfig.isOpen}
         onClose={() => setManagerOverrideConfig((prev) => ({ ...prev, isOpen: false }))}

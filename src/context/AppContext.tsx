@@ -151,6 +151,7 @@ interface AppContextType {
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
   updateCartItemQty: (productId: string, qty: number) => void;
+  updateCartItemPrice: (productId: string, newPrice: number) => void;
   updateCartItemDiscount: (productId: string, discountPercent: number) => void;
   updateCartItemAlteration: (productId: string, alteration: AlterationDetails | undefined) => void;
   clearCart: () => void;
@@ -2011,6 +2012,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const updateCartItemPrice = (productId: string, newPrice: number) => {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.product.id === productId
+          ? { ...item, unitPrice: Math.max(0, newPrice) }
+          : item
+      )
+    );
+  };
+
   const updateCartItemDiscount = (productId: string, discountPercent: number) => {
     setCart((prev) =>
       prev.map((item) =>
@@ -2996,6 +3007,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addToCart,
         removeFromCart,
         updateCartItemQty,
+        updateCartItemPrice,
         updateCartItemDiscount,
         updateCartItemAlteration,
         clearCart,
