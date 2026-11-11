@@ -9,6 +9,7 @@ import {
 } from '../../utils/crmUtils';
 import { CustomerPurchasesModal } from './CustomerPurchasesModal';
 import { CustomerProfileModal } from './CustomerProfileModal';
+import { CustomerMeasurementModal } from './CustomerMeasurementModal';
 import { SettleKhataModal } from '../khata/SettleKhataModal';
 import { PaymentReminderModal } from '../khata/PaymentReminderModal';
 import { CustomerLedgerModal } from '../khata/CustomerLedgerModal';
@@ -47,8 +48,10 @@ import {
   ChevronLeft,
   BookOpen,
   PlusCircle,
+  Cake,
 } from 'lucide-react';
 import { RFMCampaignsManager } from './RFMCampaignsManager';
+import { CelebrationsManager } from './CelebrationsManager';
 
 export const CustomerCRM: React.FC = () => {
   const {
@@ -64,7 +67,7 @@ export const CustomerCRM: React.FC = () => {
     setIsReceiptModalOpen,
   } = useApp();
 
-  const [crmView, setCrmView] = useState<'directory' | 'rfm_campaigns'>('directory');
+  const [crmView, setCrmView] = useState<'directory' | 'rfm_campaigns' | 'celebrations'>('directory');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [companyFilter, setCompanyFilter] = useState<string>('all');
@@ -80,6 +83,9 @@ export const CustomerCRM: React.FC = () => {
     'sizes' | 'measurements' | 'occasions' | 'address' | 'style' | 'family'
   >('family');
   const [profileModalMemberToEdit, setProfileModalMemberToEdit] = useState<FamilyMember | null>(null);
+
+  // Customer Measurement Modal
+  const [isMeasurementModalOpen, setIsMeasurementModalOpen] = useState(false);
 
   // New Customer Modal
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
@@ -353,9 +359,25 @@ export const CustomerCRM: React.FC = () => {
             NEW
           </span>
         </button>
+        <button
+          onClick={() => setCrmView('celebrations')}
+          className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+            crmView === 'celebrations'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Cake className="w-3.5 h-3.5 text-pink-500" />
+          <span>Birthdays & Anniversaries</span>
+          <span className="px-1.5 py-0.2 bg-pink-100 text-pink-800 rounded-full text-[10px] font-bold">
+            GREETINGS
+          </span>
+        </button>
       </div>
 
-      {crmView === 'rfm_campaigns' ? (
+      {crmView === 'celebrations' ? (
+        <CelebrationsManager />
+      ) : crmView === 'rfm_campaigns' ? (
         <RFMCampaignsManager />
       ) : (
         /* Main Grid: Customer Directory & Detail Drawer */
@@ -659,6 +681,15 @@ export const CustomerCRM: React.FC = () => {
                   >
                     <Ruler className="w-3.5 h-3.5 text-indigo-600" />
                     <span>Build Profile</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsMeasurementModalOpen(true)}
+                    className="px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center gap-1.5 border border-purple-200 transition-colors shadow-2xs cursor-pointer"
+                    title="Manage bespoke tailor measurements & print tailor slips"
+                  >
+                    <Ruler className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Fit Cards ({selectedCustomer.profile?.measurementProfiles?.length || 0})</span>
                   </button>
 
                   <button
@@ -1386,6 +1417,17 @@ export const CustomerCRM: React.FC = () => {
           if (secondaryUpdates && secondaryUpdates.length > 0) {
             secondaryUpdates.forEach((sec) => updateCustomer(sec));
           }
+        }}
+      />
+
+      {/* Customer Measurement & Bespoke Fit Cards Modal */}
+      <CustomerMeasurementModal
+        customer={selectedCustomer}
+        isOpen={isMeasurementModalOpen}
+        onClose={() => setIsMeasurementModalOpen(false)}
+        onSave={(updated) => {
+          updateCustomer(updated);
+          setIsMeasurementModalOpen(false);
         }}
       />
 

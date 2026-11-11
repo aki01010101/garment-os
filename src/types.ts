@@ -322,6 +322,7 @@ export interface CustomerProfile {
   gstin?: string;
   specialInstructions?: string;
   familyMembers?: FamilyMember[];
+  measurementProfiles?: GarmentMeasurementProfile[];
 }
 
 export interface Customer {
@@ -850,5 +851,106 @@ export interface AssociateCommissionPayout {
   paidBy?: string;
   notes?: string;
 }
+
+// ----------------------------------------------------
+// Feature 9: Customer Secondary Display Screen
+// ----------------------------------------------------
+export type CustomerDisplayState = 'idle' | 'cart' | 'payment' | 'completed';
+
+export interface CustomerDisplayItem {
+  id: string;
+  name: string;
+  size?: string;
+  color?: string;
+  qty: number;
+  price: number;
+  total: number;
+}
+
+export interface CustomerDisplayPayload {
+  state: CustomerDisplayState;
+  companyName: string;
+  companyTagline?: string;
+  companyPhone?: string;
+  companyAddress?: string;
+  items: CustomerDisplayItem[];
+  subtotal: number;
+  discountTotal: number;
+  taxTotal: number;
+  grandTotal: number;
+  customerName?: string;
+  customerPhone?: string;
+  paymentMode?: string;
+  upiUri?: string;
+  googleReviewUrl?: string;
+  invoiceNumber?: string;
+  timestamp: number;
+}
+
+// ----------------------------------------------------
+// Feature 8: Customer Measurement & Bespoke Fit Cards
+// ----------------------------------------------------
+export type GarmentFitType =
+  | 'Kurti / Ethnic Top'
+  | 'Shirt / Top'
+  | 'Trouser / Jeans / Salwar'
+  | 'Blouse / Choli'
+  | 'Suit / Blazer'
+  | 'Custom Dress';
+
+export interface GarmentMeasurementProfile {
+  id: string;
+  customerId: string;
+  profileName: string; // e.g. "Festive Kurti Fit", "Office Shirt Fit"
+  garmentType: GarmentFitType;
+  updatedAt: string;
+  notes?: string;
+  values: {
+    // Upper Body
+    chest?: string;
+    waist?: string;
+    hip?: string;
+    shoulder?: string;
+    sleeveLength?: string;
+    armhole?: string;
+    collar?: string;
+    frontNeckDepth?: string;
+    backNeckDepth?: string;
+    topLength?: string;
+    // Lower Body
+    inseam?: string;
+    outseam?: string;
+    thigh?: string;
+    bottomOpening?: string;
+    crotchRise?: string;
+  };
+}
+
+export interface GiftVoucherRedemption {
+  id: string;
+  date: string;
+  saleId?: string;
+  invoiceNumber?: string;
+  amountDeducted: number;
+  remainingBalance: number;
+  cashierName?: string;
+}
+
+export interface GiftVoucher {
+  id: string;
+  code: string; // e.g. GIFT-8921-X4K2
+  barcode: string; // e.g. 890912345678
+  initialAmount: number;
+  currentBalance: number;
+  issuedToName: string;
+  issuedToPhone: string;
+  senderName?: string;
+  message?: string;
+  expiryDate: string; // YYYY-MM-DD
+  isActive: boolean;
+  createdAt: string;
+  redemptionHistory?: GiftVoucherRedemption[];
+}
+
 
 

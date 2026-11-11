@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { GarmentOsLogo } from './common/GarmentOsLogo';
+import { OfflineSyncIndicator } from './common/OfflineSyncIndicator';
 import {
   RotateCcw,
   HelpCircle,
@@ -266,6 +267,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
           </div>
+
+          {/* Offline-First PWA Synchronization Indicator */}
+          <OfflineSyncIndicator />
 
           {/* Landing Page Button */}
           <button

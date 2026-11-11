@@ -30,6 +30,8 @@ import {
   Grid,
   ClipboardCheck,
   Truck,
+  Flame,
+  TrendingUp,
 } from 'lucide-react';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 import { BulkUpdateModal } from './BulkUpdateModal';
@@ -37,6 +39,8 @@ import { BulkCsvImportModal } from './BulkCsvImportModal';
 import { MatrixProductModal } from './MatrixProductModal';
 import { StockAuditModal } from './StockAuditModal';
 import { StockTransferModal } from './StockTransferModal';
+import { DeadStockLiquidatorModal } from './DeadStockLiquidatorModal';
+import { SmartRestockPredictorModal } from './SmartRestockPredictorModal';
 import { BulkProductUpdate, BulkCsvImportRow } from '../../types';
 
 interface InventoryManagerProps {
@@ -71,6 +75,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
   const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
   const [isStockAuditOpen, setIsStockAuditOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isDeadStockModalOpen, setIsDeadStockModalOpen] = useState(false);
+  const [isRestockPredictorOpen, setIsRestockPredictorOpen] = useState(false);
 
   // Bulk Selection States
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
@@ -365,6 +371,26 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
           >
             <Truck className="w-3.5 h-3.5 text-teal-600" />
             <span>Branch Transfers (STO)</span>
+          </button>
+
+          {/* Dead Stock Liquidator & Bundler */}
+          <button
+            onClick={() => setIsDeadStockModalOpen(true)}
+            className="px-3.5 py-1.5 text-xs font-semibold text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Liquidate stagnant apparel styles by generating high-margin promotional bundles"
+          >
+            <Flame className="w-3.5 h-3.5 text-rose-600" />
+            <span>Dead Stock Bundler</span>
+          </button>
+
+          {/* Smart Restock Predictor */}
+          <button
+            onClick={() => setIsRestockPredictorOpen(true)}
+            className="px-3.5 py-1.5 text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="AI run-rate reorder forecasting and automated supplier purchase orders"
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-amber-600" />
+            <span>Restock Predictor</span>
           </button>
 
           <button
@@ -1438,6 +1464,19 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ onNavigateTo
         onClose={() => setIsTransferModalOpen(false)}
         products={products}
         currentUserName={currentUser?.fullName || 'Store Manager'}
+      />
+
+      {/* Dead Stock Liquidator & Smart Combo Suggester Modal */}
+      <DeadStockLiquidatorModal
+        isOpen={isDeadStockModalOpen}
+        onClose={() => setIsDeadStockModalOpen(false)}
+        onNavigateToTags={onNavigateToTags}
+      />
+
+      {/* Smart Restock Prediction Engine Modal */}
+      <SmartRestockPredictorModal
+        isOpen={isRestockPredictorOpen}
+        onClose={() => setIsRestockPredictorOpen(false)}
       />
     </div>
   );

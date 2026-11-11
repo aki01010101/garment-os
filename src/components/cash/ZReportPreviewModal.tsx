@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Company, DayEndRegister, PettyExpense } from '../../types';
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { printThermalReceiptHtml } from '../../utils/printReceipt';
@@ -24,7 +24,9 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
+  Share2,
 } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
 
 interface ZReportPreviewModalProps {
   isOpen: boolean;
@@ -60,6 +62,10 @@ export const ZReportPreviewModal: React.FC<ZReportPreviewModalProps> = ({
   activeCompany,
 }) => {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const { sales, products, alterations, creditPayments, currentUser } = useApp();
+  const [ownerPhone, setOwnerPhone] = useState<string>(() => {
+    return localStorage.getItem('garment_os_owner_whatsapp_phone') || activeCompany.phone || '';
+  });
   const [copied, setCopied] = useState(false);
   const [printMethod, setPrintMethod] = useState<'usb' | 'bluetooth' | 'browser'>(() => {
     return (localStorage.getItem('default_printer_type') as any) || 'usb';
@@ -185,41 +191,86 @@ export const ZReportPreviewModal: React.FC<ZReportPreviewModalProps> = ({
     }
   };
 
+  // Executive Daily Briefing Metrics
+  const executiveMetrics = useMemo(() => {
+    const todaySales = sales.filter((s) => (s.date || '').startsWith(dayRegister.date));
+    const todayCreditAmount = todaySales.reduce((acc, s) => {
+      if (s.paymentMode === 'Credit') return acc + s.grandTotal;
+      if (s.paymentMode === 'Split' && s.splitBreakdown?.credit) return acc + s.splitBreakdown.credit;
+      return acc;
+    }, 0);
+    const todayCreditCount = todaySales.filter(
+      (s) => s.paymentMode === 'Credit' || (s.paymentMode === 'Split' && s.splitBreakdown?.credit)
+    ).length;
+
+    const todayRecoveredAmount = creditPayments
+      .filter((cp) => (cp.date || '').startsWith(dayRegister.date))
+      .reduce((acc, cp) => acc + cp.amount, 0);
+    const todayRecoveredCount = creditPayments.filter((cp) => (cp.date || '').startsWith(dayRegister.date)).length;
+
+    // Top item sold today
+    const itemCounts: Record<string, number> = {};
+    todaySales.forEach((s) => {
+      s.items.forEach((item) => {
+        itemCounts[item.name] = (itemCounts[item.name] || 0) + item.qty;
+      });
+    });
+    let topItem = 'No items sold today';
+    let topItemCount = 0;
+    Object.entries(itemCounts).forEach(([name, count]) => {
+      if (count > topItemCount) {
+        topItem = name;
+        topItemCount = count;
+      }
+    });
+
+    const pendingAlterations = alterations.filter(
+      (a) => a.status === 'Pending' || a.status === 'In Progress'
+    ).length;
+    const lowStockAlerts = products.filter((p) => p.stock <= p.minStockAlert).length;
+
+    return {
+      todayCreditAmount,
+      todayCreditCount,
+      todayRecoveredAmount,
+      todayRecoveredCount,
+      topItem,
+      topItemCount,
+      pendingAlterations,
+      lowStockAlerts,
+    };
+  }, [sales, creditPayments, alterations, products, dayRegister.date]);
+
   const generateReportText = () => {
     return `
-================================
-*DAY-END REGISTER Z-REPORT (58MM)*
-*${activeCompany.name.toUpperCase()}*
-================================
-Store: ${activeCompany.address}
-Tel: ${activeCompany.phone}
-${activeCompany.taxId && activeCompany.taxId !== 'RETAIL-CASH-UNREG' ? `GSTIN: ${activeCompany.taxId}` : 'Retail Cash Operations'}
---------------------------------
-Date: ${dayRegister.date}
-Printed: ${printTimestamp}
-Register Status: ${dayRegister.status.toUpperCase()}
-Completed Transactions: ${todaySalesCount}
---------------------------------
-*SALES BY TENDER:*
-* Cash Sales:   Rs. ${salesTotals.cash.toFixed(2)}
-* UPI Sales:    Rs. ${salesTotals.upi.toFixed(2)}
-* Card Sales:   Rs. ${salesTotals.card.toFixed(2)}
-*Total Revenue: Rs. ${salesTotals.grandTotal.toFixed(2)}*
-Tax Collected: Rs. ${salesTotals.taxTotal.toFixed(2)}
---------------------------------
-*CASH DRAWER RECONCILIATION:*
-* Opening Float:      Rs. ${dayRegister.openingCash.toFixed(2)}
-* (+) Cash Sales In:  +Rs. ${salesTotals.cash.toFixed(2)}
-* (-) Petty Outlays:  -Rs. ${totalPettyExpenses.toFixed(2)}
-${totalCashDrops !== undefined && totalCashDrops > 0 ? `* (-) Safe Skims:     -Rs. ${totalCashDrops.toFixed(2)}\n` : ''}*Expected In Till:  Rs. ${expectedCashInDrawer.toFixed(2)}*
-${actualCounted !== undefined ? `* Actual Counted:     Rs. ${actualCounted.toFixed(2)}\n* Over / (Short):     Rs. ${actualDiscrepancy !== undefined ? actualDiscrepancy.toFixed(2) : '0.00'}` : ''}
---------------------------------
-*PETTY EXPENSES (${dayRegister.expenses.length}):*
-${dayRegister.expenses.length === 0 ? '* None' : dayRegister.expenses.map((e: PettyExpense) => `* ${e.time} [Rs. ${e.amount}] ${e.category} (${e.paidTo}) - ${e.notes}`).join('\n')}
---------------------------------
-${dayRegister.closingNotes ? `Note: "${dayRegister.closingNotes}"\n--------------------------------\n` : ''}*VERIFIED BY CASHIER & STORE MANAGER*
-================================
+📊 *${activeCompany.name.toUpperCase()} - DAILY CLOSING BRIEFING*
+Date: ${dayRegister.date} | Register: ${dayRegister.status.toUpperCase()}
+---------------------------------
+💰 *Total Gross Sales:*  Rs. ${salesTotals.grandTotal.toLocaleString('en-IN')} (${todaySalesCount} Bills)
+💵 *Cash in Drawer:*     Rs. ${expectedCashInDrawer.toLocaleString('en-IN')} ${actualCounted !== undefined ? `(Counted: Rs. ${actualCounted.toLocaleString('en-IN')})` : ''}
+📱 *UPI / QR Collected:* Rs. ${salesTotals.upi.toLocaleString('en-IN')}
+💳 *Card Terminal:*      Rs. ${salesTotals.card.toLocaleString('en-IN')}
+📒 *New Khata (Credit):* Rs. ${executiveMetrics.todayCreditAmount.toLocaleString('en-IN')} (${executiveMetrics.todayCreditCount} bills)
+✅ *Khata Recovered:*    Rs. ${executiveMetrics.todayRecoveredAmount.toLocaleString('en-IN')} (${executiveMetrics.todayRecoveredCount} collections)
+---------------------------------
+⭐ *Top Selling Item:*   ${executiveMetrics.topItem} (${executiveMetrics.topItemCount} pcs)
+✂️ *Alterations Pending:* ${executiveMetrics.pendingAlterations} garments
+⚠️ *Low Stock Items:*     ${executiveMetrics.lowStockAlerts} styles need reorder
+---------------------------------
+Closed by: ${currentUser?.fullName || currentUser?.username || 'Cashier'} at ${printTimestamp}
     `.trim();
+  };
+
+  const handleSendOwnerWhatsApp = () => {
+    const cleanPhone = ownerPhone.replace(/[^0-9]/g, '');
+    if (cleanPhone) {
+      localStorage.setItem('garment_os_owner_whatsapp_phone', cleanPhone);
+    }
+    const text = generateReportText();
+    const url = cleanPhone
+      ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
   };
 
   const handleCopyText = () => {
@@ -616,7 +667,16 @@ ${dayRegister.closingNotes ? `Note: "${dayRegister.closingNotes}"\n-------------
             )}
           </button>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+            <button
+              type="button"
+              onClick={handleSendOwnerWhatsApp}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              title="Send Executive Daily Closing Briefing to Store Owner on WhatsApp"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>WhatsApp Briefing</span>
+            </button>
             <button
               onClick={onClose}
               className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"

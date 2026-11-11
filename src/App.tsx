@@ -19,9 +19,19 @@ import { LoginLockScreen } from './components/auth/LoginLockScreen';
 import { SettingsManager } from './components/settings/SettingsManager';
 import { FirstTimeSetupModal } from './components/onboarding/FirstTimeSetupModal';
 import { LandingPage } from './components/landing/LandingPage';
+import { CustomerDisplay } from './components/pos/CustomerDisplay';
 import { ShieldAlert } from 'lucide-react';
 
 const AppContent: React.FC = () => {
+  // Check if this window was opened as a dedicated Customer-Facing Secondary Display
+  const isCustomerDisplayMode =
+    typeof window !== 'undefined' &&
+    (window.location.search.includes('display=customer') || window.name === 'GarmentPOS_CustomerDisplay');
+
+  if (isCustomerDisplayMode) {
+    return <CustomerDisplay />;
+  }
+
   const [currentTab, setCurrentTab] = useState<string>('pos');
   const [isPrinterGuideOpen, setIsPrinterGuideOpen] = useState(false);
   const [accessDeniedNotice, setAccessDeniedNotice] = useState<string | null>(null);

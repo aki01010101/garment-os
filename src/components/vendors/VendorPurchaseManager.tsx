@@ -16,7 +16,12 @@ import {
   ArrowDownRight,
   ShieldCheck,
   Receipt,
+  Sparkles,
+  Printer,
+  Share2,
 } from 'lucide-react';
+import { InvoiceInwardingModal } from './InvoiceInwardingModal';
+import { printThermalReceiptHtml } from '../../utils/printReceipt';
 
 export const VendorPurchaseManager: React.FC = () => {
   const {
@@ -29,8 +34,10 @@ export const VendorPurchaseManager: React.FC = () => {
     vendorPayments,
     products,
     companies,
+    activeCompany,
   } = useApp();
 
+  const [isInvoiceOcrOpen, setIsInvoiceOcrOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'vendors' | 'new-entry' | 'history'>('vendors');
   const [searchQuery, setSearchQuery] = useState('');
   const [purchaseTypeFilter, setPurchaseTypeFilter] = useState<'all' | 'billed' | 'cash'>('all');
@@ -231,6 +238,67 @@ export const VendorPurchaseManager: React.FC = () => {
     return true;
   });
 
+  const handlePrintPoSlip = (po: any) => {
+    const slipHtml = `
+      <div style="font-family: monospace; font-size: 11px; line-height: 1.3; text-align: center; color: #000; width: 58mm; margin: 0 auto; padding: 2px;">
+        <div style="font-weight: bold; font-size: 13px;">${(activeCompany?.name || 'VERVE CLOTHING').toUpperCase()}</div>
+        <div style="font-size: 9px; margin-top: 1px;">PURCHASE INWARD / PO MEMO</div>
+        <hr style="border: 0; border-top: 1px dashed #000; margin: 4px 0;" />
+        <div style="text-align: left; font-size: 9px;">
+          <div><b>Supplier:</b> ${po.vendorName}</div>
+          <div><b>Voucher #:</b> ${po.billOrVoucherNumber}</div>
+          <div><b>Date:</b> ${po.date}</div>
+          <div><b>Type:</b> ${po.purchaseType.toUpperCase()}</div>
+        </div>
+        <hr style="border: 0; border-top: 1px dashed #000; margin: 4px 0;" />
+        <table style="width: 100%; font-size: 9px; text-align: left; border-collapse: collapse;">
+          <thead>
+            <tr style="border-bottom: 1px dashed #000;">
+              <th>Item</th>
+              <th style="text-align: center;">Qty</th>
+              <th style="text-align: right;">Rate</th>
+              <th style="text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${po.items.map((item: any) => `
+              <tr>
+                <td style="padding: 2px 0;">${(item.productName || 'Garment').slice(0, 14)} (${item.size || ''})</td>
+                <td style="text-align: center;">${item.qty}</td>
+                <td style="text-align: right;">${item.costPrice}</td>
+                <td style="text-align: right;">${item.total}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <hr style="border: 0; border-top: 1px dashed #000; margin: 4px 0;" />
+        <div style="text-align: right; font-size: 10px;">
+          <div>Subtotal: Rs. ${po.subtotal.toFixed(2)}</div>
+          <div>Tax: Rs. ${po.taxAmount.toFixed(2)}</div>
+          <div><b>Total Amount: Rs. ${po.totalAmount.toFixed(2)}</b></div>
+          <div>Paid: Rs. ${po.paidAmount.toFixed(2)}</div>
+          <div><b>Balance Due: Rs. ${(po.totalAmount - po.paidAmount).toFixed(2)}</b></div>
+        </div>
+      </div>
+    `;
+    printThermalReceiptHtml(slipHtml, '58mm');
+  };
+
+  const handleSharePoWhatsApp = (po: any) => {
+    const text = `*PURCHASE INWARD MEMO - ${activeCompany?.name || 'Garment Store'}*\n` +
+      `Supplier: ${po.vendorName}\n` +
+      `Voucher No: ${po.billOrVoucherNumber}\n` +
+      `Date: ${po.date}\n` +
+      `Classification: ${po.purchaseType.toUpperCase()}\n` +
+      `---------------------------\n` +
+      po.items.map((i: any) => `• ${i.productName} (${i.size}, ${i.color || ''}) - ${i.qty} pcs @ Rs. ${i.costPrice} = Rs. ${i.total}`).join('\n') +
+      `\n---------------------------\n` +
+      `Total Value: Rs. ${po.totalAmount.toLocaleString('en-IN')}\n` +
+      `Payment Status: ${po.paymentStatus.toUpperCase()}\n` +
+      `Balance Due: Rs. ${(po.totalAmount - po.paidAmount).toLocaleString('en-IN')}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header & Tab Navigation */}
@@ -245,8 +313,19 @@ export const VendorPurchaseManager: React.FC = () => {
           </p>
         </div>
 
-        {/* Tab Controls */}
-        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsInvoiceOcrOpen(true)}
+            className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            title="Scan or upload wholesale bills to auto-inward stock using OCR"
+          >
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            <span>Smart Invoice OCR</span>
+          </button>
+
+          {/* Tab Controls */}
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
           <button
             onClick={() => setActiveTab('vendors')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
@@ -279,6 +358,7 @@ export const VendorPurchaseManager: React.FC = () => {
           </button>
         </div>
       </div>
+    </div>
 
       {/* TAB 1: VENDORS & DUAL LEDGERS */}
       {activeTab === 'vendors' && (
@@ -760,6 +840,7 @@ export const VendorPurchaseManager: React.FC = () => {
                   <th className="py-3 px-4 text-right">Tax Amount</th>
                   <th className="py-3 px-4 text-right">Total Value</th>
                   <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -804,6 +885,26 @@ export const VendorPurchaseManager: React.FC = () => {
                       >
                         {po.paymentStatus}
                       </span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handlePrintPoSlip(po)}
+                          className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-md transition-colors"
+                          title="Print 58mm Thermal PO Slip"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSharePoWhatsApp(po)}
+                          className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
+                          title="Share Purchase Order on WhatsApp"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1016,6 +1117,12 @@ export const VendorPurchaseManager: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Smart Wholesale Invoice OCR & AI Inwarding Modal */}
+      <InvoiceInwardingModal
+        isOpen={isInvoiceOcrOpen}
+        onClose={() => setIsInvoiceOcrOpen(false)}
+      />
     </div>
   );
 };

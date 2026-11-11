@@ -41,6 +41,8 @@ import {
   KhataSummaryStats,
   PaymentMode,
   CustomerCreditPaymentAllocation,
+  GiftVoucher,
+  GiftVoucherRedemption,
 } from '../types';
 import {
   INITIAL_COMPANIES,
@@ -252,6 +254,12 @@ interface AppContextType {
   storeUpiName: string;
   setStoreUpiName: (name: string) => void;
 
+  // Digital Gift Cards & Store Credit Vouchers
+  giftVouchers: GiftVoucher[];
+  issueGiftVoucher: (voucher: Omit<GiftVoucher, 'id' | 'currentBalance' | 'createdAt' | 'isActive'>) => GiftVoucher;
+  redeemGiftVoucher: (codeOrBarcode: string, amount: number, details?: { saleId?: string; invoiceNumber?: string; cashierName?: string }) => { success: boolean; redeemedAmount: number; remainingBalance: number; error?: string };
+  lookupGiftVoucher: (codeOrBarcode: string) => GiftVoucher | null;
+
   // Supabase Cloud Database & Sync
   supabaseConfig: SupabaseConfig;
   saveSupabaseCreds: (url: string, key: string) => void;
@@ -347,7 +355,50 @@ const STORAGE_KEYS = {
   ENABLE_RECEIPT_REVIEW_QR: 'garment_os_enable_receipt_review_qr_v1',
   ENABLE_E_RECEIPT_QR: 'garment_os_enable_ereceipt_qr_v1',
   CREDIT_PAYMENTS: 'garment_os_customer_credit_payments_v1',
+  GIFT_VOUCHERS: 'garment_os_gift_vouchers_v1',
 };
+
+const INITIAL_GIFT_VOUCHERS: GiftVoucher[] = [
+  {
+    id: 'gift_sample_1',
+    code: 'FANTASY-GIFT-5000',
+    barcode: '890881234567',
+    initialAmount: 5000,
+    currentBalance: 5000,
+    issuedToName: 'Priya Sharma',
+    issuedToPhone: '9876543210',
+    senderName: 'Rohit Sharma',
+    message: 'Happy Anniversary my love! Shop your favourite ethnic outfits at Fantasy.',
+    expiryDate: '2027-11-11',
+    isActive: true,
+    createdAt: '2026-11-01',
+    redemptionHistory: [],
+  },
+  {
+    id: 'gift_sample_2',
+    code: 'FANTASY-GIFT-2000',
+    barcode: '890881234568',
+    initialAmount: 2000,
+    currentBalance: 1200,
+    issuedToName: 'Ananya Verma',
+    issuedToPhone: '9812345678',
+    senderName: 'Deepa Verma',
+    message: 'Happy Birthday Ananya! Enjoy festive shopping.',
+    expiryDate: '2027-11-11',
+    isActive: true,
+    createdAt: '2026-10-15',
+    redemptionHistory: [
+      {
+        id: 'red_1',
+        date: '2026-10-20',
+        amountDeducted: 800,
+        remainingBalance: 1200,
+        invoiceNumber: 'INV-2041',
+        cashierName: 'Raj Kumar',
+      },
+    ],
+  },
+];
 
 
 
@@ -399,6 +450,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>(() => safeLoad(STORAGE_KEYS.CREDIT_NOTES, INITIAL_CREDIT_NOTES));
   const [creditPayments, setCreditPayments] = useState<CustomerCreditPayment[]>(() =>
     safeLoad(STORAGE_KEYS.CREDIT_PAYMENTS, INITIAL_CREDIT_PAYMENTS)
+  );
+  const [giftVouchers, setGiftVouchers] = useState<GiftVoucher[]>(() =>
+    safeLoad(STORAGE_KEYS.GIFT_VOUCHERS, INITIAL_GIFT_VOUCHERS)
   );
   const [dayRegister, setDayRegister] = useState<DayEndRegister>(() => safeLoad(STORAGE_KEYS.REGISTER, INITIAL_REGISTER));
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => safeLoad(STORAGE_KEYS.SOUND, true));
@@ -1407,6 +1461,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.CREDIT_PAYMENTS, JSON.stringify(creditPayments));
   }, [creditPayments]);
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.GIFT_VOUCHERS, JSON.stringify(giftVouchers));
+  }, [giftVouchers]);
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.REGISTER, JSON.stringify(dayRegister));
   }, [dayRegister]);
@@ -2779,6 +2836,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  const issueGiftVoucher = (
+    voucherData: Omit<GiftVoucher, 'id' | 'currentBalance' | 'createdAt' | 'isActive'>
+  ): GiftVoucher => {
+    const id = `gift_${Date.now()}`;
+    const newVoucher: GiftVoucher = {
+      ...voucherData,
+      id,
+      currentBalance: voucherData.initialAmount,
+      isActive: true,
+      createdAt: new Date().toISOString().split('T')[0],
+      redemptionHistory: [],
+    };
+    setGiftVouchers((prev) => [newVoucher, ...prev]);
+    return newVoucher;
+  };
+
+  const lookupGiftVoucher = (codeOrBarcode: string): GiftVoucher | null => {
+    if (!codeOrBarcode) return null;
+    const clean = codeOrBarcode.trim().toLowerCase();
+    const found = giftVouchers.find(
+      (v) => v.code.toLowerCase() === clean || v.barcode.toLowerCase() === clean
+    );
+    return found || null;
+  };
+
+  const redeemGiftVoucher = (
+    codeOrBarcode: string,
+    amount: number,
+    details?: { saleId?: string; invoiceNumber?: string; cashierName?: string }
+  ): { success: boolean; redeemedAmount: number; remainingBalance: number; error?: string } => {
+    const voucher = lookupGiftVoucher(codeOrBarcode);
+    if (!voucher) {
+      return { success: false, redeemedAmount: 0, remainingBalance: 0, error: 'Gift voucher not found.' };
+    }
+    if (!voucher.isActive) {
+      return { success: false, redeemedAmount: 0, remainingBalance: voucher.currentBalance, error: 'Gift voucher is deactivated.' };
+    }
+    const today = new Date().toISOString().split('T')[0];
+    if (voucher.expiryDate && voucher.expiryDate < today) {
+      return { success: false, redeemedAmount: 0, remainingBalance: voucher.currentBalance, error: `Gift voucher expired on ${voucher.expiryDate}.` };
+    }
+    if (voucher.currentBalance <= 0) {
+      return { success: false, redeemedAmount: 0, remainingBalance: 0, error: 'Gift voucher balance is ₹0.00.' };
+    }
+
+    const toDeduct = Math.min(amount, voucher.currentBalance);
+    const newBal = voucher.currentBalance - toDeduct;
+
+    const record: GiftVoucherRedemption = {
+      id: `red_${Date.now()}`,
+      date: today,
+      amountDeducted: toDeduct,
+      remainingBalance: newBal,
+      saleId: details?.saleId,
+      invoiceNumber: details?.invoiceNumber,
+      cashierName: details?.cashierName || currentUser?.fullName || currentUser?.username || 'Cashier',
+    };
+
+    setGiftVouchers((prev) =>
+      prev.map((v) =>
+        v.id === voucher.id
+          ? {
+              ...v,
+              currentBalance: newBal,
+              isActive: newBal > 0,
+              redemptionHistory: [record, ...(v.redemptionHistory || [])],
+            }
+          : v
+      )
+    );
+
+    return { success: true, redeemedAmount: toDeduct, remainingBalance: newBal };
+  };
+
   const resetToSampleData = () => {
     setCompanies(INITIAL_COMPANIES);
     setActiveCompanyId('comp_billed');
@@ -2929,6 +3060,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setStoreUpiId,
         storeUpiName,
         setStoreUpiName,
+        // Digital Gift Cards & Store Credit Vouchers
+        giftVouchers,
+        issueGiftVoucher,
+        lookupGiftVoucher,
+        redeemGiftVoucher,
         // Supabase Cloud Database & Sync
         supabaseConfig,
         saveSupabaseCreds,

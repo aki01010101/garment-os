@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Product, ClothingCategory, AlterationDetails, PaymentMode } from '../../types';
+import { Product, ClothingCategory, AlterationDetails, PaymentMode, CustomerDisplayItem } from '../../types';
+import { broadcastCustomerDisplay, openCustomerDisplayWindow } from '../../utils/customerDisplaySync';
+import { buildUpiPaymentUri } from '../../utils/upi';
 import {
   Search,
   ShoppingCart,
@@ -42,10 +44,15 @@ import {
   Calendar,
   FileSignature,
   PenTool,
+  Tv,
+  Ruler,
+  Gift,
 } from 'lucide-react';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 import { CustomerPurchasesModal } from '../crm/CustomerPurchasesModal';
 import { CustomerProfileModal } from '../crm/CustomerProfileModal';
+import { CustomerMeasurementModal } from '../crm/CustomerMeasurementModal';
+import { GiftVouchersModal } from './GiftVouchersModal';
 import { computeCustomerSpendMetrics } from '../../utils/crmUtils';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
 import { DigitalReceiptModal } from './DigitalReceiptModal';
@@ -99,12 +106,21 @@ export const POSBilling: React.FC = () => {
     promotions,
     calculatePromotionsDiscount,
     storeGoogleReviewUrl,
+    giftVouchers,
+    lookupGiftVoucher,
+    redeemGiftVoucher,
+    currentUser,
   } = useApp();
+
+  const [appliedGiftCode, setAppliedGiftCode] = useState<string | null>(null);
+  const [isGiftVoucherModalOpen, setIsGiftVoucherModalOpen] = useState(false);
+  const [giftCardInput, setGiftCardInput] = useState('');
 
   const [isDigitalReceiptModalOpen, setIsDigitalReceiptModalOpen] = useState(false);
   const [isCustomerHistoryOpen, setIsCustomerHistoryOpen] = useState(false);
   const [isFamilySizingModalOpen, setIsFamilySizingModalOpen] = useState(false);
   const [isPosProfileModalOpen, setIsPosProfileModalOpen] = useState(false);
+  const [isPosMeasurementModalOpen, setIsPosMeasurementModalOpen] = useState(false);
   const [isParkModalOpen, setIsParkModalOpen] = useState(false);
   const [isHoldCartPromptOpen, setIsHoldCartPromptOpen] = useState(false);
   const [parkTicketLabel, setParkTicketLabel] = useState('');
@@ -447,6 +463,23 @@ export const POSBilling: React.FC = () => {
     const promoResult = calculatePromotionsDiscount(cart);
     const promoDiscountAmount = promoResult.discountAmount;
 
+    // Gift Card Voucher calculation
+    const appliedGiftVoucher = appliedGiftCode ? lookupGiftVoucher(appliedGiftCode) : null;
+    let giftVoucherDiscountAmount = 0;
+    if (appliedGiftVoucher && appliedGiftVoucher.isActive && appliedGiftVoucher.currentBalance > 0) {
+      const remainingBeforeGift = Math.max(
+        0,
+        subtotal -
+        discounts -
+        promoDiscountAmount +
+        totalExclusiveTax -
+        loyaltyDiscountAmount -
+        couponDiscountAmount -
+        creditNoteDiscountAmount
+      );
+      giftVoucherDiscountAmount = Math.min(appliedGiftVoucher.currentBalance, remainingBeforeGift);
+    }
+
     const grandTotal = Math.max(
       0,
       Math.round(
@@ -456,7 +489,8 @@ export const POSBilling: React.FC = () => {
         totalExclusiveTax -
         loyaltyDiscountAmount -
         couponDiscountAmount -
-        creditNoteDiscountAmount
+        creditNoteDiscountAmount -
+        giftVoucherDiscountAmount
       )
     );
 
@@ -476,6 +510,8 @@ export const POSBilling: React.FC = () => {
       loyaltyDiscountAmount,
       couponDiscountAmount,
       creditNoteDiscountAmount,
+      giftVoucherDiscountAmount,
+      appliedGiftVoucher,
       grandTotal,
       maxRedeemablePoints,
       pointsEarnedOnThisBill,
@@ -490,6 +526,9 @@ export const POSBilling: React.FC = () => {
     loyaltyConfig,
     appliedCoupon,
     appliedCreditNote,
+    appliedGiftCode,
+    giftVouchers,
+    lookupGiftVoucher,
     calculatePromotionsDiscount,
     promotions,
   ]);
@@ -644,6 +683,87 @@ export const POSBilling: React.FC = () => {
     }
   };
 
+  // Broadcast live updates to Customer-Facing Secondary Display
+  useEffect(() => {
+    if (cart.length === 0) {
+      broadcastCustomerDisplay({
+        state: 'idle',
+        companyName: activeCompany.name,
+        companyTagline: activeCompany.tagline,
+        companyPhone: activeCompany.phone,
+        companyAddress: activeCompany.address,
+        items: [],
+        subtotal: 0,
+        discountTotal: 0,
+        taxTotal: 0,
+        grandTotal: 0,
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    const displayItems: CustomerDisplayItem[] = cart.map((item) => ({
+      id: item.product.id,
+      name: item.product.name,
+      size: item.product.size,
+      color: item.product.color,
+      qty: item.quantity,
+      price: item.unitPrice,
+      total: item.unitPrice * item.quantity * (1 - item.discountPercent / 100),
+    }));
+
+    const isUpiPayment =
+      paymentMode === 'UPI' || (paymentMode === 'Split' && splitUpiVal > 0);
+
+    const upiPayAmount = paymentMode === 'Split' ? splitUpiVal : cartSummary.grandTotal;
+
+    const dynamicUpiUri =
+      isUpiPayment && storeUpiId && upiPayAmount > 0
+        ? buildUpiPaymentUri({
+            upiId: storeUpiId,
+            payeeName: storeUpiName || activeCompany.name,
+            amount: upiPayAmount,
+            transactionNote: `${activeCompany.name} Bill`,
+          })
+        : undefined;
+
+    const totalDiscounts =
+      cartSummary.discounts +
+      cartSummary.promoDiscountAmount +
+      cartSummary.loyaltyDiscountAmount +
+      cartSummary.couponDiscountAmount +
+      cartSummary.creditNoteDiscountAmount;
+
+    broadcastCustomerDisplay({
+      state: isUpiPayment ? 'payment' : 'cart',
+      companyName: activeCompany.name,
+      companyTagline: activeCompany.tagline,
+      companyPhone: activeCompany.phone,
+      companyAddress: activeCompany.address,
+      items: displayItems,
+      subtotal: cartSummary.subtotal,
+      discountTotal: totalDiscounts,
+      taxTotal: cartSummary.taxes,
+      grandTotal: cartSummary.grandTotal,
+      customerName: selectedCustomer ? selectedCustomer.name : undefined,
+      customerPhone: selectedCustomer ? selectedCustomer.phone : undefined,
+      paymentMode,
+      upiUri: dynamicUpiUri,
+      googleReviewUrl: activeCompany.googleReviewUrl || storeGoogleReviewUrl,
+      timestamp: Date.now(),
+    });
+  }, [
+    cart,
+    cartSummary,
+    paymentMode,
+    splitUpiVal,
+    selectedCustomer,
+    activeCompany,
+    storeUpiId,
+    storeUpiName,
+    storeGoogleReviewUrl,
+  ]);
+
   const executeCheckout = (sigToUse?: string) => {
     try {
       const isCreditInvolved = paymentMode === 'Credit' || (paymentMode === 'Split' && splitCreditVal > 0);
@@ -667,7 +787,7 @@ export const POSBilling: React.FC = () => {
           }
           : undefined;
 
-      checkoutSale(
+      const createdSale = checkoutSale(
         paymentMode,
         paymentMode === 'Cash'
           ? tenderedAmount || cartSummary.grandTotal
@@ -681,6 +801,41 @@ export const POSBilling: React.FC = () => {
         creditNotesInput.trim() || undefined,
         sigToUse !== undefined ? sigToUse : (capturedSignature || undefined)
       );
+
+      // Redeem applied gift card voucher if present
+      if (cartSummary.appliedGiftVoucher && cartSummary.giftVoucherDiscountAmount > 0) {
+        redeemGiftVoucher(cartSummary.appliedGiftVoucher.code, cartSummary.giftVoucherDiscountAmount, {
+          saleId: createdSale.id,
+          invoiceNumber: createdSale.invoiceNumber,
+          cashierName: currentUser?.fullName || currentUser?.username || 'Cashier',
+        });
+        setAppliedGiftCode(null);
+      }
+
+      // Broadcast completed state with invoice number and review QR to Customer Display
+      broadcastCustomerDisplay({
+        state: 'completed',
+        companyName: activeCompany.name,
+        companyTagline: activeCompany.tagline,
+        companyPhone: activeCompany.phone,
+        companyAddress: activeCompany.address,
+        items: [],
+        subtotal: createdSale.subtotal,
+        discountTotal:
+          createdSale.itemDiscountsTotal +
+          (createdSale.promoDiscountAmount || 0) +
+          createdSale.loyaltyDiscountAmount +
+          (createdSale.couponDiscountAmount || 0) +
+          (createdSale.creditNoteDiscountAmount || 0),
+        taxTotal: createdSale.taxTotal,
+        grandTotal: createdSale.grandTotal,
+        customerName: createdSale.customerName,
+        customerPhone: createdSale.customerPhone,
+        invoiceNumber: createdSale.invoiceNumber,
+        googleReviewUrl: activeCompany.googleReviewUrl || storeGoogleReviewUrl,
+        timestamp: Date.now(),
+      });
+
       setCashTendered('');
       setSplitCash('');
       setSplitUpi('');
@@ -978,6 +1133,16 @@ export const POSBilling: React.FC = () => {
                           <span>+ Family</span>
                         </button>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() => setIsPosMeasurementModalOpen(true)}
+                        className="text-[10px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-2 py-0.5 rounded border border-purple-200 flex items-center gap-1 cursor-pointer transition-colors shadow-2xs ml-1"
+                        title="View custom tailor measurements & print tailor slip"
+                      >
+                        <Ruler className="w-3 h-3 text-purple-600" />
+                        <span>Fit Card ({selectedCustomer.profile?.measurementProfiles?.length || 0})</span>
+                      </button>
                     </div>
                     <div className="text-[11px] text-indigo-800 flex items-center gap-1.5 font-medium mt-0.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
@@ -1325,6 +1490,27 @@ export const POSBilling: React.FC = () => {
                     {parkedCarts.length}
                   </span>
                 )}
+              </button>
+
+              {/* Customer Display Dual Screen Trigger Button */}
+              <button
+                type="button"
+                onClick={openCustomerDisplayWindow}
+                className="text-xs px-2 sm:px-2.5 py-1 rounded-md font-semibold flex items-center gap-1 sm:gap-1.5 bg-white text-indigo-700 hover:bg-indigo-50 border border-indigo-200 transition-colors cursor-pointer shadow-2xs shrink-0"
+                title="Open secondary customer-facing display screen (drag to second monitor or customer tablet)"
+              >
+                <Tv className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Customer<span className="hidden sm:inline"> Screen</span></span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsGiftVoucherModalOpen(true)}
+                className="text-xs px-2 sm:px-2.5 py-1 rounded-md font-semibold flex items-center gap-1 sm:gap-1.5 bg-white text-amber-800 hover:bg-amber-50 border border-amber-200 transition-colors cursor-pointer shadow-2xs shrink-0"
+                title="Issue and manage store gift cards & vouchers"
+              >
+                <Gift className="w-3.5 h-3.5 text-amber-600" />
+                <span>Gift<span className="hidden sm:inline"> Cards</span></span>
               </button>
 
               {/* Hold Current Cart Button */}
@@ -1933,6 +2119,21 @@ export const POSBilling: React.FC = () => {
                 </div>
               )}
 
+              {cartSummary.appliedGiftVoucher && (
+                <div className="flex justify-between text-amber-800 font-semibold">
+                  <span className="flex items-center gap-1">
+                    <span>Gift Card ({cartSummary.appliedGiftVoucher.code}):</span>
+                    <button
+                      onClick={() => setAppliedGiftCode(null)}
+                      className="text-rose-500 hover:text-rose-700 text-[10px] cursor-pointer"
+                    >
+                      (remove)
+                    </button>
+                  </span>
+                  <span className="font-mono font-bold">-₹{cartSummary.giftVoucherDiscountAmount.toFixed(2)}</span>
+                </div>
+              )}
+
               {activeCompany.type === 'billed' ? (
                 <div className="space-y-1 bg-slate-50/80 p-2 rounded-lg border border-slate-200">
                   <div className="flex justify-between text-slate-700 font-medium">
@@ -1998,6 +2199,34 @@ export const POSBilling: React.FC = () => {
                 {appliedCreditNote.remainingAmount > cartSummary.creditNoteDiscountAmount && (
                   <div className="text-[10px] text-emerald-700 italic border-t border-emerald-200/70 pt-1">
                     ₹{(appliedCreditNote.remainingAmount - cartSummary.creditNoteDiscountAmount).toFixed(2)} balance will remain on voucher after this checkout.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Applied Gift Voucher Active Card */}
+            {cartSummary.appliedGiftVoucher && (
+              <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-xs space-y-1.5 animate-in fade-in">
+                <div className="flex items-center justify-between font-bold text-amber-950">
+                  <span className="flex items-center gap-1.5">
+                    <Gift className="w-4 h-4 text-amber-600" />
+                    <span>Gift Card Applied: <strong className="font-mono">{cartSummary.appliedGiftVoucher.code}</strong></span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAppliedGiftCode(null)}
+                    className="text-rose-600 hover:text-rose-800 text-[11px] font-semibold underline cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="flex justify-between text-amber-800 text-[11px]">
+                  <span>Applied discount on this bill:</span>
+                  <span className="font-mono font-bold">-₹{cartSummary.giftVoucherDiscountAmount.toFixed(2)}</span>
+                </div>
+                {cartSummary.appliedGiftVoucher.currentBalance > cartSummary.giftVoucherDiscountAmount && (
+                  <div className="text-[10px] text-amber-700 italic border-t border-amber-200/70 pt-1">
+                    ₹{(cartSummary.appliedGiftVoucher.currentBalance - cartSummary.giftVoucherDiscountAmount).toFixed(2)} balance will remain on card after this checkout.
                   </div>
                 )}
               </div>
@@ -2159,6 +2388,52 @@ export const POSBilling: React.FC = () => {
                     {creditNoteError && (
                       <div className="text-[10px] text-rose-600 mt-0.5">{creditNoteError}</div>
                     )}
+                  </div>
+
+                  {/* Digital Gift Card Section */}
+                  <div className="pt-2 border-t border-slate-200/60">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Gift className="w-3 h-3 text-amber-600" />
+                        <span>Redeem Gift Card:</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsGiftVoucherModalOpen(true)}
+                        className="text-[10px] font-bold text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
+                      >
+                        Browse / Issue ({giftVouchers.length}) →
+                      </button>
+                    </div>
+
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={giftCardInput}
+                        onChange={(e) => setGiftCardInput(e.target.value.toUpperCase())}
+                        placeholder="e.g. FANTASY-GIFT-5000"
+                        className="w-full px-2 py-1 text-xs bg-white border border-slate-200 rounded font-mono uppercase"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const v = lookupGiftVoucher(giftCardInput.trim());
+                          if (v) {
+                            if (!v.isActive || v.currentBalance <= 0) {
+                              alert(`Gift voucher ${v.code} has ₹0.00 balance.`);
+                            } else {
+                              setAppliedGiftCode(v.code);
+                              setGiftCardInput('');
+                            }
+                          } else {
+                            alert('Gift Card not found. Check code or barcode.');
+                          }
+                        }}
+                        className="px-2.5 py-1 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shrink-0 cursor-pointer"
+                      >
+                        Apply Card
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -3018,6 +3293,14 @@ export const POSBilling: React.FC = () => {
         }}
       />
 
+      {/* 11b. POS CUSTOMER MEASUREMENT FIT CARD MODAL */}
+      <CustomerMeasurementModal
+        customer={selectedCustomer}
+        isOpen={isPosMeasurementModalOpen}
+        onClose={() => setIsPosMeasurementModalOpen(false)}
+        onSave={(updated) => updateCustomer(updated)}
+      />
+
       {/* 12. HOLD CURRENT BILL PROMPT MODAL */}
       {isHoldCartPromptOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
@@ -3363,6 +3646,13 @@ export const POSBilling: React.FC = () => {
           }}
         />
       )}
+
+      {/* 13. DIGITAL GIFT CARDS & STORE CREDIT VOUCHERS MODAL */}
+      <GiftVouchersModal
+        isOpen={isGiftVoucherModalOpen}
+        onClose={() => setIsGiftVoucherModalOpen(false)}
+        onApplyToSale={(code) => setAppliedGiftCode(code)}
+      />
     </div>
   );
 };
