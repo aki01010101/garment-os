@@ -6,15 +6,15 @@
   "4": "CustomerCRM.tsx",
   "5": "types.ts",
   "6": "AppContext.tsx",
-  "7": "InventoryManager.tsx",
+  "7": "CustomerDisplay.tsx",
   "8": "package.json",
-  "9": "CameraBarcodeScannerModal.tsx",
+  "9": "InventoryManager.tsx",
   "10": "dependencies",
   "11": "compilerOptions",
   "12": "vite.config.ts",
   "13": "CompanySettings.tsx",
   "14": "scripts",
-  "15": "StoreCreditNotesModal.tsx",
+  "15": "OfflineSyncIndicator.tsx",
   "16": "vercel.json",
   "17": "Garment OS - Retail Clothing POS & CRM",
   "18": "motion@^12.23.24",
@@ -22,5 +22,7 @@
   "20": "react-is@^19.3.1",
   "21": "jsbarcode",
   "22": "overrides",
-  "23": "@vitejs/plugin-react"
+  "23": "@vitejs/plugin-react",
+  "24": "EditSaleModal.tsx",
+  "25": "SmartRestockPredictorModal.tsx"
 }

@@ -292,6 +292,15 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
               margin-right: auto !important;
               width: 100% !important;
             }
+            .receipt-sig-space {
+              height: 64px !important;
+              min-height: 64px !important;
+              display: flex !important;
+              align-items: flex-end !important;
+              justify-content: center !important;
+              padding-bottom: 2px !important;
+              width: 100% !important;
+            }
             .receipt-footer *, .upi-receipt-qr-block * {
               text-align: center !important;
             }

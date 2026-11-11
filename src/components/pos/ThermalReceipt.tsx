@@ -109,6 +109,16 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     }
   });
 
+  // Customer Signature Line toggle state (defaults to true for credit/khata sales, or if signature exists)
+  const [includeSignatureLine, setIncludeSignatureLine] = useState<boolean>(() => {
+    const isCreditSale =
+      initialReceipt?.paymentMode === 'Credit' ||
+      Boolean(initialReceipt?.creditAmount && initialReceipt.creditAmount > 0) ||
+      Boolean(initialReceipt?.splitBreakdown?.credit && initialReceipt.splitBreakdown.credit > 0);
+    const hasPrevBalance = Boolean(initialReceipt?.customerPreviousBalance && initialReceipt.customerPreviousBalance > 0);
+    return isCreditSale || hasPrevBalance || Boolean(initialReceipt?.customerSignature);
+  });
+
   // Thermal Printer Method: 'bluetooth' | 'usb' | 'rawbt' | 'browser'
   const [printMethod, setPrintMethod] = useState<'bluetooth' | 'usb' | 'rawbt' | 'browser'>(() => {
     try {
@@ -344,6 +354,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         reviewUrl: effectiveReviewUrl,
         reviewPromptText: googleReviewPromptText,
         isCompositionGst,
+        includeCustomerSignature: includeSignatureLine,
       });
 
       const res = await printViaWebBluetooth(payload, (status) => setBluetoothStatus(status));
@@ -375,6 +386,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         reviewUrl: effectiveReviewUrl,
         reviewPromptText: googleReviewPromptText,
         isCompositionGst,
+        includeCustomerSignature: includeSignatureLine,
       });
 
       const res = await printViaWebUsb(payload, (status) => setBluetoothStatus(status));
@@ -404,6 +416,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
       reviewUrl: effectiveReviewUrl,
       reviewPromptText: googleReviewPromptText,
       isCompositionGst,
+      includeCustomerSignature: includeSignatureLine,
     });
     const res = printViaRawBT(payload);
     if (res.success) {
@@ -636,6 +649,21 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                 >
                   <Star className={`w-3.5 h-3.5 shrink-0 ${includeReviewQr ? 'fill-current text-slate-950' : 'text-slate-400'}`} />
                   <span>{includeReviewQr ? 'Review QR: ON' : 'Review QR: OFF'}</span>
+                </button>
+
+                {/* 7. Customer Signature Line Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIncludeSignatureLine(!includeSignatureLine)}
+                  title="Toggle Customer Signature section with generous physical signing space on thermal bill"
+                  className={`h-8 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                    includeSignatureLine
+                      ? 'bg-indigo-600 text-white border-indigo-600 font-extrabold shadow-xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                  }`}
+                >
+                  <FileSignature className="w-3.5 h-3.5 shrink-0" />
+                  <span>{includeSignatureLine ? 'Signature: ON' : 'Signature: OFF'}</span>
                 </button>
               </div>
 
@@ -981,13 +1009,93 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                             )}
                           </div>
                         ) : (
-                          <div className="pt-1">
-                            <div className="border-b border-black w-36 mx-auto mb-1" />
-                            <div className="font-semibold text-black">Customer Signature</div>
-                            <div className="text-[7px] text-neutral-600">({receipt.customerName})</div>
+                          <div className="pt-1 text-center">
+                            <div
+                              className="receipt-sig-space w-full flex items-end justify-center pb-1 text-center select-none"
+                              style={{ height: '64px', minHeight: '64px' }}
+                            >
+                              <span className="text-[6.5px] text-neutral-400 italic font-sans">
+                                (Sign above this line)
+                              </span>
+                            </div>
+                            <div
+                              className="border-b border-black mx-auto mb-1"
+                              style={{ width: '150px', borderBottom: '1px solid #000' }}
+                            />
+                            <div className="font-bold text-black text-[8px] uppercase tracking-wider">
+                              Customer Signature
+                            </div>
+                            {receipt.customerName && receipt.customerName !== 'Walk-in Customer' && (
+                              <div className="text-[7px] text-neutral-600 font-medium">({receipt.customerName})</div>
+                            )}
                           </div>
                         )}
                       </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Standalone Customer Signature Section (when Khata memo is not showing, but signature line is enabled) */}
+                {(() => {
+                  const isCreditSale =
+                    receipt.paymentMode === 'Credit' ||
+                    Boolean(receipt.creditAmount && receipt.creditAmount > 0) ||
+                    Boolean(receipt.splitBreakdown?.credit && receipt.splitBreakdown.credit > 0);
+                  const hasPrevBalance = Boolean(receipt.customerPreviousBalance && receipt.customerPreviousBalance > 0);
+                  const showKhataMemo = isCreditSale || hasPrevBalance || Boolean(receipt.customerSignature);
+
+                  if (showKhataMemo || !includeSignatureLine) return null;
+
+                  return (
+                    <div className="mt-2 pt-1 border-t border-dashed border-neutral-400 text-center text-[7.5px] text-neutral-900">
+                      {receipt.customerSignature ? (
+                        <div className="space-y-0.5 pt-1">
+                          <img
+                            src={receipt.customerSignature}
+                            alt="Customer Signature"
+                            className="max-h-12 max-w-[140px] mx-auto object-contain my-0.5"
+                          />
+                          <div
+                            className="border-b border-black mx-auto mb-0.5"
+                            style={{ width: '150px', borderBottom: '1px solid #000' }}
+                          />
+                          <div className="font-bold text-[7.5px] text-black">
+                            Digitally Signed by {receipt.customerName}
+                          </div>
+                          {receipt.customerSignedAt && (
+                            <div className="text-[6.5px] text-neutral-600 font-mono">
+                              {new Date(receipt.customerSignedAt).toLocaleString('en-IN', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="pt-1 text-center">
+                          <div
+                            className="receipt-sig-space w-full flex items-end justify-center pb-1 text-center select-none"
+                            style={{ height: '64px', minHeight: '64px' }}
+                          >
+                            <span className="text-[6.5px] text-neutral-400 italic font-sans">
+                              (Sign above this line)
+                            </span>
+                          </div>
+                          <div
+                            className="border-b border-black mx-auto mb-1"
+                            style={{ width: '150px', borderBottom: '1px solid #000' }}
+                          />
+                          <div className="font-bold text-black text-[8px] uppercase tracking-wider">
+                            Customer Signature
+                          </div>
+                          {receipt.customerName && receipt.customerName !== 'Walk-in Customer' && (
+                            <div className="text-[7px] text-neutral-600 font-medium">({receipt.customerName})</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -1256,7 +1364,7 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                 const hasPrevBalance = Boolean(receipt.customerPreviousBalance && receipt.customerPreviousBalance > 0);
                 const showKhataMemo = isCreditSale || hasPrevBalance || Boolean(receipt.customerSignature);
 
-                if (!showKhataMemo) return null;
+                if (!showKhataMemo && !includeSignatureLine) return null;
 
                 return (
                   <div className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/50 flex items-center justify-between gap-3 text-xs">
@@ -1270,7 +1378,7 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                       </div>
                       <div className="min-w-0">
                         <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                          <span>Customer Khata Signature</span>
+                          <span>{showKhataMemo ? 'Customer Khata Signature' : 'Customer Signature'}</span>
                           {receipt.customerSignature ? (
                             <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">
                               Signed ✓

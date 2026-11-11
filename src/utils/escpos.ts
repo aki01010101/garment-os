@@ -33,6 +33,7 @@ export interface EscPosOptions {
   autoCut?: boolean;
   kickDrawer?: boolean;
   isCompositionGst?: boolean;
+  includeCustomerSignature?: boolean;
 }
 
 // Common Bluetooth GATT Services for ESC/POS Thermal Printers (Everycom, TVS, Epson, MPT-II, POS-58)
@@ -564,9 +565,38 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
         builder.line(`Signed: ${signDate}`);
       }
     } else {
+      builder.feed(4);
+      builder.align('center');
+      builder.line('________________________________');
+      builder.bold(true).line('Customer Signature').bold(false);
+      if (receipt.customerName && receipt.customerName !== 'Walk-in Customer') {
+        builder.line(`(${receipt.customerName})`);
+      }
+    }
+  } else if (options.includeCustomerSignature) {
+    builder.separator('-');
+    builder.align('center');
+    if (receipt.customerSignature) {
       builder.feed(1);
-      builder.line('Customer Signature: __________________');
-      builder.line(`(${receipt.customerName})`);
+      builder.bold(true).line('[ DIGITALLY SIGNED BY CUSTOMER ]').bold(false);
+      builder.line(`Customer: ${receipt.customerName}`);
+      if (receipt.customerSignedAt) {
+        const signDate = new Date(receipt.customerSignedAt).toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        builder.line(`Signed: ${signDate}`);
+      }
+    } else {
+      builder.feed(4);
+      builder.line('________________________________');
+      builder.bold(true).line('Customer Signature').bold(false);
+      if (receipt.customerName && receipt.customerName !== 'Walk-in Customer') {
+        builder.line(`(${receipt.customerName})`);
+      }
     }
   }
 
@@ -2052,7 +2082,7 @@ export function formatCreditPaymentReceiptToEscPos(
   builder.separator('-');
   builder.align('center');
   builder.barcode128(barcodeValue, 28, true);
-  builder.feed(1);
+  builder.feed(4); // Generous blank space for physical handwritten signatures
 
   builder.twoColumnRow('Customer Sign', 'Cashier Sign');
   builder.feed(1);

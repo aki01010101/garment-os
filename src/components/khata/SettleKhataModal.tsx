@@ -207,9 +207,10 @@ export const SettleKhataModal: React.FC<SettleKhataModalProps> = ({
             : ''
         }
         <div style="border-bottom: 1px dashed #000; margin: 8px 0;"></div>
-        <div style="text-align: center; margin-top: 15px;">
+        <div style="text-align: center; margin-top: 52px;">
+          <div style="font-size: 7px; color: #888; font-style: italic; margin-bottom: 4px;">(Sign above this line)</div>
           <div style="border-bottom: 1px solid #000; width: 140px; margin: 0 auto 3px auto;"></div>
-          <div style="font-size: 9px;">Authorized Cashier Signature</div>
+          <div style="font-size: 9px; font-weight: bold;">Authorized Cashier Signature</div>
         </div>
         <div style="text-align: center; font-size: 9px; margin-top: 10px;">
           Thank you for settling your Khata with us!
