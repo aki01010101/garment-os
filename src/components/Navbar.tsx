@@ -11,6 +11,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Sparkles,
+  Cloud,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -40,6 +41,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     users,
     switchUser,
     lockScreen,
+    cloudUser,
+    setCloudAuthModalOpen,
   } = useApp();
 
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
@@ -270,6 +273,36 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Offline-First PWA Synchronization Indicator */}
           <OfflineSyncIndicator />
+
+          {/* Multi-Device Cloud Sync Button / Badge */}
+          <button
+            type="button"
+            onClick={() => setCloudAuthModalOpen(true)}
+            title={
+              cloudUser
+                ? `Signed in as @${cloudUser.username || cloudUser.email} (Cloud Synced)`
+                : 'Sign in to sync store catalog & sales across devices'
+            }
+            className={`min-h-[36px] px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer border flex items-center gap-1.5 ${
+              cloudUser
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 shadow-2xs'
+                : 'bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700 shadow-xs'
+            }`}
+          >
+            {cloudUser ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="hidden sm:inline font-bold">Cloud Synced</span>
+                <span className="sm:hidden font-bold">Cloud</span>
+              </>
+            ) : (
+              <>
+                <Cloud className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline font-bold">Sync Devices</span>
+                <span className="sm:hidden font-bold">Sync</span>
+              </>
+            )}
+          </button>
 
           {/* Landing Page Button */}
           <button

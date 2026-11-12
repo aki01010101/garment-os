@@ -18,6 +18,7 @@ import { PrinterGuideModal } from './components/printer/PrinterGuideModal';
 import { LoginLockScreen } from './components/auth/LoginLockScreen';
 import { SettingsManager } from './components/settings/SettingsManager';
 import { FirstTimeSetupModal } from './components/onboarding/FirstTimeSetupModal';
+import { CloudAuthModal } from './components/auth/CloudAuthModal';
 import { LandingPage } from './components/landing/LandingPage';
 import { CustomerDisplay } from './components/pos/CustomerDisplay';
 import { ShieldAlert } from 'lucide-react';
@@ -178,6 +179,9 @@ const AppContent: React.FC = () => {
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
       />
+
+      {/* Multi-Device Cloud Sync & Google Auth Modal */}
+      <CloudAuthModal />
 
       {/* Dedicated print mount point for @media print */}
       <div id="print-mount-point" className="hidden print:block fixed inset-0 bg-white z-[99999]" />

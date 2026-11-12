@@ -86,9 +86,18 @@ import {
   asyncSyncDayRegister,
   asyncSyncSetting,
   asyncSyncGiftVoucher,
+  signInWithGoogle,
+  signInWithEmail,
+  signUpWithEmail,
+  signOutCloud,
+  getCloudSession,
+  getCloudUser,
+  getSupabase,
+  displayAuthIdentifier,
   SupabaseConfig,
   SUPABASE_STORAGE_KEYS,
 } from '../services/supabase';
+import { CloudUser } from '../types';
 
 interface AppContextType {
   // Companies
@@ -273,6 +282,18 @@ interface AppContextType {
   lastSupabaseSync: string | null;
   isSupabaseAutoSync: boolean;
   setIsSupabaseAutoSync: (val: boolean) => void;
+
+  // Cloud Multi-Terminal Auth & Cross-Device Sync
+  cloudUser: CloudUser | null;
+  isCloudLoading: boolean;
+  cloudAuthModalOpen: boolean;
+  setCloudAuthModalOpen: (open: boolean) => void;
+  signInWithGoogleCloud: () => Promise<{ error?: string }>;
+  signInWithEmailCloud: (email: string, pass: string) => Promise<{ error?: string }>;
+  signUpWithEmailCloud: (email: string, pass: string) => Promise<{ error?: string }>;
+  signOutCloudUser: () => Promise<void>;
+  migrateLocalDataToCloud: () => Promise<{ success: boolean; message: string; count?: number }>;
+  cloudSyncState: 'idle' | 'syncing' | 'synced' | 'error';
 
   // Phase 4: Multi-Branch Stock Transfers (STO)
   storeBranches: string[];
@@ -565,6 +586,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  const [cloudUser, setCloudUser] = useState<CloudUser | null>(null);
+  const [isCloudLoading, setIsCloudLoading] = useState<boolean>(true);
+  const [cloudAuthModalOpen, setCloudAuthModalOpen] = useState<boolean>(false);
+  const [cloudSyncState, setCloudSyncState] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+
   const setIsSupabaseAutoSync = (val: boolean) => {
     setIsSupabaseAutoSyncState(val);
     try {
@@ -588,6 +614,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const pushToSupabase = async () => {
+    setCloudSyncState('syncing');
     const res = await pushAllToSupabase({
       companies,
       products,
@@ -614,11 +641,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     if (res.success) {
       setLastSupabaseSync(new Date().toISOString());
+      setCloudSyncState('synced');
+    } else {
+      setCloudSyncState('error');
     }
     return res;
   };
 
   const pullFromSupabase = async () => {
+    setCloudSyncState('syncing');
     const res = await pullAllFromSupabase();
     if (res.success && res.data) {
       if (res.data.companies && res.data.companies.length > 0) setCompanies(res.data.companies);
@@ -641,9 +672,143 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (res.data.settings.qrPrintSize) setQrPrintSize(res.data.settings.qrPrintSize);
       }
       setLastSupabaseSync(new Date().toISOString());
+      setCloudSyncState('synced');
+
+      // If remote has no products yet (e.g. brand new user who just signed in on their main PC), auto-upload local data!
+      if ((!res.data.products || res.data.products.length === 0) && products.length > 0) {
+        pushToSupabase().catch((err) => console.warn('Auto upload local data to new account:', err));
+      }
+    } else {
+      setCloudSyncState(res.success ? 'synced' : 'error');
     }
     return { success: res.success, message: res.message };
   };
+
+  const signInWithGoogleCloud = async (): Promise<{ error?: string }> => {
+    const res = await signInWithGoogle();
+    return { error: res?.error ? (res.error as any).message || String(res.error) : undefined };
+  };
+
+  const signInWithEmailCloud = async (email: string, pass: string): Promise<{ error?: string }> => {
+    setCloudSyncState('syncing');
+    const res = await signInWithEmail(email, pass);
+    if (!res.error && res.user) {
+      setCloudUser({
+        id: res.user.id,
+        email: res.user.email || '',
+        name: res.user.user_metadata?.full_name || res.user.email?.split('@')[0],
+        provider: 'email',
+      });
+      await pullFromSupabase();
+      return {};
+    } else {
+      setCloudSyncState('error');
+      return { error: res.error ? (res.error as any).message || String(res.error) : 'Login failed' };
+    }
+  };
+
+  const signUpWithEmailCloud = async (email: string, pass: string): Promise<{ error?: string }> => {
+    setCloudSyncState('syncing');
+    const res = await signUpWithEmail(email, pass);
+    if (!res.error && res.user) {
+      setCloudUser({
+        id: res.user.id,
+        email: res.user.email || '',
+        name: res.user.user_metadata?.full_name || res.user.email?.split('@')[0],
+        provider: 'email',
+      });
+      await pushToSupabase();
+      return {};
+    } else {
+      setCloudSyncState('error');
+      return { error: res.error ? (res.error as any).message || String(res.error) : 'Signup failed' };
+    }
+  };
+
+  const signOutCloudUser = async () => {
+    await signOutCloud();
+    setCloudUser(null);
+    setCloudSyncState('idle');
+  };
+
+  const migrateLocalDataToCloud = async () => {
+    setCloudSyncState('syncing');
+    const res = await pushToSupabase();
+    setCloudSyncState(res.success ? 'synced' : 'error');
+    return {
+      success: res.success,
+      message: res.message,
+      count: products.length + sales.length,
+    };
+  };
+
+  // Cloud Auth Session Listener & Real-Time Sync Subscription
+  useEffect(() => {
+    let isMounted = true;
+    const initAuth = async () => {
+      try {
+        setIsCloudLoading(true);
+        const supabase = getSupabase();
+        if (!supabase) {
+          if (isMounted) setIsCloudLoading(false);
+          return;
+        }
+
+        const session = await getCloudSession();
+        if (session?.user && isMounted) {
+          const rawEmail = session.user.email || '';
+          const cleanUser = session.user.user_metadata?.username || displayAuthIdentifier(rawEmail);
+          const u: CloudUser = {
+            id: session.user.id,
+            email: rawEmail,
+            username: cleanUser,
+            name: session.user.user_metadata?.full_name || cleanUser,
+            avatarUrl: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
+            provider: (session.user.app_metadata?.provider as any) || 'email',
+          };
+          setCloudUser(u);
+          // Pull from cloud so this terminal is immediately up to date
+          pullFromSupabase().catch((err) => console.warn('Auto pull on session init:', err));
+        }
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (!isMounted) return;
+          if (session?.user) {
+            const rawEmail = session.user.email || '';
+            const cleanUser = session.user.user_metadata?.username || displayAuthIdentifier(rawEmail);
+            const u: CloudUser = {
+              id: session.user.id,
+              email: rawEmail,
+              username: cleanUser,
+              name: session.user.user_metadata?.full_name || cleanUser,
+              avatarUrl: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
+              provider: (session.user.app_metadata?.provider as any) || 'email',
+            };
+            setCloudUser(u);
+            if (event === 'SIGNED_IN') {
+              pullFromSupabase().catch((err) => console.warn('Auto pull on SIGNED_IN:', err));
+            }
+          } else {
+            setCloudUser(null);
+          }
+        });
+
+        return () => {
+          subscription.unsubscribe();
+        };
+      } catch (err) {
+        console.warn('Supabase auth init error:', err);
+      } finally {
+        if (isMounted) setIsCloudLoading(false);
+      }
+    };
+
+    initAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Inactivity Auto-Lock Watcher
   useEffect(() => {
@@ -3100,6 +3265,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastSupabaseSync,
         isSupabaseAutoSync,
         setIsSupabaseAutoSync,
+        // Cloud Multi-Terminal Auth & Cross-Device Sync
+        cloudUser,
+        isCloudLoading,
+        cloudAuthModalOpen,
+        setCloudAuthModalOpen,
+        signInWithGoogleCloud,
+        signInWithEmailCloud,
+        signUpWithEmailCloud,
+        signOutCloudUser,
+        migrateLocalDataToCloud,
+        cloudSyncState,
         // Phase 4: Multi-Branch Stock Transfers (STO)
         storeBranches,
         stockTransfers,

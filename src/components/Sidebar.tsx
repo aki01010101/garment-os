@@ -19,6 +19,7 @@ import {
   X,
   Lock,
   BookOpen,
+  Cloud,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -38,7 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen,
   onCloseMobile,
 }) => {
-  const { hasPermission, currentUser, activeCompany, lockScreen } = useApp();
+  const { hasPermission, currentUser, activeCompany, lockScreen, cloudUser, setCloudAuthModalOpen } = useApp();
 
   const navItems = [
     { id: 'pos', label: 'POS Billing', icon: ShoppingBag, short: 'POS' },
@@ -104,9 +105,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Sidebar Footer: Collapse Toggle & Active Entity Pill */}
-        <div className="p-2 border-t border-slate-100 flex flex-col gap-1 bg-slate-50/50">
+        <div className="p-2 border-t border-slate-100 flex flex-col gap-1.5 bg-slate-50/50">
+          {/* Cloud Multi-Terminal Sync Button */}
+          <button
+            type="button"
+            onClick={() => setCloudAuthModalOpen(true)}
+            title={
+              cloudUser
+                ? `Signed in as @${cloudUser.username || cloudUser.email} (Cloud Synced)`
+                : 'Sign in to Sync Store Data Across Devices'
+            }
+            className={`w-full flex items-center gap-2 p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+              cloudUser
+                ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+            } ${isCollapsed ? 'justify-center px-0' : ''}`}
+          >
+            <Cloud className="w-4 h-4 shrink-0 text-indigo-600" />
+            {!isCollapsed && (
+              <div className="flex-1 text-left truncate">
+                <div className="font-bold text-[11px] truncate leading-tight">
+                  {cloudUser ? 'Cloud Synced' : 'Sync Devices'}
+                </div>
+                <div className="text-[9px] text-slate-500 font-mono truncate">
+                  {cloudUser ? `@${cloudUser.username || cloudUser.email.split('@')[0]}` : 'Store Sign In'}
+                </div>
+              </div>
+            )}
+          </button>
+
           {!isCollapsed && (
-            <div className="px-2 py-1 text-[10px] text-slate-400 truncate">
+            <div className="px-2 py-0.5 text-[10px] text-slate-400 truncate">
               <span className="font-semibold text-slate-600 block truncate">{activeCompany.name}</span>
               <span className="font-mono text-slate-400">Garment OS 2.0</span>
             </div>
@@ -116,7 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             onClick={onToggleCollapse}
             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-            className="w-full flex items-center justify-center gap-2 p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors text-xs font-semibold cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors text-xs font-semibold cursor-pointer"
           >
             {isCollapsed ? (
               <ChevronRight className="w-4 h-4" />
@@ -182,6 +211,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Lock className="w-3.5 h-3.5" />
               </button>
             </div>
+
+            {/* Cloud Multi-Device Sync in Mobile Drawer */}
+            <button
+              type="button"
+              onClick={() => {
+                setCloudAuthModalOpen(true);
+                onCloseMobile();
+              }}
+              className={`mx-3 mb-2 p-2.5 rounded-xl border flex items-center gap-2.5 text-xs font-semibold cursor-pointer ${
+                cloudUser
+                  ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                  : 'bg-indigo-50 text-indigo-900 border-indigo-200'
+              }`}
+            >
+              <Cloud className="w-4 h-4 text-indigo-600 shrink-0" />
+              <div className="flex-1 text-left">
+                <div className="font-bold text-xs">{cloudUser ? 'Cloud Synced ✓' : 'Multi-Device Sync'}</div>
+                <div className="text-[10px] text-slate-500 font-mono truncate">
+                  {cloudUser ? `@${cloudUser.username || cloudUser.email}` : 'Sign in to sync laptops & phones'}
+                </div>
+              </div>
+            </button>
 
             {/* Navigation List */}
             <div className="flex-1 overflow-y-auto px-3 py-1 space-y-1">

@@ -28,11 +28,15 @@ let cachedClient: SupabaseClient | null = null;
 let lastKnownUrl = '';
 let lastKnownKey = '';
 
+export const DEFAULT_SUPABASE_URL = 'https://gkmfgstlsphnflqedjlb.supabase.co';
+export const DEFAULT_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrbWZnc3Rsc3BobmZscWVkamxiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MTUyMzMsImV4cCI6MjEwOTA5MTIzM30.gt7c6QnKzyanE6wpQXh7-ez6v1Osu1WuJI8ML-UVewU';
+
 export interface SupabaseConfig {
   url: string;
   anonKey: string;
   isConfigured: boolean;
-  source: 'env' | 'storage' | 'none';
+  source: 'env' | 'storage' | 'default' | 'none';
 }
 
 export function getSupabaseConfig(): SupabaseConfig {
@@ -68,6 +72,16 @@ export function getSupabaseConfig(): SupabaseConfig {
     }
   } catch {
     // Ignore localStorage errors
+  }
+
+  // Pre-configured production fallback so fresh devices connect automatically
+  if (DEFAULT_SUPABASE_URL && DEFAULT_SUPABASE_ANON_KEY) {
+    return {
+      url: DEFAULT_SUPABASE_URL,
+      anonKey: DEFAULT_SUPABASE_ANON_KEY,
+      isConfigured: true,
+      source: 'default',
+    };
   }
 
   return {
@@ -114,8 +128,9 @@ export function getSupabase(): SupabaseClient | null {
   try {
     cachedClient = createClient(config.url, config.anonKey, {
       auth: {
-        persistSession: false,
-        autoRefreshToken: false,
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
       },
     });
     lastKnownUrl = config.url;
@@ -125,6 +140,91 @@ export function getSupabase(): SupabaseClient | null {
     console.error('Failed to initialize Supabase client:', err);
     return null;
   }
+}
+
+// -----------------------------------------------------------------------------
+// SUPABASE AUTHENTICATION API (GOOGLE OAUTH & EMAIL)
+// -----------------------------------------------------------------------------
+
+export async function signInWithGoogle(): Promise<{ error: Error | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { error: new Error('Supabase client not initialized') };
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin,
+    },
+  });
+  return { error };
+}
+
+export function normalizeAuthIdentifier(identifier: string): string {
+  const trimmed = identifier.trim().toLowerCase();
+  if (trimmed.includes('@')) {
+    return trimmed;
+  }
+  const cleanUsername = trimmed.replace(/[^a-z0-9._-]/g, '');
+  return `${cleanUsername || 'store'}@garmentos.store`;
+}
+
+export function displayAuthIdentifier(emailOrIdentifier?: string): string {
+  if (!emailOrIdentifier) return '';
+  if (emailOrIdentifier.endsWith('@garmentos.store')) {
+    return emailOrIdentifier.replace('@garmentos.store', '');
+  }
+  return emailOrIdentifier;
+}
+
+export async function signInWithEmail(identifier: string, password: string) {
+  const supabase = getSupabase();
+  if (!supabase) return { error: new Error('Supabase client not initialized'), user: null, session: null };
+
+  const email = normalizeAuthIdentifier(identifier);
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  return { error, user: data?.user || null, session: data?.session || null };
+}
+
+export async function signUpWithEmail(identifier: string, password: string, fullName?: string) {
+  const supabase = getSupabase();
+  if (!supabase) return { error: new Error('Supabase client not initialized'), user: null, session: null };
+
+  const email = normalizeAuthIdentifier(identifier);
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: fullName || displayAuthIdentifier(identifier),
+        username: displayAuthIdentifier(identifier),
+      },
+    },
+  });
+  return { error, user: data?.user || null, session: data?.session || null };
+}
+
+export async function signOutCloud() {
+  const supabase = getSupabase();
+  if (!supabase) return { error: null };
+  const { error } = await supabase.auth.signOut();
+  return { error };
+}
+
+export async function getCloudSession() {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
+}
+
+export async function getCloudUser() {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
 }
 
 export async function testSupabaseConnection(
@@ -175,7 +275,7 @@ export async function testSupabaseConnection(
 // -----------------------------------------------------------------------------
 
 // 1. COMPANIES (Store Profiles)
-export function mapCompanyToDb(c: Company) {
+export function mapCompanyToDb(c: Company, userId?: string) {
   return {
     id: c.id,
     name: c.name,
@@ -194,6 +294,7 @@ export function mapCompanyToDb(c: Company) {
     is_default: c.isDefault || false,
     enable_dynamic_garment_gst: c.enableDynamicGarmentGst ?? true,
     updated_at: new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -219,7 +320,7 @@ export function mapCompanyFromDb(row: any): Company {
 }
 
 // 2. PRODUCTS (Inventory, POS, Price Tags)
-export function mapProductToDb(p: Product) {
+export function mapProductToDb(p: Product, userId?: string) {
   return {
     id: p.id,
     sku: p.sku,
@@ -239,6 +340,7 @@ export function mapProductToDb(p: Product) {
     purchase_source: p.purchaseSource || null,
     description: p.description || null,
     updated_at: new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -265,7 +367,7 @@ export function mapProductFromDb(row: any): Product {
 }
 
 // 3. CUSTOMERS (CRM, Loyalty)
-export function mapCustomerToDb(c: Customer) {
+export function mapCustomerToDb(c: Customer, userId?: string) {
   return {
     id: c.id,
     name: c.name,
@@ -280,6 +382,7 @@ export function mapCustomerToDb(c: Customer) {
     is_vip: c.isVip || false,
     profile: c.profile || {},
     updated_at: new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -301,7 +404,7 @@ export function mapCustomerFromDb(row: any): Customer {
 }
 
 // 4. SALES (POS Invoices, Reports)
-export function mapSaleToDb(s: SaleTransaction) {
+export function mapSaleToDb(s: SaleTransaction, userId?: string) {
   return {
     id: s.id,
     invoice_number: s.invoiceNumber,
@@ -333,6 +436,7 @@ export function mapSaleToDb(s: SaleTransaction) {
     notes: s.notes || null,
     cashier_name: s.cashierName,
     sales_associate: s.salesAssociate || null,
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -372,7 +476,7 @@ export function mapSaleFromDb(row: any): SaleTransaction {
 }
 
 // 5. VENDORS (Supplier Ledgers)
-export function mapVendorToDb(v: Vendor) {
+export function mapVendorToDb(v: Vendor, userId?: string) {
   return {
     id: v.id,
     name: v.name,
@@ -387,6 +491,7 @@ export function mapVendorToDb(v: Vendor) {
     total_cash_purchased: v.totalCashPurchased || 0,
     notes: v.notes || null,
     updated_at: new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -408,7 +513,7 @@ export function mapVendorFromDb(row: any): Vendor {
 }
 
 // 6. PURCHASES (Stock Received / Vendor Invoices)
-export function mapPurchaseToDb(p: PurchaseOrder) {
+export function mapPurchaseToDb(p: PurchaseOrder, userId?: string) {
   return {
     id: p.id,
     purchase_number: p.billOrVoucherNumber || `PO-${p.id}`,
@@ -426,6 +531,7 @@ export function mapPurchaseToDb(p: PurchaseOrder) {
     payment_mode: p.paymentMode,
     notes: p.notes || null,
     created_at: new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -452,7 +558,7 @@ export function mapPurchaseFromDb(row: any): PurchaseOrder {
 }
 
 // 7. VENDOR PAYMENTS (Payment Settlements)
-export function mapVendorPaymentToDb(v: VendorPaymentRecord) {
+export function mapVendorPaymentToDb(v: VendorPaymentRecord, userId?: string) {
   return {
     id: v.id,
     purchase_id: null,
@@ -464,6 +570,7 @@ export function mapVendorPaymentToDb(v: VendorPaymentRecord) {
     reference_no: v.referenceNo || null,
     notes: v.notes || null,
     created_at: new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -482,7 +589,7 @@ export function mapVendorPaymentFromDb(row: any): VendorPaymentRecord {
 }
 
 // 8. ALTERATIONS (Tailor Job Tracker)
-export function mapAlterationToDb(a: AlterationRecord) {
+export function mapAlterationToDb(a: AlterationRecord, userId?: string) {
   return {
     id: a.id,
     sale_id: a.saleId || null,
@@ -499,6 +606,7 @@ export function mapAlterationToDb(a: AlterationRecord) {
     created_date: a.createdDate || new Date().toISOString().split('T')[0],
     customer_notified_at: a.customerNotifiedAt || null,
     updated_at: new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -522,7 +630,7 @@ export function mapAlterationFromDb(row: any): AlterationRecord {
 }
 
 // 9. CREDIT NOTES (Returns & Exchanges)
-export function mapCreditNoteToDb(cn: CreditNote) {
+export function mapCreditNoteToDb(cn: CreditNote, userId?: string) {
   return {
     id: cn.id,
     code: cn.code,
@@ -539,6 +647,7 @@ export function mapCreditNoteToDb(cn: CreditNote) {
     items_returned: cn.itemsReturned || [],
     notes: cn.notes || null,
     updated_at: new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -562,7 +671,7 @@ export function mapCreditNoteFromDb(row: any): CreditNote {
 }
 
 // 10. DAY REGISTERS (Till Float, Petty Expenses, Cashier Closing)
-export function mapDayRegisterToDb(r: DayEndRegister) {
+export function mapDayRegisterToDb(r: DayEndRegister, userId?: string) {
   return {
     id: r.id,
     date: r.date,
@@ -575,6 +684,7 @@ export function mapDayRegisterToDb(r: DayEndRegister) {
     closed_at: r.closedAt || null,
     status: r.status || 'open',
     updated_at: new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -594,7 +704,7 @@ export function mapDayRegisterFromDb(row: any): DayEndRegister {
 }
 
 // 11. STAFF USERS (Settings & RBAC)
-export function mapStaffUserToDb(u: UserAccount) {
+export function mapStaffUserToDb(u: UserAccount, userId?: string) {
   return {
     id: u.id,
     username: u.username,
@@ -605,6 +715,7 @@ export function mapStaffUserToDb(u: UserAccount) {
     designation: u.designation || '',
     allowed_tabs: u.allowedTabs || [],
     updated_at: new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -622,7 +733,7 @@ export function mapStaffUserFromDb(row: any): UserAccount {
 }
 
 // 12. DIGITAL GIFT CARDS & VOUCHERS
-export function mapGiftVoucherToDb(v: GiftVoucher) {
+export function mapGiftVoucherToDb(v: GiftVoucher, userId?: string) {
   return {
     id: v.id,
     code: v.code,
@@ -638,6 +749,7 @@ export function mapGiftVoucherToDb(v: GiftVoucher) {
     issued_at: v.createdAt,
     redemptions: v.redemptionHistory || [],
     created_at: v.createdAt || new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -660,7 +772,7 @@ export function mapGiftVoucherFromDb(row: any): GiftVoucher {
 }
 
 // 13. CUSTOMER MEASUREMENT PROFILES
-export function mapCustomerMeasurementToDb(m: GarmentMeasurementProfile) {
+export function mapCustomerMeasurementToDb(m: GarmentMeasurementProfile, userId?: string) {
   return {
     id: m.id,
     customer_id: m.customerId,
@@ -669,6 +781,7 @@ export function mapCustomerMeasurementToDb(m: GarmentMeasurementProfile) {
     updated_at: m.updatedAt || new Date().toISOString(),
     notes: m.notes || null,
     values: m.values || {},
+    ...(userId ? { user_id: userId } : {}),
   };
 }
 
@@ -704,70 +817,73 @@ export async function pushAllToSupabase(payload: {
   loyaltyConfig?: LoyaltyConfig;
   settings?: Record<string, any>;
   giftVouchers?: GiftVoucher[];
-}): Promise<{ success: boolean; message: string; stats?: any }> {
+}, explicitUserId?: string): Promise<{ success: boolean; message: string; stats?: any }> {
   const supabase = getSupabase();
   if (!supabase) {
     return { success: false, message: 'Supabase is not configured.' };
   }
 
   try {
+    const user = await getCloudUser();
+    const userId = explicitUserId || user?.id;
+
     // 1. Companies (POS & Settings)
     if (payload.companies.length > 0) {
-      const { error } = await supabase.from('companies').upsert(payload.companies.map(mapCompanyToDb));
+      const { error } = await supabase.from('companies').upsert(payload.companies.map((c) => mapCompanyToDb(c, userId)));
       if (error) console.warn('Companies push warning:', error.message);
     }
 
     // 2. Products (Inventory, POS, Tags)
     if (payload.products.length > 0) {
-      const { error } = await supabase.from('products').upsert(payload.products.map(mapProductToDb));
+      const { error } = await supabase.from('products').upsert(payload.products.map((p) => mapProductToDb(p, userId)));
       if (error) console.warn('Products push warning:', error.message);
     }
 
     // 3. Customers (CRM & Loyalty)
     if (payload.customers.length > 0) {
-      const { error } = await supabase.from('customers').upsert(payload.customers.map(mapCustomerToDb));
+      const { error } = await supabase.from('customers').upsert(payload.customers.map((c) => mapCustomerToDb(c, userId)));
       if (error) console.warn('Customers push warning:', error.message);
     }
 
     // 4. Vendors (Suppliers)
     if (payload.vendors.length > 0) {
-      const { error } = await supabase.from('vendors').upsert(payload.vendors.map(mapVendorToDb));
+      const { error } = await supabase.from('vendors').upsert(payload.vendors.map((v) => mapVendorToDb(v, userId)));
       if (error) console.warn('Vendors push warning:', error.message);
     }
 
     // 5. Purchases (Goods Inwards)
     if (payload.purchases && payload.purchases.length > 0) {
-      const { error } = await supabase.from('purchases').upsert(payload.purchases.map(mapPurchaseToDb));
+      const { error } = await supabase.from('purchases').upsert(payload.purchases.map((p) => mapPurchaseToDb(p, userId)));
       if (error) console.warn('Purchases push warning:', error.message);
     }
 
     // 6. Vendor Payments
     if (payload.vendorPayments && payload.vendorPayments.length > 0) {
-      const { error } = await supabase.from('vendor_payments').upsert(payload.vendorPayments.map(mapVendorPaymentToDb));
+      const { error } = await supabase.from('vendor_payments').upsert(payload.vendorPayments.map((vp) => mapVendorPaymentToDb(vp, userId)));
       if (error) console.warn('Vendor payments push warning:', error.message);
     }
 
     // 7. Sales (POS Invoices & Reports)
     if (payload.sales.length > 0) {
-      const { error } = await supabase.from('sales').upsert(payload.sales.map(mapSaleToDb));
+      const { error } = await supabase.from('sales').upsert(payload.sales.map((s) => mapSaleToDb(s, userId)));
       if (error) console.warn('Sales push warning:', error.message);
     }
 
     // 8. Alterations (Tailor Tracker)
     if (payload.alterations && payload.alterations.length > 0) {
-      const { error } = await supabase.from('alterations').upsert(payload.alterations.map(mapAlterationToDb));
+      const { error } = await supabase.from('alterations').upsert(payload.alterations.map((a) => mapAlterationToDb(a, userId)));
       if (error) console.warn('Alterations push warning:', error.message);
     }
 
     // 9. Credit Notes (Returns & Exchanges)
     if (payload.creditNotes && payload.creditNotes.length > 0) {
-      const { error } = await supabase.from('credit_notes').upsert(payload.creditNotes.map(mapCreditNoteToDb));
+      const { error } = await supabase.from('credit_notes').upsert(payload.creditNotes.map((cn) => mapCreditNoteToDb(cn, userId)));
       if (error) console.warn('Credit notes push warning:', error.message);
     }
 
     // 10. Day Register (Z-Report & Reconciliation)
     if (payload.dayRegister) {
-      const regDb = mapDayRegisterToDb(payload.dayRegister);
+      const regDb = mapDayRegisterToDb(payload.dayRegister, userId);
       const { error } = await supabase.from('day_registers').upsert(regDb);
       if (error) console.warn('Day registers push warning:', error.message);
     }
@@ -775,12 +891,13 @@ export async function pushAllToSupabase(payload: {
     // 11. Staff Users (Try staff_users table + fallback to app_settings)
     if (payload.users && payload.users.length > 0) {
       try {
-        await supabase.from('staff_users').upsert(payload.users.map(mapStaffUserToDb));
+        await supabase.from('staff_users').upsert(payload.users.map((u) => mapStaffUserToDb(u, userId)));
       } catch {}
       await supabase.from('app_settings').upsert({
         key: 'staff_users',
         value: payload.users,
         updated_at: new Date().toISOString(),
+        ...(userId ? { user_id: userId } : {}),
       });
     }
 
@@ -795,6 +912,7 @@ export async function pushAllToSupabase(payload: {
             min_bill_amount: c.minBillAmount || 0,
             description: c.description || null,
             created_at: new Date().toISOString(),
+            ...(userId ? { user_id: userId } : {}),
           }))
         );
       } catch {}
@@ -802,6 +920,7 @@ export async function pushAllToSupabase(payload: {
         key: 'coupons',
         value: payload.coupons,
         updated_at: new Date().toISOString(),
+        ...(userId ? { user_id: userId } : {}),
       });
     }
 
@@ -811,6 +930,7 @@ export async function pushAllToSupabase(payload: {
         key: 'loyalty_config',
         value: payload.loyaltyConfig,
         updated_at: new Date().toISOString(),
+        ...(userId ? { user_id: userId } : {}),
       });
     }
     if (payload.settings) {
@@ -818,13 +938,14 @@ export async function pushAllToSupabase(payload: {
         key: 'terminal_settings',
         value: payload.settings,
         updated_at: new Date().toISOString(),
+        ...(userId ? { user_id: userId } : {}),
       });
     }
 
     // 14. Digital Gift Vouchers
     if (payload.giftVouchers && payload.giftVouchers.length > 0) {
       try {
-        await supabase.from('gift_vouchers').upsert(payload.giftVouchers.map(mapGiftVoucherToDb));
+        await supabase.from('gift_vouchers').upsert(payload.giftVouchers.map((v) => mapGiftVoucherToDb(v, userId)));
       } catch (err) {
         console.warn('Gift vouchers push warning:', err);
       }
@@ -971,7 +1092,8 @@ export async function asyncSyncSale(sale: SaleTransaction) {
   try {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from('sales').upsert(mapSaleToDb(sale));
+    const user = await getCloudUser();
+    await supabase.from('sales').upsert(mapSaleToDb(sale, user?.id));
   } catch (err) {
     console.warn('Background Supabase sale sync network error:', err);
   }
@@ -981,7 +1103,8 @@ export async function asyncSyncProduct(product: Product) {
   try {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from('products').upsert(mapProductToDb(product));
+    const user = await getCloudUser();
+    await supabase.from('products').upsert(mapProductToDb(product, user?.id));
   } catch (err) {
     console.warn('Background Supabase product sync network error:', err);
   }
@@ -991,7 +1114,8 @@ export async function asyncSyncCustomer(customer: Customer) {
   try {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from('customers').upsert(mapCustomerToDb(customer));
+    const user = await getCloudUser();
+    await supabase.from('customers').upsert(mapCustomerToDb(customer, user?.id));
   } catch (err) {
     console.warn('Background Supabase customer sync network error:', err);
   }
@@ -1001,7 +1125,8 @@ export async function asyncSyncPurchase(purchase: PurchaseOrder) {
   try {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from('purchases').upsert(mapPurchaseToDb(purchase));
+    const user = await getCloudUser();
+    await supabase.from('purchases').upsert(mapPurchaseToDb(purchase, user?.id));
   } catch (err) {
     console.warn('Background Supabase purchase sync network error:', err);
   }
@@ -1011,7 +1136,8 @@ export async function asyncSyncVendorPayment(payment: VendorPaymentRecord) {
   try {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from('vendor_payments').upsert(mapVendorPaymentToDb(payment));
+    const user = await getCloudUser();
+    await supabase.from('vendor_payments').upsert(mapVendorPaymentToDb(payment, user?.id));
   } catch (err) {
     console.warn('Background Supabase vendor payment sync network error:', err);
   }
@@ -1021,7 +1147,8 @@ export async function asyncSyncAlteration(alteration: AlterationRecord) {
   try {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from('alterations').upsert(mapAlterationToDb(alteration));
+    const user = await getCloudUser();
+    await supabase.from('alterations').upsert(mapAlterationToDb(alteration, user?.id));
   } catch (err) {
     console.warn('Background Supabase alteration sync network error:', err);
   }
@@ -1031,7 +1158,8 @@ export async function asyncSyncCreditNote(creditNote: CreditNote) {
   try {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from('credit_notes').upsert(mapCreditNoteToDb(creditNote));
+    const user = await getCloudUser();
+    await supabase.from('credit_notes').upsert(mapCreditNoteToDb(creditNote, user?.id));
   } catch (err) {
     console.warn('Background Supabase credit note sync network error:', err);
   }
@@ -1041,7 +1169,8 @@ export async function asyncSyncDayRegister(dayRegister: DayEndRegister) {
   try {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from('day_registers').upsert(mapDayRegisterToDb(dayRegister));
+    const user = await getCloudUser();
+    await supabase.from('day_registers').upsert(mapDayRegisterToDb(dayRegister, user?.id));
   } catch (err) {
     console.warn('Background Supabase day register sync network error:', err);
   }
@@ -1051,10 +1180,12 @@ export async function asyncSyncSetting(key: string, value: any) {
   try {
     const supabase = getSupabase();
     if (!supabase) return;
+    const user = await getCloudUser();
     await supabase.from('app_settings').upsert({
       key,
       value,
       updated_at: new Date().toISOString(),
+      ...(user?.id ? { user_id: user.id } : {}),
     });
   } catch (err) {
     console.warn(`Background Supabase setting sync (${key}) error:`, err);
@@ -1065,7 +1196,8 @@ export async function asyncSyncGiftVoucher(voucher: GiftVoucher) {
   try {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from('gift_vouchers').upsert(mapGiftVoucherToDb(voucher));
+    const user = await getCloudUser();
+    await supabase.from('gift_vouchers').upsert(mapGiftVoucherToDb(voucher, user?.id));
   } catch (err) {
     console.warn('Background Supabase gift voucher sync error:', err);
   }
@@ -1075,7 +1207,8 @@ export async function asyncSyncCustomerMeasurement(measurement: GarmentMeasureme
   try {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from('customer_measurements').upsert(mapCustomerMeasurementToDb(measurement));
+    const user = await getCloudUser();
+    await supabase.from('customer_measurements').upsert(mapCustomerMeasurementToDb(measurement, user?.id));
   } catch (err) {
     console.warn('Background Supabase measurement sync error:', err);
   }

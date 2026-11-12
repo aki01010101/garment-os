@@ -304,6 +304,8 @@ export const SupabaseDatabaseSettings: React.FC = () => {
     lastSupabaseSync,
     isSupabaseAutoSync,
     setIsSupabaseAutoSync,
+    cloudUser,
+    setCloudAuthModalOpen,
   } = useApp();
 
   const [urlInput, setUrlInput] = useState(supabaseConfig.url);
@@ -506,6 +508,43 @@ export const SupabaseDatabaseSettings: React.FC = () => {
             <ExternalLink className="w-3 h-3" />
           </a>
         </div>
+      </div>
+
+      {/* Multi-Device Store Account & Cross-Device Sync Card */}
+      <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-slate-900 rounded-2xl p-5 text-white shadow-md border border-indigo-800/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="p-3 bg-white/10 rounded-xl text-indigo-400 shrink-0 border border-white/10">
+            <Cloud className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-base font-bold text-white">Cross-Device Store Account Sync</h4>
+              {cloudUser ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Logged In & Synced
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  Not Signed In
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-indigo-200/80 mt-1 max-w-xl">
+              {cloudUser
+                ? `Logged in as @${cloudUser.username || cloudUser.email}. Your catalog, sales, customers, and invoices sync in real-time across any laptop or mobile device.`
+                : 'Sign in with your store username or email to access your inventory and sales on another laptop, tablet, or smartphone.'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setCloudAuthModalOpen(true)}
+          className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+        >
+          <Cloud className="w-4 h-4" />
+          <span>{cloudUser ? 'Manage Store Account' : 'Sign in / Sync Devices'}</span>
+        </button>
       </div>
 
       {/* Grid: Credentials Configuration + Quick Setup Guide */}

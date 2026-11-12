@@ -12,21 +12,21 @@
     "semantic_hash": ""
   },
   "src/App.tsx": {
-    "mtime": 1794391748.931702,
-    "seen": 1794401017.7235742,
-    "ast_hash": "f9d4133a3b3659eccd73908a96f595d7",
+    "mtime": 1794480643.3572338,
+    "seen": 1794480818.3795679,
+    "ast_hash": "2f10e34c48c48321da7fbf9bba74f225",
     "semantic_hash": ""
   },
   "src/components/Navbar.tsx": {
-    "mtime": 1794393898.6423748,
-    "seen": 1794401017.7235792,
-    "ast_hash": "d51c0fdaf88ade10e94d209658254960",
+    "mtime": 1794481464.672229,
+    "seen": 1794481554.1732805,
+    "ast_hash": "7cd12e04a1addadec2df1d3b6fd50704",
     "semantic_hash": ""
   },
   "src/components/Sidebar.tsx": {
-    "mtime": 1794298326.0593827,
-    "seen": 1794298521.7563543,
-    "ast_hash": "9b6af507dd7afd2c19dc09041df0fd0b",
+    "mtime": 1794481491.0490725,
+    "seen": 1794481554.1732845,
+    "ast_hash": "1e4208bb3c54404acdb0c6d7bd795bb1",
     "semantic_hash": ""
   },
   "src/components/alterations/AlterationNotifyModal.tsx": {
@@ -48,9 +48,9 @@
     "semantic_hash": ""
   },
   "src/components/auth/LoginLockScreen.tsx": {
-    "mtime": 1793532963.208153,
-    "seen": 1794298521.7563646,
-    "ast_hash": "fe18d625e4f90dd187057debb34b17b6",
+    "mtime": 1794481502.592201,
+    "seen": 1794481554.1737106,
+    "ast_hash": "f9731961c256b98353ccc7d9944bef8d",
     "semantic_hash": ""
   },
   "src/components/cash/DayRegisterManager.tsx": {
@@ -216,9 +216,9 @@
     "semantic_hash": ""
   },
   "src/components/pos/POSBilling.tsx": {
-    "mtime": 1794402994.031623,
-    "seen": 1794403021.0650306,
-    "ast_hash": "afa0da6ddf24f4292bb9ae2cec3c1d7b",
+    "mtime": 1794481057.9413776,
+    "seen": 1794481208.0420341,
+    "ast_hash": "d62a57c81a30a76a46b2a2fb420ff9fb",
     "semantic_hash": ""
   },
   "src/components/pos/StoreCreditNotesModal.tsx": {
@@ -288,9 +288,9 @@
     "semantic_hash": ""
   },
   "src/components/settings/SupabaseDatabaseSettings.tsx": {
-    "mtime": 1793530103.9278743,
-    "seen": 1794298521.7564511,
-    "ast_hash": "fd4a14e2f0b16109e51ea43ce3da10ec",
+    "mtime": 1794481516.72294,
+    "seen": 1794481554.1807466,
+    "ast_hash": "27d5ae0d1308229e2584ea1b6147c34a",
     "semantic_hash": ""
   },
   "src/components/tags/PriceTagGenerator.tsx": {
@@ -306,9 +306,9 @@
     "semantic_hash": ""
   },
   "src/context/AppContext.tsx": {
-    "mtime": 1794402418.3610392,
-    "seen": 1794403021.0673416,
-    "ast_hash": "fecc824f5bf8e7d10d8975eadf1b1469",
+    "mtime": 1794481419.8424718,
+    "seen": 1794481554.1811426,
+    "ast_hash": "00c0591bb8bb37149a7902f6d1d3ea81",
     "semantic_hash": ""
   },
   "src/data/seedData.ts": {
@@ -330,15 +330,15 @@
     "semantic_hash": ""
   },
   "src/services/supabase.ts": {
-    "mtime": 1794395005.7987156,
-    "seen": 1794401017.7350419,
-    "ast_hash": "aada9b3421e7a29bfdd17669b9a2083f",
+    "mtime": 1794481387.5640435,
+    "seen": 1794481554.1815386,
+    "ast_hash": "183866e3f03cc03c8987549b1b39d9b9",
     "semantic_hash": ""
   },
   "src/types.ts": {
-    "mtime": 1794395420.1792793,
-    "seen": 1794401017.7350464,
-    "ast_hash": "2379167a157a7930f353e5d0c86f84fb",
+    "mtime": 1794481371.962754,
+    "seen": 1794481554.1815414,
+    "ast_hash": "73b5d3d4070b5d95852cae79dcaf0cf6",
     "semantic_hash": ""
   },
   "src/utils/audio.ts": {
@@ -513,6 +513,12 @@
     "mtime": 1794402552.235088,
     "seen": 1794403021.064554,
     "ast_hash": "b5aa823aba3b3d9200022da362d17061",
+    "semantic_hash": ""
+  },
+  "src/components/auth/CloudAuthModal.tsx": {
+    "mtime": 1794481450.2622268,
+    "seen": 1794481554.1737075,
+    "ast_hash": "5b7214aa754964e0265003b8233e11e1",
     "semantic_hash": ""
   },
   "package-lock.json": {

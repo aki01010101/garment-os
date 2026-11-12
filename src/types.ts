@@ -815,6 +815,15 @@ export interface AuthState {
   lastActivityTimestamp: number;
 }
 
+export interface CloudUser {
+  id: string;
+  email: string;
+  username?: string;
+  name?: string;
+  avatarUrl?: string;
+  provider?: 'google' | 'email';
+}
+
 // =============================================================================
 // PHASE 4 DATA MODELS: RFM CAMPAIGNS, STO TRANSFERS, COMMISSIONS, DIGITAL E-RECEIPTS
 // =============================================================================

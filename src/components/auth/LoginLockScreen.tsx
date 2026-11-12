@@ -14,10 +14,11 @@ import {
   AlertCircle,
   Clock,
   Sparkles,
+  Cloud,
 } from 'lucide-react';
 
 export const LoginLockScreen: React.FC = () => {
-  const { currentUser, lockReason, login, unlockScreen, users } = useApp();
+  const { currentUser, lockReason, login, unlockScreen, users, cloudUser, setCloudAuthModalOpen } = useApp();
 
 
   const [username, setUsername] = useState(currentUser.username);
@@ -263,6 +264,22 @@ export const LoginLockScreen: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+
+          <div className="pt-2.5 mt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+            <span className="flex items-center gap-1.5 truncate mr-2">
+              <Cloud className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span className="truncate">
+                {cloudUser ? `Cloud Synced: @${cloudUser.username || cloudUser.email}` : 'Access store on another laptop or phone?'}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setCloudAuthModalOpen(true)}
+              className="text-indigo-400 hover:text-indigo-300 font-bold underline shrink-0 cursor-pointer"
+            >
+              {cloudUser ? 'Cloud Status' : 'Sign in to Sync'}
+            </button>
           </div>
 
           <p className="text-[10px] text-slate-500 text-center pt-1">
