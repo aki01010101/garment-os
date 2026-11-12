@@ -175,12 +175,18 @@ export const CloudAuthModal: React.FC = () => {
     try {
       // 1. PUSH FIRST so local data is permanently preserved in the cloud
       const pushRes = await migrateLocalDataToCloud();
+      if (!pushRes.success) {
+        setErrorMessage(
+          pushRes.message || 'Push to cloud encountered an issue. Local store records were safely preserved.'
+        );
+        return;
+      }
       // 2. THEN PULL updates from other devices
       const pullRes = await pullFromSupabase();
-      if (pushRes.success && pullRes.success) {
+      if (pullRes.success) {
         setSuccessMessage('Full sync complete! All store records are synchronized with your account.');
       } else {
-        setSuccessMessage(pushRes.message || pullRes.message || 'Sync completed with warnings.');
+        setSuccessMessage(pullRes.message || 'Sync completed with warnings.');
       }
     } catch (err: any) {
       setErrorMessage(err?.message || 'Sync failed.');

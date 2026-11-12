@@ -303,8 +303,13 @@ export function mapCompanyToDb(c: Company, userId?: string) {
 }
 
 export function mapCompanyFromDb(row: any): Company {
+  const cleanId =
+    row.id && typeof row.id === 'string' && row.user_id && row.id.startsWith(row.user_id + '_')
+      ? row.id.slice(row.user_id.length + 1)
+      : row.id;
+
   return {
-    id: row.id,
+    id: cleanId,
     name: row.name,
     legalName: row.legal_name || row.name,
     type: row.type || 'billed',
@@ -352,8 +357,13 @@ export function mapProductToDb(p: Product, userId?: string) {
 }
 
 export function mapProductFromDb(row: any): Product {
+  const cleanId =
+    row.id && typeof row.id === 'string' && row.user_id && row.id.startsWith(row.user_id + '_')
+      ? row.id.slice(row.user_id.length + 1)
+      : row.id;
+
   return {
-    id: row.id,
+    id: cleanId,
     sku: row.sku,
     barcode: row.barcode,
     name: row.name,
@@ -844,6 +854,76 @@ export function mapPromotionFromDb(row: any): PromotionRule {
 }
 
 // -----------------------------------------------------------------------------
+// RESILIENT POSTGREST UPSERT WITH SCHEMA AUTO-HEAL & RLS COLLISION RESOLUTION
+// -----------------------------------------------------------------------------
+
+export async function safeUpsert(
+  table: string,
+  records: any | any[],
+  userId?: string
+): Promise<{ success: boolean; error?: string; count?: number }> {
+  const supabase = getSupabase();
+  if (!supabase) return { success: false, error: 'Supabase client not initialized' };
+  if (!records || (Array.isArray(records) && records.length === 0)) {
+    return { success: true, count: 0 };
+  }
+
+  let currentRecords = Array.isArray(records) ? [...records] : [{ ...records }];
+
+  // Max 6 attempts to strip missing columns or handle RLS re-scoping
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const { error } = await supabase.from(table).upsert(currentRecords);
+    if (!error) {
+      return { success: true, count: currentRecords.length };
+    }
+
+    // 1. Column missing in PostgREST schema cache (e.g. table created before new columns)
+    const match =
+      error.message.match(/Could not find the '([^']+)' column/i) ||
+      error.message.match(/column [^.]*\.?([^\s]+) does not exist/i);
+
+    if (match && match[1]) {
+      const missingCol = match[1];
+      console.warn(`[Auto-Heal] Table '${table}' lacks column '${missingCol}'. Stripping and retrying push...`);
+      currentRecords = currentRecords.map((r) => {
+        const copy = { ...r };
+        delete copy[missingCol];
+        return copy;
+      });
+      continue;
+    }
+
+    // 2. RLS policy violation on existing row (e.g. seed ID collision: comp_billed, prod_1)
+    if (error.message.includes('violates row-level security policy') || error.code === '42501') {
+      if (userId) {
+        console.warn(`[Auto-Heal] Table '${table}' RLS conflict on existing seed row. Re-scoping IDs with user prefix and retrying...`);
+        currentRecords = currentRecords.map((r) => {
+          const copy = { ...r };
+          if (copy.id && !String(copy.id).startsWith(userId)) {
+            copy.id = `${userId}_${copy.id}`;
+          }
+          if (copy.key && !String(copy.key).startsWith(`user_${userId}_`)) {
+            copy.key = `user_${userId}_${copy.key}`;
+          }
+          if (copy.code && !String(copy.code).startsWith(userId)) {
+            copy.code = `${userId}_${copy.code}`;
+          }
+          copy.user_id = userId;
+          return copy;
+        });
+        continue;
+      }
+    }
+
+    // Any other error cannot be auto-healed
+    console.error(`[Supabase safeUpsert] Table '${table}' push failed:`, error.message);
+    return { success: false, error: error.message };
+  }
+
+  return { success: false, error: `Exceeded retry attempts for table '${table}'` };
+}
+
+// -----------------------------------------------------------------------------
 // COMPREHENSIVE PUSH ALL TO SUPABASE (COVERS EVERY SINGLE PAGE)
 // -----------------------------------------------------------------------------
 
@@ -873,85 +953,87 @@ export async function pushAllToSupabase(payload: {
   try {
     const user = await getCloudUser();
     const userId = explicitUserId || user?.id;
+    const errors: string[] = [];
 
     // 1. Companies (POS & Settings)
     if (payload.companies.length > 0) {
-      const { error } = await supabase.from('companies').upsert(payload.companies.map((c) => mapCompanyToDb(c, userId)));
-      if (error) console.warn('Companies push warning:', error.message);
+      const res = await safeUpsert('companies', payload.companies.map((c) => mapCompanyToDb(c, userId)), userId);
+      if (!res.success) errors.push(`Companies (${res.error})`);
     }
 
     // 2. Products (Inventory, POS, Tags)
     if (payload.products.length > 0) {
-      const { error } = await supabase.from('products').upsert(payload.products.map((p) => mapProductToDb(p, userId)));
-      if (error) console.warn('Products push warning:', error.message);
+      const res = await safeUpsert('products', payload.products.map((p) => mapProductToDb(p, userId)), userId);
+      if (!res.success) errors.push(`Products (${res.error})`);
     }
 
     // 3. Customers (CRM & Loyalty)
     if (payload.customers.length > 0) {
-      const { error } = await supabase.from('customers').upsert(payload.customers.map((c) => mapCustomerToDb(c, userId)));
-      if (error) console.warn('Customers push warning:', error.message);
+      const res = await safeUpsert('customers', payload.customers.map((c) => mapCustomerToDb(c, userId)), userId);
+      if (!res.success) errors.push(`Customers (${res.error})`);
     }
 
     // 4. Vendors (Suppliers)
     if (payload.vendors.length > 0) {
-      const { error } = await supabase.from('vendors').upsert(payload.vendors.map((v) => mapVendorToDb(v, userId)));
-      if (error) console.warn('Vendors push warning:', error.message);
+      const res = await safeUpsert('vendors', payload.vendors.map((v) => mapVendorToDb(v, userId)), userId);
+      if (!res.success) errors.push(`Vendors (${res.error})`);
     }
 
     // 5. Purchases (Goods Inwards)
     if (payload.purchases && payload.purchases.length > 0) {
-      const { error } = await supabase.from('purchases').upsert(payload.purchases.map((p) => mapPurchaseToDb(p, userId)));
-      if (error) console.warn('Purchases push warning:', error.message);
+      const res = await safeUpsert('purchases', payload.purchases.map((p) => mapPurchaseToDb(p, userId)), userId);
+      if (!res.success) errors.push(`Purchases (${res.error})`);
     }
 
     // 6. Vendor Payments
     if (payload.vendorPayments && payload.vendorPayments.length > 0) {
-      const { error } = await supabase.from('vendor_payments').upsert(payload.vendorPayments.map((vp) => mapVendorPaymentToDb(vp, userId)));
-      if (error) console.warn('Vendor payments push warning:', error.message);
+      const res = await safeUpsert('vendor_payments', payload.vendorPayments.map((vp) => mapVendorPaymentToDb(vp, userId)), userId);
+      if (!res.success) errors.push(`Vendor Payments (${res.error})`);
     }
 
     // 7. Sales (POS Invoices & Reports)
     if (payload.sales.length > 0) {
-      const { error } = await supabase.from('sales').upsert(payload.sales.map((s) => mapSaleToDb(s, userId)));
-      if (error) console.warn('Sales push warning:', error.message);
+      const res = await safeUpsert('sales', payload.sales.map((s) => mapSaleToDb(s, userId)), userId);
+      if (!res.success) errors.push(`Sales (${res.error})`);
     }
 
     // 8. Alterations (Tailor Tracker)
     if (payload.alterations && payload.alterations.length > 0) {
-      const { error } = await supabase.from('alterations').upsert(payload.alterations.map((a) => mapAlterationToDb(a, userId)));
-      if (error) console.warn('Alterations push warning:', error.message);
+      const res = await safeUpsert('alterations', payload.alterations.map((a) => mapAlterationToDb(a, userId)), userId);
+      if (!res.success) errors.push(`Alterations (${res.error})`);
     }
 
     // 9. Credit Notes (Returns & Exchanges)
     if (payload.creditNotes && payload.creditNotes.length > 0) {
-      const { error } = await supabase.from('credit_notes').upsert(payload.creditNotes.map((cn) => mapCreditNoteToDb(cn, userId)));
-      if (error) console.warn('Credit notes push warning:', error.message);
+      const res = await safeUpsert('credit_notes', payload.creditNotes.map((cn) => mapCreditNoteToDb(cn, userId)), userId);
+      if (!res.success) errors.push(`Credit Notes (${res.error})`);
     }
 
     // 10. Day Register (Z-Report & Reconciliation)
     if (payload.dayRegister) {
-      const regDb = mapDayRegisterToDb(payload.dayRegister, userId);
-      const { error } = await supabase.from('day_registers').upsert(regDb);
-      if (error) console.warn('Day registers push warning:', error.message);
+      const res = await safeUpsert('day_registers', mapDayRegisterToDb(payload.dayRegister, userId), userId);
+      if (!res.success) errors.push(`Day Registers (${res.error})`);
     }
 
     // 11. Staff Users (Try staff_users table + fallback to app_settings)
     if (payload.users && payload.users.length > 0) {
       try {
-        await supabase.from('staff_users').upsert(payload.users.map((u) => mapStaffUserToDb(u, userId)));
+        await safeUpsert('staff_users', payload.users.map((u) => mapStaffUserToDb(u, userId)), userId);
       } catch {}
-      await supabase.from('app_settings').upsert({
-        key: 'staff_users',
+      const settingKey = userId ? `user_${userId}_staff_users` : 'staff_users';
+      await safeUpsert('app_settings', {
+        key: settingKey,
         value: payload.users,
         updated_at: new Date().toISOString(),
         ...(userId ? { user_id: userId } : {}),
-      });
+      }, userId);
     }
 
     // 12. Coupons (Try coupons table + fallback to app_settings)
     if (payload.coupons && payload.coupons.length > 0) {
       try {
-        await supabase.from('coupons').upsert(
+        await safeUpsert(
+          'coupons',
           payload.coupons.map((c) => ({
             code: c.code,
             discount_type: c.discountType,
@@ -960,51 +1042,57 @@ export async function pushAllToSupabase(payload: {
             description: c.description || null,
             created_at: new Date().toISOString(),
             ...(userId ? { user_id: userId } : {}),
-          }))
+          })),
+          userId
         );
       } catch {}
-      await supabase.from('app_settings').upsert({
-        key: 'coupons',
+      const settingKey = userId ? `user_${userId}_coupons` : 'coupons';
+      await safeUpsert('app_settings', {
+        key: settingKey,
         value: payload.coupons,
         updated_at: new Date().toISOString(),
         ...(userId ? { user_id: userId } : {}),
-      });
+      }, userId);
     }
 
     // 13. App Settings (Loyalty rules, UPI QR, Terminal settings)
     if (payload.loyaltyConfig) {
-      await supabase.from('app_settings').upsert({
-        key: 'loyalty_config',
+      const settingKey = userId ? `user_${userId}_loyalty_config` : 'loyalty_config';
+      await safeUpsert('app_settings', {
+        key: settingKey,
         value: payload.loyaltyConfig,
         updated_at: new Date().toISOString(),
         ...(userId ? { user_id: userId } : {}),
-      });
+      }, userId);
     }
     if (payload.settings) {
-      await supabase.from('app_settings').upsert({
-        key: 'terminal_settings',
+      const settingKey = userId ? `user_${userId}_terminal_settings` : 'terminal_settings';
+      await safeUpsert('app_settings', {
+        key: settingKey,
         value: payload.settings,
         updated_at: new Date().toISOString(),
         ...(userId ? { user_id: userId } : {}),
-      });
+      }, userId);
     }
 
     // 14. Digital Gift Vouchers
     if (payload.giftVouchers && payload.giftVouchers.length > 0) {
-      try {
-        await supabase.from('gift_vouchers').upsert(payload.giftVouchers.map((v) => mapGiftVoucherToDb(v, userId)));
-      } catch (err) {
-        console.warn('Gift vouchers push warning:', err);
-      }
+      const res = await safeUpsert('gift_vouchers', payload.giftVouchers.map((v) => mapGiftVoucherToDb(v, userId)), userId);
+      if (!res.success) errors.push(`Gift Vouchers (${res.error})`);
     }
 
     // 15. Promotions & Offers Engine
     if (payload.promotions && payload.promotions.length > 0) {
-      try {
-        await supabase.from('promotions').upsert(payload.promotions.map((p) => mapPromotionToDb(p, userId)));
-      } catch (err) {
-        console.warn('Promotions push warning:', err);
-      }
+      const res = await safeUpsert('promotions', payload.promotions.map((p) => mapPromotionToDb(p, userId)), userId);
+      if (!res.success) errors.push(`Promotions (${res.error})`);
+    }
+
+    if (errors.length > 0) {
+      console.warn('pushAllToSupabase encountered errors on some tables:', errors);
+      return {
+        success: false,
+        message: `Some tables failed to sync: ${errors.join(', ')}`,
+      };
     }
 
     const now = new Date().toISOString();
@@ -1027,7 +1115,7 @@ export async function pushAllToSupabase(payload: {
       },
     };
   } catch (err: any) {
-    console.error('pushAllToSupabase error:', err);
+    console.error('pushAllToSupabase fatal error:', err);
     return { success: false, message: err?.message || 'Error pushing data to Supabase.' };
   }
 }
@@ -1102,14 +1190,18 @@ export async function pullAllFromSupabase(): Promise<{
     const filterByUser = (rows: any[] | null) => {
       if (!rows || rows.length === 0) return [];
       if (userId) {
-        // Authenticated user: ONLY take records that belong to this user
-        return rows.filter((r) => r.user_id === userId);
+        // Authenticated user: ONLY take records that belong to this user or are scoped to this user
+        return rows.filter(
+          (r) => r.user_id === userId || (r.id && typeof r.id === 'string' && r.id.startsWith(userId + '_'))
+        );
       }
       return rows.filter((r) => !r.user_id);
     };
 
     const hasUserScopedCompanies = Boolean(
-      userId && companiesRes.data && companiesRes.data.some((r: any) => r.user_id === userId)
+      userId &&
+        companiesRes.data &&
+        companiesRes.data.some((r: any) => r.user_id === userId || (r.id && typeof r.id === 'string' && r.id.startsWith(userId + '_')))
     );
 
     // Parse App Settings prioritizing authenticated user's records
@@ -1119,16 +1211,27 @@ export async function pullAllFromSupabase(): Promise<{
     let terminalSettings: Record<string, any> | undefined;
 
     if (settingsRes.data && settingsRes.data.length > 0) {
-      const userSettings = userId ? settingsRes.data.filter((r: any) => r.user_id === userId) : [];
-      const unclaimedSettings = settingsRes.data.filter((r: any) => !r.user_id);
+      const userSettings = userId
+        ? settingsRes.data.filter(
+            (r: any) => r.user_id === userId || (r.key && typeof r.key === 'string' && r.key.startsWith(`user_${userId}_`))
+          )
+        : [];
+      const unclaimedSettings = settingsRes.data.filter(
+        (r: any) => !r.user_id && !(r.key && typeof r.key === 'string' && r.key.startsWith('user_'))
+      );
       // Merge unclaimed first, then user's specific settings overwrite
       const mergedList = [...unclaimedSettings, ...userSettings];
 
       mergedList.forEach((row: any) => {
-        if (row.key === 'staff_users') usersFromDb = row.value;
-        if (row.key === 'coupons') couponsFromDb = row.value;
-        if (row.key === 'loyalty_config') loyaltyFromDb = row.value;
-        if (row.key === 'terminal_settings') {
+        const cleanKey =
+          userId && typeof row.key === 'string' && row.key.startsWith(`user_${userId}_`)
+            ? row.key.replace(`user_${userId}_`, '')
+            : row.key;
+
+        if (cleanKey === 'staff_users') usersFromDb = row.value;
+        if (cleanKey === 'coupons') couponsFromDb = row.value;
+        if (cleanKey === 'loyalty_config') loyaltyFromDb = row.value;
+        if (cleanKey === 'terminal_settings') {
           terminalSettings = { ...(terminalSettings || {}), ...(row.value || {}) };
         } else if (
           [
@@ -1144,10 +1247,10 @@ export async function pullAllFromSupabase(): Promise<{
             'googleReviewPromptText',
             'enableReceiptReviewQr',
             'enableEReceiptQr',
-          ].includes(row.key)
+          ].includes(cleanKey)
         ) {
           if (!terminalSettings) terminalSettings = {};
-          terminalSettings[row.key] = row.value;
+          terminalSettings[cleanKey] = row.value;
         }
       });
     }
@@ -1206,114 +1309,99 @@ export async function pullAllFromSupabase(): Promise<{
 
 export async function asyncSyncCompany(company: Company) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('companies').upsert(mapCompanyToDb(company, user?.id));
+    await safeUpsert('companies', mapCompanyToDb(company, user?.id), user?.id);
   } catch (err) {
-    console.warn('Background Supabase company sync network error:', err);
+    console.warn('Background Supabase company sync error:', err);
   }
 }
 
 export async function asyncSyncSale(sale: SaleTransaction) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('sales').upsert(mapSaleToDb(sale, user?.id));
+    await safeUpsert('sales', mapSaleToDb(sale, user?.id), user?.id);
   } catch (err) {
-    console.warn('Background Supabase sale sync network error:', err);
+    console.warn('Background Supabase sale sync error:', err);
   }
 }
 
 export async function asyncSyncProduct(product: Product) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('products').upsert(mapProductToDb(product, user?.id));
+    await safeUpsert('products', mapProductToDb(product, user?.id), user?.id);
   } catch (err) {
-    console.warn('Background Supabase product sync network error:', err);
+    console.warn('Background Supabase product sync error:', err);
   }
 }
 
 export async function asyncSyncCustomer(customer: Customer) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('customers').upsert(mapCustomerToDb(customer, user?.id));
+    await safeUpsert('customers', mapCustomerToDb(customer, user?.id), user?.id);
   } catch (err) {
-    console.warn('Background Supabase customer sync network error:', err);
+    console.warn('Background Supabase customer sync error:', err);
   }
 }
 
 export async function asyncSyncPurchase(purchase: PurchaseOrder) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('purchases').upsert(mapPurchaseToDb(purchase, user?.id));
+    await safeUpsert('purchases', mapPurchaseToDb(purchase, user?.id), user?.id);
   } catch (err) {
-    console.warn('Background Supabase purchase sync network error:', err);
+    console.warn('Background Supabase purchase sync error:', err);
   }
 }
 
 export async function asyncSyncVendorPayment(payment: VendorPaymentRecord) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('vendor_payments').upsert(mapVendorPaymentToDb(payment, user?.id));
+    await safeUpsert('vendor_payments', mapVendorPaymentToDb(payment, user?.id), user?.id);
   } catch (err) {
-    console.warn('Background Supabase vendor payment sync network error:', err);
+    console.warn('Background Supabase vendor payment sync error:', err);
   }
 }
 
 export async function asyncSyncAlteration(alteration: AlterationRecord) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('alterations').upsert(mapAlterationToDb(alteration, user?.id));
+    await safeUpsert('alterations', mapAlterationToDb(alteration, user?.id), user?.id);
   } catch (err) {
-    console.warn('Background Supabase alteration sync network error:', err);
+    console.warn('Background Supabase alteration sync error:', err);
   }
 }
 
 export async function asyncSyncCreditNote(creditNote: CreditNote) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('credit_notes').upsert(mapCreditNoteToDb(creditNote, user?.id));
+    await safeUpsert('credit_notes', mapCreditNoteToDb(creditNote, user?.id), user?.id);
   } catch (err) {
-    console.warn('Background Supabase credit note sync network error:', err);
+    console.warn('Background Supabase credit note sync error:', err);
   }
 }
 
 export async function asyncSyncDayRegister(dayRegister: DayEndRegister) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('day_registers').upsert(mapDayRegisterToDb(dayRegister, user?.id));
+    await safeUpsert('day_registers', mapDayRegisterToDb(dayRegister, user?.id), user?.id);
   } catch (err) {
-    console.warn('Background Supabase day register sync network error:', err);
+    console.warn('Background Supabase day register sync error:', err);
   }
 }
 
 export async function asyncSyncSetting(key: string, value: any) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('app_settings').upsert({
-      key,
-      value,
-      updated_at: new Date().toISOString(),
-      ...(user?.id ? { user_id: user.id } : {}),
-    });
+    const settingKey = user?.id ? `user_${user.id}_${key}` : key;
+    await safeUpsert(
+      'app_settings',
+      {
+        key: settingKey,
+        value,
+        updated_at: new Date().toISOString(),
+        ...(user?.id ? { user_id: user.id } : {}),
+      },
+      user?.id
+    );
   } catch (err) {
     console.warn(`Background Supabase setting sync (${key}) error:`, err);
   }
@@ -1321,10 +1409,8 @@ export async function asyncSyncSetting(key: string, value: any) {
 
 export async function asyncSyncGiftVoucher(voucher: GiftVoucher) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('gift_vouchers').upsert(mapGiftVoucherToDb(voucher, user?.id));
+    await safeUpsert('gift_vouchers', mapGiftVoucherToDb(voucher, user?.id), user?.id);
   } catch (err) {
     console.warn('Background Supabase gift voucher sync error:', err);
   }
@@ -1332,10 +1418,8 @@ export async function asyncSyncGiftVoucher(voucher: GiftVoucher) {
 
 export async function asyncSyncCustomerMeasurement(measurement: GarmentMeasurementProfile) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('customer_measurements').upsert(mapCustomerMeasurementToDb(measurement, user?.id));
+    await safeUpsert('customer_measurements', mapCustomerMeasurementToDb(measurement, user?.id), user?.id);
   } catch (err) {
     console.warn('Background Supabase measurement sync error:', err);
   }
@@ -1343,10 +1427,8 @@ export async function asyncSyncCustomerMeasurement(measurement: GarmentMeasureme
 
 export async function asyncSyncPromotion(promo: PromotionRule) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
     const user = await getCloudUser();
-    await supabase.from('promotions').upsert(mapPromotionToDb(promo, user?.id));
+    await safeUpsert('promotions', mapPromotionToDb(promo, user?.id), user?.id);
   } catch (err) {
     console.warn('Background Supabase promotion sync error:', err);
   }

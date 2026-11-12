@@ -414,17 +414,25 @@ BEGIN
 
     END IF;
   END LOOP;
-
-  -- 3. ENSURE RECENT NEW COLUMNS EXIST ON LEGACY COMPANIES TABLE
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'companies') THEN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'companies' AND column_name = 'is_composition_scheme') THEN
-      ALTER TABLE companies ADD COLUMN is_composition_scheme BOOLEAN DEFAULT FALSE;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'companies' AND column_name = 'tax_inclusive') THEN
-      ALTER TABLE companies ADD COLUMN tax_inclusive BOOLEAN DEFAULT TRUE;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'companies' AND column_name = 'google_review_url') THEN
-      ALTER TABLE companies ADD COLUMN google_review_url TEXT;
-    END IF;
-  END IF;
 END $$;
+
+-- 3. ENSURE ALL EXTENDED POS COLUMNS EXIST ON LEGACY TABLES
+ALTER TABLE IF EXISTS companies ADD COLUMN IF NOT EXISTS enable_dynamic_garment_gst BOOLEAN DEFAULT TRUE;
+ALTER TABLE IF EXISTS companies ADD COLUMN IF NOT EXISTS tax_inclusive BOOLEAN DEFAULT TRUE;
+ALTER TABLE IF EXISTS companies ADD COLUMN IF NOT EXISTS is_composition_scheme BOOLEAN DEFAULT FALSE;
+ALTER TABLE IF EXISTS companies ADD COLUMN IF NOT EXISTS google_review_url TEXT;
+
+ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS tax_inclusive BOOLEAN DEFAULT TRUE;
+ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS purchase_source TEXT;
+ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS defective_stock INT DEFAULT 0;
+
+ALTER TABLE IF EXISTS sales ADD COLUMN IF NOT EXISTS tax_inclusive BOOLEAN DEFAULT TRUE;
+ALTER TABLE IF EXISTS sales ADD COLUMN IF NOT EXISTS google_review_url TEXT;
+
+ALTER TABLE IF EXISTS day_registers ADD COLUMN IF NOT EXISTS cash_drops JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE IF EXISTS day_registers ADD COLUMN IF NOT EXISTS petty_expenses JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE IF EXISTS day_registers ADD COLUMN IF NOT EXISTS actual_cash NUMERIC(12,2);
+ALTER TABLE IF EXISTS day_registers ADD COLUMN IF NOT EXISTS expected_cash NUMERIC(12,2);
+ALTER TABLE IF EXISTS day_registers ADD COLUMN IF NOT EXISTS difference NUMERIC(12,2);
+ALTER TABLE IF EXISTS day_registers ADD COLUMN IF NOT EXISTS opened_at TEXT;
+ALTER TABLE IF EXISTS day_registers ADD COLUMN IF NOT EXISTS opened_by TEXT;

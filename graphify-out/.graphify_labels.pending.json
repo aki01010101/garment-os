@@ -1,6 +1,6 @@
 {
-  "0": "useApp",
-  "1": "InvoiceInwardingModal.tsx",
+  "0": "escpos.ts",
+  "1": "SmartRestockPredictorModal.tsx",
   "2": "escpos.ts",
   "3": "supabase.ts",
   "4": "CustomerCRM.tsx",
@@ -17,12 +17,14 @@
   "15": "OfflineSyncIndicator.tsx",
   "16": "vercel.json",
   "17": "Garment OS - Retail Clothing POS & CRM",
-  "18": "BulkCsvImportModal.tsx",
+  "18": "SettingsManager.tsx",
   "19": "motion@^12.23.24",
-  "20": "StockAuditModal.tsx",
+  "20": "AppContextType",
   "21": "dotenv@^17.2.3",
   "22": "react-is@^19.3.1",
-  "23": "jsbarcode",
+  "23": "AlterationsManager.tsx",
   "24": "overrides",
-  "25": "@vitejs/plugin-react"
+  "25": "@vitejs/plugin-react",
+  "26": "GiftVouchersModal.tsx",
+  "27": "qrcode"
 }
