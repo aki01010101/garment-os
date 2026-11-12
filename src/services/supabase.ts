@@ -16,6 +16,7 @@ import {
   GiftVoucher,
   GarmentMeasurementProfile,
   PromotionRule,
+  CustomerCreditPayment,
 } from '../types';
 
 export const SUPABASE_STORAGE_KEYS = {
@@ -944,6 +945,7 @@ export async function pushAllToSupabase(payload: {
   settings?: Record<string, any>;
   giftVouchers?: GiftVoucher[];
   promotions?: PromotionRule[];
+  creditPayments?: CustomerCreditPayment[];
 }, explicitUserId?: string): Promise<{ success: boolean; message: string; stats?: any }> {
   const supabase = getSupabase();
   if (!supabase) {
@@ -1087,6 +1089,21 @@ export async function pushAllToSupabase(payload: {
       if (!res.success) errors.push(`Promotions (${res.error})`);
     }
 
+    // 16. Customer Khata Credit Payments / Settlements
+    if (payload.creditPayments && payload.creditPayments.length > 0) {
+      const settingKey = userId ? `user_${userId}_customer_credit_payments` : 'customer_credit_payments';
+      await safeUpsert(
+        'app_settings',
+        {
+          key: settingKey,
+          value: payload.creditPayments,
+          updated_at: new Date().toISOString(),
+          ...(userId ? { user_id: userId } : {}),
+        },
+        userId
+      );
+    }
+
     if (errors.length > 0) {
       console.warn('pushAllToSupabase encountered errors on some tables:', errors);
       return {
@@ -1145,6 +1162,7 @@ export async function pullAllFromSupabase(): Promise<{
     settings?: Record<string, any>;
     giftVouchers?: GiftVoucher[];
     promotions?: PromotionRule[];
+    creditPayments?: CustomerCreditPayment[];
   };
 }> {
   const supabase = getSupabase();
@@ -1209,6 +1227,7 @@ export async function pullAllFromSupabase(): Promise<{
     let couponsFromDb: CouponCode[] | undefined;
     let loyaltyFromDb: LoyaltyConfig | undefined;
     let terminalSettings: Record<string, any> | undefined;
+    let creditPaymentsFromDb: CustomerCreditPayment[] | undefined;
 
     if (settingsRes.data && settingsRes.data.length > 0) {
       const userSettings = userId
@@ -1231,6 +1250,7 @@ export async function pullAllFromSupabase(): Promise<{
         if (cleanKey === 'staff_users') usersFromDb = row.value;
         if (cleanKey === 'coupons') couponsFromDb = row.value;
         if (cleanKey === 'loyalty_config') loyaltyFromDb = row.value;
+        if (cleanKey === 'customer_credit_payments') creditPaymentsFromDb = row.value;
         if (cleanKey === 'terminal_settings') {
           terminalSettings = { ...(terminalSettings || {}), ...(row.value || {}) };
         } else if (
@@ -1285,6 +1305,7 @@ export async function pullAllFromSupabase(): Promise<{
       settings: terminalSettings,
       giftVouchers: filteredGiftVouchers.length > 0 ? filteredGiftVouchers.map(mapGiftVoucherFromDb) : undefined,
       promotions: filteredPromotions.length > 0 ? filteredPromotions.map(mapPromotionFromDb) : undefined,
+      creditPayments: creditPaymentsFromDb,
     };
 
     const now = new Date().toISOString();

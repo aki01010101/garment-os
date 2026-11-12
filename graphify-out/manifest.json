@@ -306,9 +306,9 @@
     "semantic_hash": ""
   },
   "src/context/AppContext.tsx": {
-    "mtime": 1794484011.372379,
-    "seen": 1794487250.99848,
-    "ast_hash": "e11c393d27cb4847bd7a6b1ff34db963",
+    "mtime": 1794487971.811368,
+    "seen": 1794488069.7916338,
+    "ast_hash": "87c20344bdb9c0ed15882ddead7dd03f",
     "semantic_hash": ""
   },
   "src/data/seedData.ts": {
@@ -330,9 +330,9 @@
     "semantic_hash": ""
   },
   "src/services/supabase.ts": {
-    "mtime": 1794487094.7335148,
-    "seen": 1794487250.9988732,
-    "ast_hash": "7518a54fa6adef8c12473c280056428e",
+    "mtime": 1794487943.7516937,
+    "seen": 1794488069.7923815,
+    "ast_hash": "59311fce7018ae3024377eeaa526cd91",
     "semantic_hash": ""
   },
   "src/types.ts": {
@@ -516,8 +516,8 @@
     "semantic_hash": ""
   },
   "src/components/auth/CloudAuthModal.tsx": {
-    "mtime": 1794487104.161559,
-    "seen": 1794487250.9912403,
+    "mtime": 1794487713.263131,
+    "seen": 1794488069.7788439,
     "ast_hash": "3560df3630b8e23b39988a023bf56393",
     "semantic_hash": ""
   },
