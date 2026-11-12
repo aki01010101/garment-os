@@ -21,6 +21,9 @@ import {
   Lock,
   Sparkles,
   KeyRound,
+  UploadCloud,
+  DownloadCloud,
+  Building2,
 } from 'lucide-react';
 
 export const CloudAuthModal: React.FC = () => {
@@ -36,6 +39,7 @@ export const CloudAuthModal: React.FC = () => {
     migrateLocalDataToCloud,
     pullFromSupabase,
     cloudSyncState,
+    companies,
     products,
     sales,
     customers,
@@ -125,17 +129,58 @@ export const CloudAuthModal: React.FC = () => {
     }
   };
 
-  const handleForceSync = async () => {
+  const handlePushOnly = async () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsSubmitting(true);
+    try {
+      const pushRes = await migrateLocalDataToCloud();
+      if (pushRes.success) {
+        setSuccessMessage('Successfully uploaded all local billing entities, products, and settings to the cloud!');
+      } else {
+        setErrorMessage(pushRes.message || 'Push to cloud failed.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Push failed.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePullOnly = async () => {
+    if (!confirm('Download latest records from cloud? Your local data will be updated with your account data.')) {
+      return;
+    }
     setErrorMessage(null);
     setSuccessMessage(null);
     setIsSubmitting(true);
     try {
       const pullRes = await pullFromSupabase();
-      const pushRes = await migrateLocalDataToCloud();
-      if (pullRes.success && pushRes.success) {
-        setSuccessMessage('Full sync complete! All store records are synchronized with the cloud.');
+      if (pullRes.success) {
+        setSuccessMessage('Successfully pulled latest cloud records to this terminal!');
       } else {
-        setSuccessMessage(pullRes.message || pushRes.message);
+        setErrorMessage(pullRes.message || 'Download from cloud failed.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Download failed.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFullSync = async () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsSubmitting(true);
+    try {
+      // 1. PUSH FIRST so local data is permanently preserved in the cloud
+      const pushRes = await migrateLocalDataToCloud();
+      // 2. THEN PULL updates from other devices
+      const pullRes = await pullFromSupabase();
+      if (pushRes.success && pullRes.success) {
+        setSuccessMessage('Full sync complete! All store records are synchronized with your account.');
+      } else {
+        setSuccessMessage(pushRes.message || pullRes.message || 'Sync completed with warnings.');
       }
     } catch (err: any) {
       setErrorMessage(err?.message || 'Sync failed.');
@@ -241,29 +286,37 @@ export const CloudAuthModal: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-slate-800/80 rounded-lg p-2.5 border border-slate-700/60">
-                    <div className="flex items-center justify-center gap-1 text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="bg-slate-800/80 rounded-lg p-2 border border-slate-700/60">
+                    <div className="flex items-center justify-center gap-1 text-slate-400 text-[9px] uppercase font-bold tracking-wider mb-1">
+                      <Building2 className="w-3 h-3 text-amber-400" />
+                      Entities
+                    </div>
+                    <div className="text-base font-black text-white">{companies.length}</div>
+                  </div>
+
+                  <div className="bg-slate-800/80 rounded-lg p-2 border border-slate-700/60">
+                    <div className="flex items-center justify-center gap-1 text-slate-400 text-[9px] uppercase font-bold tracking-wider mb-1">
                       <Package className="w-3 h-3 text-indigo-400" />
                       Products
                     </div>
-                    <div className="text-lg font-black text-white">{products.length}</div>
+                    <div className="text-base font-black text-white">{products.length}</div>
                   </div>
 
-                  <div className="bg-slate-800/80 rounded-lg p-2.5 border border-slate-700/60">
-                    <div className="flex items-center justify-center gap-1 text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">
+                  <div className="bg-slate-800/80 rounded-lg p-2 border border-slate-700/60">
+                    <div className="flex items-center justify-center gap-1 text-slate-400 text-[9px] uppercase font-bold tracking-wider mb-1">
                       <Receipt className="w-3 h-3 text-emerald-400" />
                       Sales
                     </div>
-                    <div className="text-lg font-black text-white">{sales.length}</div>
+                    <div className="text-base font-black text-white">{sales.length}</div>
                   </div>
 
-                  <div className="bg-slate-800/80 rounded-lg p-2.5 border border-slate-700/60">
-                    <div className="flex items-center justify-center gap-1 text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">
+                  <div className="bg-slate-800/80 rounded-lg p-2 border border-slate-700/60">
+                    <div className="flex items-center justify-center gap-1 text-slate-400 text-[9px] uppercase font-bold tracking-wider mb-1">
                       <Users className="w-3 h-3 text-sky-400" />
                       Customers
                     </div>
-                    <div className="text-lg font-black text-white">{customers.length}</div>
+                    <div className="text-base font-black text-white">{customers.length}</div>
                   </div>
                 </div>
 
@@ -280,28 +333,54 @@ export const CloudAuthModal: React.FC = () => {
               <div className="space-y-2 pt-2">
                 <button
                   type="button"
-                  onClick={handleForceSync}
+                  onClick={handlePushOnly}
                   disabled={isSubmitting || cloudSyncState === 'syncing'}
                   className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
                 >
-                  <RefreshCw
+                  <UploadCloud
                     className={`w-4 h-4 ${
-                      isSubmitting || cloudSyncState === 'syncing' ? 'animate-spin' : ''
+                      isSubmitting || cloudSyncState === 'syncing' ? 'animate-pulse' : ''
                     }`}
                   />
                   <span>
                     {isSubmitting || cloudSyncState === 'syncing'
                       ? 'Synchronizing Store Data...'
-                      : 'Force Sync All Data (Push & Pull)'}
+                      : 'Upload Local Data to Cloud (Push)'}
                   </span>
                 </button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleFullSync}
+                    disabled={isSubmitting || cloudSyncState === 'syncing'}
+                    className="py-2 px-3 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-600 text-white rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw
+                      className={`w-3.5 h-3.5 ${
+                        isSubmitting || cloudSyncState === 'syncing' ? 'animate-spin' : ''
+                      }`}
+                    />
+                    <span>Full Sync (Push & Pull)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handlePullOnly}
+                    disabled={isSubmitting || cloudSyncState === 'syncing'}
+                    className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <DownloadCloud className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Download Cloud Data (Pull)</span>
+                  </button>
+                </div>
 
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="w-full py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="w-full py-2 px-4 bg-transparent hover:bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
-                  <LogOut className="w-4 h-4 text-slate-500" />
+                  <LogOut className="w-4 h-4 text-rose-500" />
                   <span>Sign Out from this Device</span>
                 </button>
               </div>

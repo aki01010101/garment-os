@@ -86,6 +86,9 @@ import {
   asyncSyncDayRegister,
   asyncSyncSetting,
   asyncSyncGiftVoucher,
+  asyncSyncCompany,
+  asyncSyncPromotion,
+  asyncSyncDeletePromotion,
   signInWithGoogle,
   signInWithEmail,
   signUpWithEmail,
@@ -499,6 +502,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [lockReason, setLockReason] = useState<string | undefined>(undefined);
 
+  // Supabase Cloud Sync Status
+  const [isSupabaseAutoSync, setIsSupabaseAutoSyncState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SUPABASE_STORAGE_KEYS.AUTO_SYNC) !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  const setIsSupabaseAutoSync = (val: boolean) => {
+    setIsSupabaseAutoSyncState(val);
+    try {
+      localStorage.setItem(SUPABASE_STORAGE_KEYS.AUTO_SYNC, String(val));
+    } catch {}
+  };
+
   // Auto-Lock Inactivity Timeout (minutes)
   const [autoLockMinutes, setAutoLockMinutesState] = useState<number>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.AUTO_LOCK_MINUTES);
@@ -508,6 +527,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setAutoLockMinutes = (minutes: number) => {
     setAutoLockMinutesState(minutes);
     localStorage.setItem(STORAGE_KEYS.AUTO_LOCK_MINUTES, minutes.toString());
+    if (isSupabaseAutoSync) asyncSyncSetting('autoLockMinutes', minutes);
   };
 
   // Global Low-Stock Threshold State
@@ -520,6 +540,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const val = Math.max(0, threshold);
     setGlobalLowStockThresholdState(val);
     localStorage.setItem(STORAGE_KEYS.LOW_STOCK_THRESHOLD, val.toString());
+    if (isSupabaseAutoSync) asyncSyncSetting('globalLowStockThreshold', val);
   };
 
   const [codePrintType, setCodePrintTypeState] = useState<CodePrintType>(() => {
@@ -530,6 +551,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setCodePrintType = (type: CodePrintType) => {
     setCodePrintTypeState(type);
     localStorage.setItem(STORAGE_KEYS.CODE_PRINT_TYPE, type);
+    if (isSupabaseAutoSync) asyncSyncSetting('codePrintType', type);
   };
 
   const [qrPrintSize, setQrPrintSizeState] = useState<QrPrintSize>(() => {
@@ -542,6 +564,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setQrPrintSize = (size: QrPrintSize) => {
     setQrPrintSizeState(size);
     localStorage.setItem(STORAGE_KEYS.QR_PRINT_SIZE, size);
+    if (isSupabaseAutoSync) asyncSyncSetting('qrPrintSize', size);
   };
 
   // Store UPI VPA / ID & Merchant Name for Dynamic Payment QR Codes
@@ -554,6 +577,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const trimmed = id.trim();
     setStoreUpiIdState(trimmed);
     localStorage.setItem(STORAGE_KEYS.STORE_UPI_ID, trimmed);
+    if (isSupabaseAutoSync) asyncSyncSetting('storeUpiId', trimmed);
   };
 
   const [storeUpiName, setStoreUpiNameState] = useState<string>(() => {
@@ -565,6 +589,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const trimmed = name.trim();
     setStoreUpiNameState(trimmed);
     localStorage.setItem(STORAGE_KEYS.STORE_UPI_NAME, trimmed);
+    if (isSupabaseAutoSync) asyncSyncSetting('storeUpiName', trimmed);
   };
 
   // Supabase Cloud Database & Sync State
@@ -578,25 +603,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
-  const [isSupabaseAutoSync, setIsSupabaseAutoSyncState] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(SUPABASE_STORAGE_KEYS.AUTO_SYNC) !== 'false';
-    } catch {
-      return true;
-    }
-  });
-
   const [cloudUser, setCloudUser] = useState<CloudUser | null>(null);
   const [isCloudLoading, setIsCloudLoading] = useState<boolean>(true);
   const [cloudAuthModalOpen, setCloudAuthModalOpen] = useState<boolean>(false);
   const [cloudSyncState, setCloudSyncState] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
-
-  const setIsSupabaseAutoSync = (val: boolean) => {
-    setIsSupabaseAutoSyncState(val);
-    try {
-      localStorage.setItem(SUPABASE_STORAGE_KEYS.AUTO_SYNC, String(val));
-    } catch {}
-  };
 
   const saveSupabaseCreds = (url: string, key: string) => {
     saveSupabaseCredentials(url, key);
@@ -636,8 +646,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         qrPrintSize,
         storeUpiId,
         storeUpiName,
+        storeGoogleReviewUrl,
+        googleReviewPromptText,
+        enableReceiptReviewQr,
+        enableEReceiptQr,
+        soundEnabled,
+        activeCompanyId,
       },
       giftVouchers,
+      promotions,
     });
     if (res.success) {
       setLastSupabaseSync(new Date().toISOString());
@@ -652,7 +669,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCloudSyncState('syncing');
     const res = await pullAllFromSupabase();
     if (res.success && res.data) {
-      if (res.data.companies && res.data.companies.length > 0) setCompanies(res.data.companies);
+      // Safe company handling:
+      // If remote has user-scoped companies, adopt them.
+      // If remote does NOT have user-scoped companies, NEVER overwrite local companies with demo rows!
+      if (res.data.companies && res.data.companies.length > 0) {
+        setCompanies(res.data.companies);
+      } else if (!res.data.companiesUserScoped && companies.length > 0) {
+        // Cloud has no companies for this user yet, so push our local companies immediately
+        companies.forEach((comp) => {
+          asyncSyncCompany(comp);
+        });
+      }
+
       if (res.data.products && res.data.products.length > 0) setProducts(res.data.products);
       if (res.data.customers && res.data.customers.length > 0) setCustomers(res.data.customers);
       if (res.data.sales && res.data.sales.length > 0) setSales(res.data.sales);
@@ -665,11 +693,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (res.data.users && res.data.users.length > 0) setUsers(res.data.users);
       if (res.data.giftVouchers && res.data.giftVouchers.length > 0) setGiftVouchers(res.data.giftVouchers);
       if (res.data.loyaltyConfig) setLoyaltyConfig(res.data.loyaltyConfig);
+      if (res.data.promotions && res.data.promotions.length > 0) setPromotions(res.data.promotions);
+
       if (res.data.settings) {
-        if (res.data.settings.storeUpiId) setStoreUpiId(res.data.settings.storeUpiId);
-        if (res.data.settings.storeUpiName) setStoreUpiName(res.data.settings.storeUpiName);
-        if (res.data.settings.codePrintType) setCodePrintType(res.data.settings.codePrintType);
-        if (res.data.settings.qrPrintSize) setQrPrintSize(res.data.settings.qrPrintSize);
+        const s = res.data.settings;
+        if (s.storeUpiId !== undefined) setStoreUpiId(s.storeUpiId);
+        if (s.storeUpiName !== undefined) setStoreUpiName(s.storeUpiName);
+        if (s.codePrintType !== undefined) setCodePrintType(s.codePrintType);
+        if (s.qrPrintSize !== undefined) setQrPrintSize(s.qrPrintSize);
+        if (s.autoLockMinutes !== undefined) setAutoLockMinutes(s.autoLockMinutes);
+        if (s.globalLowStockThreshold !== undefined) setGlobalLowStockThreshold(s.globalLowStockThreshold);
+        if (s.storeGoogleReviewUrl !== undefined) setStoreGoogleReviewUrl(s.storeGoogleReviewUrl);
+        if (s.googleReviewPromptText !== undefined) setGoogleReviewPromptText(s.googleReviewPromptText);
+        if (s.enableReceiptReviewQr !== undefined) setEnableReceiptReviewQr(s.enableReceiptReviewQr);
+        if (s.enableEReceiptQr !== undefined) setEnableEReceiptQr(s.enableEReceiptQr);
+        if (s.soundEnabled !== undefined) setSoundEnabled(s.soundEnabled);
+        if (s.activeCompanyId !== undefined) setActiveCompanyId(s.activeCompanyId);
       }
       setLastSupabaseSync(new Date().toISOString());
       setCloudSyncState('synced');
@@ -1080,20 +1119,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `promo_${Date.now()}`,
     };
     setPromotions((prev) => [newPromo, ...prev]);
+    if (isSupabaseAutoSync) asyncSyncPromotion(newPromo);
     return newPromo;
   };
 
   const updatePromotion = (promo: PromotionRule) => {
     setPromotions((prev) => prev.map((p) => (p.id === promo.id ? promo : p)));
+    if (isSupabaseAutoSync) asyncSyncPromotion(promo);
   };
 
   const deletePromotion = (id: string) => {
     setPromotions((prev) => prev.filter((p) => p.id !== id));
+    if (isSupabaseAutoSync) asyncSyncDeletePromotion(id);
   };
 
   const togglePromotion = (id: string) => {
     setPromotions((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p))
+      prev.map((p) => {
+        if (p.id === id) {
+          const updated = { ...p, isActive: !p.isActive };
+          if (isSupabaseAutoSync) asyncSyncPromotion(updated);
+          return updated;
+        }
+        return p;
+      })
     );
   };
 
@@ -1479,6 +1528,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn(e);
     }
+    if (isSupabaseAutoSync) asyncSyncSetting('storeGoogleReviewUrl', url);
   };
 
   const [googleReviewPromptText, setGoogleReviewPromptTextState] = useState<string>(() => {
@@ -1492,6 +1542,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn(e);
     }
+    if (isSupabaseAutoSync) asyncSyncSetting('googleReviewPromptText', text);
   };
 
   const [enableReceiptReviewQr, setEnableReceiptReviewQrState] = useState<boolean>(() => {
@@ -1505,6 +1556,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn(e);
     }
+    if (isSupabaseAutoSync) asyncSyncSetting('enableReceiptReviewQr', enable);
   };
 
   const [enableEReceiptQr, setEnableEReceiptQrState] = useState<boolean>(() => {
@@ -1518,6 +1570,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn(e);
     }
+    if (isSupabaseAutoSync) asyncSyncSetting('enableEReceiptQr', enable);
   };
 
   const startNextSale = () => {
@@ -1650,12 +1703,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Companies
   const updateCompany = (updated: Company) => {
     setCompanies((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    if (isSupabaseAutoSync) asyncSyncCompany(updated);
   };
 
   const addCompany = (newComp: Omit<Company, 'id'>) => {
     const id = `comp_${Date.now()}`;
     const fullCompany: Company = { ...newComp, id };
     setCompanies((prev) => [...prev, fullCompany]);
+    if (isSupabaseAutoSync) asyncSyncCompany(fullCompany);
   };
 
   // Products
@@ -3127,13 +3182,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
   };
 
+  const handleSetActiveCompanyId = (id: string) => {
+    setActiveCompanyId(id);
+    if (isSupabaseAutoSync) asyncSyncSetting('activeCompanyId', id);
+  };
+
+  const handleSetSoundEnabled = (val: boolean) => {
+    setSoundEnabled(val);
+    if (isSupabaseAutoSync) asyncSyncSetting('soundEnabled', val);
+  };
+
+  const handleUpdateLoyaltyConfig = (config: LoyaltyConfig) => {
+    setLoyaltyConfig(config);
+    if (isSupabaseAutoSync) asyncSyncSetting('loyalty_config', config);
+  };
+
   return (
     <AppContext.Provider
       value={{
         companies,
         activeCompanyId,
         activeCompany,
-        setActiveCompanyId,
+        setActiveCompanyId: handleSetActiveCompanyId,
         updateCompany,
         addCompany,
         products,
@@ -3188,7 +3258,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSelectedAssociate,
         salesAssociates: SALES_ASSOCIATES,
         soundEnabled,
-        setSoundEnabled,
+        setSoundEnabled: handleSetSoundEnabled,
         checkoutSale,
         sales,
         activeReceipt,
@@ -3217,7 +3287,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteParkedCart,
         clearAllParkedCarts,
         loyaltyConfig,
-        updateLoyaltyConfig: setLoyaltyConfig,
+        updateLoyaltyConfig: handleUpdateLoyaltyConfig,
         // Authentication & RBAC
         users,
         currentUser,

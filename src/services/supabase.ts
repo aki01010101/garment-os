@@ -15,6 +15,7 @@ import {
   LoyaltyConfig,
   GiftVoucher,
   GarmentMeasurementProfile,
+  PromotionRule,
 } from '../types';
 
 export const SUPABASE_STORAGE_KEYS = {
@@ -293,6 +294,9 @@ export function mapCompanyToDb(c: Company, userId?: string) {
     tagline: c.tagline,
     is_default: c.isDefault || false,
     enable_dynamic_garment_gst: c.enableDynamicGarmentGst ?? true,
+    tax_inclusive: c.taxInclusive ?? true,
+    is_composition_scheme: c.isCompositionScheme ?? false,
+    google_review_url: c.googleReviewUrl || null,
     updated_at: new Date().toISOString(),
     ...(userId ? { user_id: userId } : {}),
   };
@@ -316,6 +320,9 @@ export function mapCompanyFromDb(row: any): Company {
     tagline: row.tagline || '',
     isDefault: row.is_default || false,
     enableDynamicGarmentGst: row.enable_dynamic_garment_gst ?? true,
+    taxInclusive: row.tax_inclusive ?? true,
+    isCompositionScheme: row.is_composition_scheme ?? false,
+    googleReviewUrl: row.google_review_url || '',
   };
 }
 
@@ -797,6 +804,45 @@ export function mapCustomerMeasurementFromDb(row: any): GarmentMeasurementProfil
   };
 }
 
+// 14. PROMOTIONS & DEALS
+export function mapPromotionToDb(pr: PromotionRule, userId?: string) {
+  return {
+    id: pr.id,
+    title: pr.title,
+    code: pr.code || null,
+    type: pr.type,
+    is_active: pr.isActive,
+    applicable_category: pr.applicableCategory || null,
+    min_quantity: pr.minQuantity || null,
+    free_quantity: pr.freeQuantity || null,
+    bundle_price: pr.bundlePrice || null,
+    min_cart_amount: pr.minCartAmount || null,
+    slab_discount_amount: pr.slabDiscountAmount || null,
+    slab_discount_percent: pr.slabDiscountPercent || null,
+    description: pr.description || null,
+    updated_at: new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
+  };
+}
+
+export function mapPromotionFromDb(row: any): PromotionRule {
+  return {
+    id: row.id,
+    title: row.title,
+    code: row.code || undefined,
+    type: row.type,
+    isActive: row.is_active ?? true,
+    applicableCategory: row.applicable_category || undefined,
+    minQuantity: row.min_quantity ? Number(row.min_quantity) : undefined,
+    freeQuantity: row.free_quantity ? Number(row.free_quantity) : undefined,
+    bundlePrice: row.bundle_price ? Number(row.bundle_price) : undefined,
+    minCartAmount: row.min_cart_amount ? Number(row.min_cart_amount) : undefined,
+    slabDiscountAmount: row.slab_discount_amount ? Number(row.slab_discount_amount) : undefined,
+    slabDiscountPercent: row.slab_discount_percent ? Number(row.slab_discount_percent) : undefined,
+    description: row.description || '',
+  };
+}
+
 // -----------------------------------------------------------------------------
 // COMPREHENSIVE PUSH ALL TO SUPABASE (COVERS EVERY SINGLE PAGE)
 // -----------------------------------------------------------------------------
@@ -817,6 +863,7 @@ export async function pushAllToSupabase(payload: {
   loyaltyConfig?: LoyaltyConfig;
   settings?: Record<string, any>;
   giftVouchers?: GiftVoucher[];
+  promotions?: PromotionRule[];
 }, explicitUserId?: string): Promise<{ success: boolean; message: string; stats?: any }> {
   const supabase = getSupabase();
   if (!supabase) {
@@ -951,6 +998,15 @@ export async function pushAllToSupabase(payload: {
       }
     }
 
+    // 15. Promotions & Offers Engine
+    if (payload.promotions && payload.promotions.length > 0) {
+      try {
+        await supabase.from('promotions').upsert(payload.promotions.map((p) => mapPromotionToDb(p, userId)));
+      } catch (err) {
+        console.warn('Promotions push warning:', err);
+      }
+    }
+
     const now = new Date().toISOString();
     try {
       localStorage.setItem(SUPABASE_STORAGE_KEYS.LAST_SYNC, now);
@@ -985,6 +1041,7 @@ export async function pullAllFromSupabase(): Promise<{
   message: string;
   data?: {
     companies?: Company[];
+    companiesUserScoped?: boolean;
     products?: Product[];
     customers?: Customer[];
     sales?: SaleTransaction[];
@@ -999,6 +1056,7 @@ export async function pullAllFromSupabase(): Promise<{
     loyaltyConfig?: LoyaltyConfig;
     settings?: Record<string, any>;
     giftVouchers?: GiftVoucher[];
+    promotions?: PromotionRule[];
   };
 }> {
   const supabase = getSupabase();
@@ -1007,6 +1065,9 @@ export async function pullAllFromSupabase(): Promise<{
   }
 
   try {
+    const user = await getCloudUser();
+    const userId = user?.id;
+
     const [
       companiesRes,
       productsRes,
@@ -1020,6 +1081,7 @@ export async function pullAllFromSupabase(): Promise<{
       dayRegRes,
       settingsRes,
       giftVouchersRes,
+      promotionsRes,
     ] = await Promise.all([
       supabase.from('companies').select('*'),
       supabase.from('products').select('*'),
@@ -1033,39 +1095,93 @@ export async function pullAllFromSupabase(): Promise<{
       supabase.from('day_registers').select('*').order('date', { ascending: false }).limit(1),
       supabase.from('app_settings').select('*'),
       supabase.from('gift_vouchers').select('*'),
+      supabase.from('promotions').select('*'),
     ]);
 
-    // Parse App Settings
+    // Helper: When logged in, strictly prioritize rows that belong to this user (user_id === userId)
+    const filterByUser = (rows: any[] | null) => {
+      if (!rows || rows.length === 0) return [];
+      if (userId) {
+        // Authenticated user: ONLY take records that belong to this user
+        return rows.filter((r) => r.user_id === userId);
+      }
+      return rows.filter((r) => !r.user_id);
+    };
+
+    const hasUserScopedCompanies = Boolean(
+      userId && companiesRes.data && companiesRes.data.some((r: any) => r.user_id === userId)
+    );
+
+    // Parse App Settings prioritizing authenticated user's records
     let usersFromDb: UserAccount[] | undefined;
     let couponsFromDb: CouponCode[] | undefined;
     let loyaltyFromDb: LoyaltyConfig | undefined;
     let terminalSettings: Record<string, any> | undefined;
 
-    if (settingsRes.data) {
-      settingsRes.data.forEach((row: any) => {
+    if (settingsRes.data && settingsRes.data.length > 0) {
+      const userSettings = userId ? settingsRes.data.filter((r: any) => r.user_id === userId) : [];
+      const unclaimedSettings = settingsRes.data.filter((r: any) => !r.user_id);
+      // Merge unclaimed first, then user's specific settings overwrite
+      const mergedList = [...unclaimedSettings, ...userSettings];
+
+      mergedList.forEach((row: any) => {
         if (row.key === 'staff_users') usersFromDb = row.value;
         if (row.key === 'coupons') couponsFromDb = row.value;
         if (row.key === 'loyalty_config') loyaltyFromDb = row.value;
-        if (row.key === 'terminal_settings') terminalSettings = row.value;
+        if (row.key === 'terminal_settings') {
+          terminalSettings = { ...(terminalSettings || {}), ...(row.value || {}) };
+        } else if (
+          [
+            'storeUpiId',
+            'storeUpiName',
+            'codePrintType',
+            'qrPrintSize',
+            'autoLockMinutes',
+            'globalLowStockThreshold',
+            'soundEnabled',
+            'activeCompanyId',
+            'storeGoogleReviewUrl',
+            'googleReviewPromptText',
+            'enableReceiptReviewQr',
+            'enableEReceiptQr',
+          ].includes(row.key)
+        ) {
+          if (!terminalSettings) terminalSettings = {};
+          terminalSettings[row.key] = row.value;
+        }
       });
     }
 
+    const filteredCompanies = filterByUser(companiesRes.data);
+    const filteredProducts = filterByUser(productsRes.data);
+    const filteredCustomers = filterByUser(customersRes.data);
+    const filteredSales = filterByUser(salesRes.data);
+    const filteredVendors = filterByUser(vendorsRes.data);
+    const filteredPurchases = filterByUser(purchasesRes.data);
+    const filteredPayments = filterByUser(paymentsRes.data);
+    const filteredAlterations = filterByUser(alterationsRes.data);
+    const filteredCreditNotes = filterByUser(creditNotesRes.data);
+    const filteredGiftVouchers = filterByUser(giftVouchersRes.data);
+    const filteredPromotions = filterByUser(promotionsRes.data);
+
     const result = {
-      companies: companiesRes.data && companiesRes.data.length > 0 ? companiesRes.data.map(mapCompanyFromDb) : undefined,
-      products: productsRes.data && productsRes.data.length > 0 ? productsRes.data.map(mapProductFromDb) : undefined,
-      customers: customersRes.data && customersRes.data.length > 0 ? customersRes.data.map(mapCustomerFromDb) : undefined,
-      sales: salesRes.data && salesRes.data.length > 0 ? salesRes.data.map(mapSaleFromDb) : undefined,
-      vendors: vendorsRes.data && vendorsRes.data.length > 0 ? vendorsRes.data.map(mapVendorFromDb) : undefined,
-      purchases: purchasesRes.data && purchasesRes.data.length > 0 ? purchasesRes.data.map(mapPurchaseFromDb) : undefined,
-      vendorPayments: paymentsRes.data && paymentsRes.data.length > 0 ? paymentsRes.data.map(mapVendorPaymentFromDb) : undefined,
-      alterations: alterationsRes.data && alterationsRes.data.length > 0 ? alterationsRes.data.map(mapAlterationFromDb) : undefined,
-      creditNotes: creditNotesRes.data && creditNotesRes.data.length > 0 ? creditNotesRes.data.map(mapCreditNoteFromDb) : undefined,
-      dayRegister: dayRegRes.data && dayRegRes.data.length > 0 ? mapDayRegisterFromDb(dayRegRes.data[0]) : undefined,
+      companies: filteredCompanies.length > 0 ? filteredCompanies.map(mapCompanyFromDb) : undefined,
+      companiesUserScoped: hasUserScopedCompanies,
+      products: filteredProducts.length > 0 ? filteredProducts.map(mapProductFromDb) : undefined,
+      customers: filteredCustomers.length > 0 ? filteredCustomers.map(mapCustomerFromDb) : undefined,
+      sales: filteredSales.length > 0 ? filteredSales.map(mapSaleFromDb) : undefined,
+      vendors: filteredVendors.length > 0 ? filteredVendors.map(mapVendorFromDb) : undefined,
+      purchases: filteredPurchases.length > 0 ? filteredPurchases.map(mapPurchaseFromDb) : undefined,
+      vendorPayments: filteredPayments.length > 0 ? filteredPayments.map(mapVendorPaymentFromDb) : undefined,
+      alterations: filteredAlterations.length > 0 ? filteredAlterations.map(mapAlterationFromDb) : undefined,
+      creditNotes: filteredCreditNotes.length > 0 ? filteredCreditNotes.map(mapCreditNoteFromDb) : undefined,
+      dayRegister: dayRegRes.data && dayRegRes.data.length > 0 ? mapDayRegisterFromDb(filterByUser(dayRegRes.data)[0] || dayRegRes.data[0]) : undefined,
       users: usersFromDb,
       coupons: couponsFromDb,
       loyaltyConfig: loyaltyFromDb,
       settings: terminalSettings,
-      giftVouchers: giftVouchersRes && giftVouchersRes.data && giftVouchersRes.data.length > 0 ? giftVouchersRes.data.map(mapGiftVoucherFromDb) : undefined,
+      giftVouchers: filteredGiftVouchers.length > 0 ? filteredGiftVouchers.map(mapGiftVoucherFromDb) : undefined,
+      promotions: filteredPromotions.length > 0 ? filteredPromotions.map(mapPromotionFromDb) : undefined,
     };
 
     const now = new Date().toISOString();
@@ -1087,6 +1203,17 @@ export async function pullAllFromSupabase(): Promise<{
 // -----------------------------------------------------------------------------
 // REAL-TIME BACKGROUND SYNC HELPERS (FOR IMMEDIATE PAGE ACTIONS)
 // -----------------------------------------------------------------------------
+
+export async function asyncSyncCompany(company: Company) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const user = await getCloudUser();
+    await supabase.from('companies').upsert(mapCompanyToDb(company, user?.id));
+  } catch (err) {
+    console.warn('Background Supabase company sync network error:', err);
+  }
+}
 
 export async function asyncSyncSale(sale: SaleTransaction) {
   try {
@@ -1211,5 +1338,29 @@ export async function asyncSyncCustomerMeasurement(measurement: GarmentMeasureme
     await supabase.from('customer_measurements').upsert(mapCustomerMeasurementToDb(measurement, user?.id));
   } catch (err) {
     console.warn('Background Supabase measurement sync error:', err);
+  }
+}
+
+export async function asyncSyncPromotion(promo: PromotionRule) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const user = await getCloudUser();
+    await supabase.from('promotions').upsert(mapPromotionToDb(promo, user?.id));
+  } catch (err) {
+    console.warn('Background Supabase promotion sync error:', err);
+  }
+}
+
+export async function asyncSyncDeletePromotion(promoId: string) {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const user = await getCloudUser();
+    let query = supabase.from('promotions').delete().eq('id', promoId);
+    if (user?.id) query = query.eq('user_id', user.id);
+    await query;
+  } catch (err) {
+    console.warn('Background Supabase promotion delete error:', err);
   }
 }

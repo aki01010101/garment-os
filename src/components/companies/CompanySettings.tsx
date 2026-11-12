@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Company, CompanyType } from '../../types';
+import { asyncSyncCompany } from '../../services/supabase';
 import {
   Building2,
   Plus,
@@ -21,6 +22,8 @@ import {
   HelpCircle,
   Save,
   CheckCircle2,
+  Cloud,
+  UploadCloud,
 } from 'lucide-react';
 
 const ACCENT_COLOR_PRESETS = [
@@ -41,10 +44,21 @@ const RETURN_POLICY_PRESETS = [
 ];
 
 export const CompanySettings: React.FC = () => {
-  const { companies, updateCompany, addCompany, activeCompanyId, setActiveCompanyId } = useApp();
+  const {
+    companies,
+    updateCompany,
+    addCompany,
+    activeCompanyId,
+    setActiveCompanyId,
+    cloudUser,
+    migrateLocalDataToCloud,
+    cloudSyncState,
+  } = useApp();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   const [formData, setFormData] = useState<Omit<Company, 'id'>>({
     name: '',
@@ -107,34 +121,76 @@ export const CompanySettings: React.FC = () => {
     if (!formData.name.trim() || !formData.invoicePrefix.trim()) return;
 
     if (editingCompany) {
-      updateCompany({ ...formData, id: editingCompany.id });
+      const updated = { ...formData, id: editingCompany.id };
+      updateCompany(updated);
+      asyncSyncCompany(updated);
     } else {
       addCompany(formData);
     }
+    setToastMessage('Billing entity saved and synced to your cloud account!');
+    setTimeout(() => setToastMessage(null), 3500);
     setIsModalOpen(false);
   };
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center justify-between shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{toastMessage}</span>
+          </div>
+          <button onClick={() => setToastMessage(null)} className="text-emerald-500 hover:text-emerald-700">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <Building2 className="w-5 h-5 text-indigo-600" />
             Multi-Company Entity Management
+            {cloudUser && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <Cloud className="w-3 h-3 text-emerald-600" />
+                Cloud Synced
+              </span>
+            )}
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             Configure independent billing profiles with segregated tax IDs, invoice prefix sequences, and receipt policies.
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAdd}
-          className="px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Business Entity</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {cloudUser && (
+            <button
+              onClick={async () => {
+                setIsSyncing(true);
+                const res = await migrateLocalDataToCloud();
+                setIsSyncing(false);
+                setToastMessage(res.success ? 'All billing entities & store records synced to cloud!' : res.message);
+                setTimeout(() => setToastMessage(null), 3500);
+              }}
+              disabled={isSyncing}
+              className="px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg flex items-center gap-1.5 border border-indigo-200 shadow-xs transition-colors cursor-pointer"
+            >
+              <UploadCloud className={`w-3.5 h-3.5 ${isSyncing ? 'animate-pulse' : ''}`} />
+              <span>{isSyncing ? 'Syncing...' : 'Sync Entities to Cloud'}</span>
+            </button>
+          )}
+
+          <button
+            onClick={handleOpenAdd}
+            className="px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Business Entity</span>
+          </button>
+        </div>
       </div>
 
       {/* Companies Grid */}
