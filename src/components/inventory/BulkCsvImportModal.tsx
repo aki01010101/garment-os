@@ -15,7 +15,16 @@ import {
   Info,
   Layers,
   ArrowRight,
+  Settings2,
+  Edit2,
+  RotateCcw,
+  Sliders,
 } from 'lucide-react';
+import {
+  autofillRow,
+  AutofillConfig,
+  DEFAULT_AUTOFILL_CONFIG,
+} from '../../utils/csvAutofill';
 
 export interface BulkCsvImportModalProps {
   isOpen: boolean;
@@ -130,6 +139,17 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
   const [activeTab, setActiveTab] = useState<'paste' | 'file'>('paste');
   const [pastedText, setPastedText] = useState('');
   const [fileError, setFileError] = useState<string | null>(null);
+
+  // Smart Autofill Engine State
+  const [enableAutofill, setEnableAutofill] = useState<boolean>(true);
+  const [showAutofillSettings, setShowAutofillSettings] = useState<boolean>(false);
+  const [autofillConfig, setAutofillConfig] = useState<AutofillConfig>({ ...DEFAULT_AUTOFILL_CONFIG });
+
+  // Inline Row Edits State
+  const [editedRows, setEditedRows] = useState<Record<number, BulkCsvImportRow>>({});
+  const [editingRowIdx, setEditingRowIdx] = useState<number | null>(null);
+  const [editFormData, setEditFormData] = useState<BulkCsvImportRow>({});
+
   const [importResult, setImportResult] = useState<{
     updatedCount: number;
     createdCount?: number;
@@ -139,7 +159,7 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Generate Sample CSV with comprehensive columns
+  // Standard Template CSV
   const sampleCsvContent = useMemo(() => {
     const header =
       'SKU,Barcode,Garment Name,Category,Sub-Category,Size,Color,Stock,SellingPrice,CostPrice,TaxRate,Season,Rack';
@@ -157,7 +177,6 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
       });
     }
 
-    // Include demonstration new garments to showcase flexible optional columns
     sampleRows.push(
       `"VT-WKT-301-M","890100998811","Embroidered Silk Festive Anarkali","Women","Kurtis","M","Wine Maroon",20,2999,1200,5,"Festive / Autumn","Rack B-2"`
     );
@@ -168,7 +187,22 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
     return [header, ...sampleRows].join('\n');
   }, [products]);
 
-  // Handle template download
+  // Realistic Incomplete CSV Sample (e.g. raw vendor sheet with missing SKUs, barcodes, sizes, costs)
+  const incompleteCsvContent = useMemo(() => {
+    const header = 'Garment Name,SellingPrice,Stock';
+    const sampleRows = [
+      '"Men Premium Linen Slim-Fit Casual Shirt - Sky Blue - 42",1899,15',
+      '"Women Embroidered Silk Anarkali Kurti Maroon L",2999,8',
+      '"Boys Cotton Graphic Crew Neck T-Shirt Yellow 6-7Y",699,20',
+      '"Pure Leather Formal Reversible Belt Brown Free Size",899,25',
+      '"Slim Fit Stretch Denim Jeans 32",1599,18',
+      '"Floral Chiffon Summer Saree Pink",2499,12',
+      '"Winter Woolen Knit Pullover Sweater Navy Blue XL",2199,10',
+      '"Solid Regular Fit Chino Trousers Beige 34",1699,',
+    ];
+    return [header, ...sampleRows].join('\n');
+  }, []);
+
   const handleDownloadTemplate = () => {
     const blob = new Blob([sampleCsvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -182,7 +216,15 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
 
   const handleLoadSample = () => {
     setPastedText(sampleCsvContent);
+    setEditedRows({});
     setImportResult(null);
+  };
+
+  const handleLoadIncompleteSample = () => {
+    setPastedText(incompleteCsvContent);
+    setEditedRows({});
+    setImportResult(null);
+    setEnableAutofill(true);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,6 +238,7 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
       if (content) {
         setPastedText(content);
         setActiveTab('paste');
+        setEditedRows({});
         setImportResult(null);
       }
     };
@@ -223,23 +266,29 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
 
     const dataLines = hasHeaderRow ? lines.slice(1) : lines;
 
+    const existingSkusInBatch = new Set(products.map((p) => p.sku.toLowerCase()));
+    const existingBarcodesInBatch = new Set(products.map((p) => p.barcode));
+
     const results: Array<{
+      idx: number;
       status: 'update' | 'new' | 'skipped';
       row: BulkCsvImportRow;
       matchedProduct: Product | null;
+      autofilledFields: string[];
+      notes: string[];
       note?: string;
     }> = [];
 
-    dataLines.forEach((line) => {
+    dataLines.forEach((line, idx) => {
       const cells = parseCsvLine(line);
       if (cells.length === 0 || cells.every((c) => !c.trim())) return; // ignore completely blank rows
 
-      const rowData: BulkCsvImportRow = {};
+      let rowData: BulkCsvImportRow = {};
 
       if (hasHeaderRow) {
         // Map according to matched headers
-        cells.forEach((val, idx) => {
-          const field = detectedFieldMap[idx];
+        cells.forEach((val, cellIdx) => {
+          const field = detectedFieldMap[cellIdx];
           if (!field) return;
 
           switch (field) {
@@ -297,8 +346,7 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
           }
         });
       } else {
-        // Fallback positional mapping if no headers detected:
-        // [0: SKU/Identifier, 1: Barcode/Stock, 2: Stock/Price, 3: SellingPrice, 4: CostPrice]
+        // Fallback positional mapping if no headers detected
         const firstCol = cells[0] || '';
         const secondCol = cells[1] || '';
         const thirdCol = cells[2] || '';
@@ -326,6 +374,11 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
         }
       }
 
+      // Merge user manual edits for this row if present
+      if (editedRows[idx]) {
+        rowData = { ...rowData, ...editedRows[idx] };
+      }
+
       // Check matching against existing products
       const skuQ = (rowData.sku || '').trim().toLowerCase();
       const barcodeQ = (rowData.barcode || '').trim().toLowerCase();
@@ -351,36 +404,104 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
       }
 
       if (matched) {
+        if (rowData.sku) existingSkusInBatch.add(rowData.sku.toLowerCase());
+        if (rowData.barcode) existingBarcodesInBatch.add(rowData.barcode);
+
         results.push({
+          idx,
           status: 'update',
           row: rowData,
           matchedProduct: matched,
+          autofilledFields: [],
+          notes: [],
           note: `Updates "${matched.name}" (${matched.sku})`,
         });
-      } else if (nameQ || skuQ || barcodeQ) {
-        results.push({
-          status: 'new',
-          row: rowData,
-          matchedProduct: null,
-          note: 'New garment will be added to catalog',
-        });
       } else {
-        results.push({
-          status: 'skipped',
-          row: rowData,
-          matchedProduct: null,
-          note: 'Skipped: missing garment name, SKU, or barcode',
-        });
+        const hasAnyData = Boolean(
+          nameQ || skuQ || barcodeQ || rowData.category || rowData.sellingPrice
+        );
+
+        if (hasAnyData && enableAutofill) {
+          const autofillRes = autofillRow(
+            rowData,
+            products,
+            existingSkusInBatch,
+            existingBarcodesInBatch,
+            autofillConfig
+          );
+
+          results.push({
+            idx,
+            status: 'new',
+            row: autofillRes.row,
+            matchedProduct: null,
+            autofilledFields: autofillRes.autofilledFields,
+            notes: autofillRes.notes,
+            note:
+              autofillRes.autofilledFields.length > 0
+                ? `Autofilled: ${autofillRes.autofilledFields.join(', ')}`
+                : 'New garment will be added to catalog',
+          });
+        } else if (nameQ || skuQ || barcodeQ) {
+          results.push({
+            idx,
+            status: 'new',
+            row: rowData,
+            matchedProduct: null,
+            autofilledFields: [],
+            notes: [],
+            note: 'New garment will be added to catalog',
+          });
+        } else {
+          results.push({
+            idx,
+            status: 'skipped',
+            row: rowData,
+            matchedProduct: null,
+            autofilledFields: [],
+            notes: [],
+            note: 'Skipped: missing garment name, SKU, or barcode',
+          });
+        }
       }
     });
 
     return results;
-  }, [pastedText, products]);
+  }, [pastedText, products, enableAutofill, autofillConfig, editedRows]);
 
   const updateRows = parsedRows.filter((r) => r.status === 'update');
   const newRows = parsedRows.filter((r) => r.status === 'new');
   const skippedRows = parsedRows.filter((r) => r.status === 'skipped');
   const actionableCount = updateRows.length + newRows.length;
+
+  // Handle single row edit
+  const handleStartEdit = (idx: number, currentRow: BulkCsvImportRow) => {
+    setEditingRowIdx(idx);
+    setEditFormData({ ...currentRow });
+  };
+
+  const handleSaveEdit = () => {
+    if (editingRowIdx !== null) {
+      setEditedRows((prev) => ({
+        ...prev,
+        [editingRowIdx]: { ...editFormData },
+      }));
+      setEditingRowIdx(null);
+    }
+  };
+
+  const handleResetRowToAuto = (idx: number) => {
+    setEditedRows((prev) => {
+      const copy = { ...prev };
+      delete copy[idx];
+      return copy;
+    });
+    setEditingRowIdx(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRowIdx(null);
+  };
 
   const handleCommitImport = () => {
     const validRowsToImport: BulkCsvImportRow[] = parsedRows
@@ -413,11 +534,11 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
                   Inventory Bulk Import & Spreadsheet Sync
                 </h3>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                  All Fields Optional
+                  Smart Autofill Ready
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Update stock & prices or add new apparel with Name, Category, Size, Color, Price, Cost, Rack, and more
+                Sync existing inventory or import incomplete supplier spreadsheets with automatic SKU, barcode, and attribute generation
               </p>
             </div>
           </div>
@@ -467,14 +588,22 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleLoadIncompleteSample}
+              className="px-2.5 py-1 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+              title="Loads realistic supplier CSV missing SKUs, barcodes, sizes, and costs to test auto-generation"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+              <span>Load Incomplete Sample (Autofill Demo)</span>
+            </button>
             <button
               type="button"
               onClick={handleLoadSample}
               className="px-2.5 py-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
             >
-              <Sparkles className="w-3 h-3 text-indigo-600" />
-              <span>Load Sample Data</span>
+              <span>Standard Template</span>
             </button>
             <button
               type="button"
@@ -482,47 +611,182 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
               className="px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
             >
               <Download className="w-3 h-3 text-slate-500" />
-              <span>Download CSV Template</span>
+              <span>Download Template</span>
             </button>
           </div>
         </div>
 
         {/* Content Area */}
         <div className="p-5 overflow-y-auto space-y-3.5 flex-1">
-          {/* Supported Columns Guide Banner */}
-          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
-              <Info className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-              <span>Supported Columns (Any Order &bull; All Fields Optional):</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-1 text-[11px]">
-              {[
-                'Garment Name',
-                'Category',
-                'Sub-Category',
-                'Size',
-                'Color',
-                'Stock',
-                'SellingPrice / Rate',
-                'CostPrice',
-                'SKU',
-                'Barcode',
-                'TaxRate (%)',
-                'Season',
-                'Rack / Location',
-                'Brand',
-              ].map((col) => (
-                <span
-                  key={col}
-                  className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 font-mono text-[10px]"
+          {/* Smart Autofill Banner & Quick Switch */}
+          <div className="p-3 bg-gradient-to-r from-purple-50 via-indigo-50/70 to-emerald-50/50 border border-indigo-100/90 rounded-xl space-y-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-900">
+                      Smart Catalog Autofill Engine
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        enableAutofill
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : 'bg-slate-200 text-slate-700 border-slate-300'
+                      }`}
+                    >
+                      {enableAutofill ? '✨ ON (Extracting & Generating)' : 'OFF (Raw Only)'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600">
+                    Extracts garment size, color, and category from name. Generates structured SKUs, retail EAN-12 barcodes, estimated cost prices (50% margin), and default stock.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEnableAutofill(!enableAutofill)}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    enableAutofill
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs hover:bg-indigo-700'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                  }`}
                 >
-                  {col}
-                </span>
-              ))}
+                  <Sparkles className="w-3 h-3" />
+                  <span>{enableAutofill ? 'Autofill Active' : 'Enable Autofill'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAutofillSettings(!showAutofillSettings)}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    showAutofillSettings
+                      ? 'bg-slate-800 text-white border-slate-800'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                  }`}
+                  title="Configure SKU prefix, opening stock, and cost margin defaults"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>Settings</span>
+                </button>
+              </div>
             </div>
-            <p className="text-[11px] text-slate-500">
-              Omitted columns or blank cells leave existing catalog properties intact. New garments with a name or code are automatically created.
-            </p>
+
+            {/* Expandable Autofill Settings Drawer */}
+            {showAutofillSettings && (
+              <div className="mt-2 pt-2.5 border-t border-indigo-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 text-xs animate-in fade-in duration-150">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                    SKU Prefix
+                  </label>
+                  <input
+                    type="text"
+                    value={autofillConfig.skuPrefix || 'GOS'}
+                    onChange={(e) =>
+                      setAutofillConfig({ ...autofillConfig, skuPrefix: e.target.value.toUpperCase().trim() })
+                    }
+                    placeholder="GOS"
+                    className="w-full px-2 py-1 text-xs bg-white border border-slate-200 rounded font-mono font-bold uppercase focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <span className="text-[10px] text-slate-500 block">e.g. GOS, VT, ZRA</span>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                    Default Opening Stock
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={autofillConfig.defaultStock ?? 10}
+                    onChange={(e) =>
+                      setAutofillConfig({
+                        ...autofillConfig,
+                        defaultStock: Math.max(0, parseInt(e.target.value) || 0),
+                      })
+                    }
+                    className="w-full px-2 py-1 text-xs bg-white border border-slate-200 rounded font-mono focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <span className="text-[10px] text-slate-500 block">Pcs if missing in CSV</span>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                    Cost Margin (% of SP)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    value={autofillConfig.targetCostMarginPercent ?? 50}
+                    onChange={(e) =>
+                      setAutofillConfig({
+                        ...autofillConfig,
+                        targetCostMarginPercent: Math.min(99, Math.max(1, parseInt(e.target.value) || 50)),
+                      })
+                    }
+                    className="w-full px-2 py-1 text-xs bg-white border border-slate-200 rounded font-mono focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <span className="text-[10px] text-slate-500 block">Default: 50% (₹2000 SP → ₹1000 CP)</span>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                    Markup Ratio (CP → SP)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min={1}
+                    max={10}
+                    value={autofillConfig.targetMarkupRatio ?? 2.0}
+                    onChange={(e) =>
+                      setAutofillConfig({
+                        ...autofillConfig,
+                        targetMarkupRatio: Math.max(1, parseFloat(e.target.value) || 2.0),
+                      })
+                    }
+                    className="w-full px-2 py-1 text-xs bg-white border border-slate-200 rounded font-mono focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <span className="text-[10px] text-slate-500 block">Default: 2.0x (₹500 CP → ₹999 SP)</span>
+                </div>
+
+                <div className="space-y-1 flex flex-col justify-between">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                      Default Department
+                    </label>
+                    <select
+                      value={autofillConfig.defaultCategory || 'Men'}
+                      onChange={(e) =>
+                        setAutofillConfig({
+                          ...autofillConfig,
+                          defaultCategory: e.target.value as ClothingCategory,
+                        })
+                      }
+                      className="w-full px-2 py-1 text-xs bg-white border border-slate-200 rounded focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="Men">Men</option>
+                      <option value="Women">Women</option>
+                      <option value="Kids">Kids</option>
+                      <option value="Accessories">Accessories</option>
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAutofillConfig({ ...DEFAULT_AUTOFILL_CONFIG })}
+                    className="text-[10px] text-indigo-700 hover:text-indigo-900 font-semibold flex items-center gap-1 cursor-pointer pt-1"
+                  >
+                    <RotateCcw className="w-2.5 h-2.5" />
+                    <span>Reset Defaults</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {fileError && (
@@ -558,10 +822,10 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-800">
-                Paste CSV or Tabular Data (from Excel / Google Sheets):
+                Paste CSV or Tabular Data (from Excel, Google Sheets, or Supplier Invoices):
               </label>
               <span className="text-[11px] text-slate-500">
-                Headers automatically recognized
+                Supports incomplete CSVs: even just Name + Price will autofill!
               </span>
             </div>
             <textarea
@@ -571,7 +835,7 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
                 setImportResult(null);
               }}
               rows={4}
-              placeholder={`SKU,Barcode,Garment Name,Category,Size,Color,Stock,SellingPrice,CostPrice,Rack\nVT-MSH-001,890100100101,Classic Oxford Shirt,Men,M,Sky Blue,25,1599,650,Rack A-1\n,,Embroidered Festive Kurti,Women,L,Maroon,15,2499,950,Rack B-3`}
+              placeholder={`Garment Name,SellingPrice,Stock\nMen Premium Linen Slim-Fit Casual Shirt - Sky Blue - 42,1899,15\nWomen Embroidered Silk Anarkali Kurti Maroon L,2999,8\nBoys Cotton Graphic Crew Neck T-Shirt Yellow 6-7Y,699,20`}
               className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             />
           </div>
@@ -599,11 +863,17 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
                       {skippedRows.length} Skipped
                     </span>
                   )}
+                  {Object.keys(editedRows).length > 0 && (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                      {Object.keys(editedRows).length} Manually Edited
+                    </span>
+                  )}
                 </div>
                 <button
                   type="button"
                   onClick={() => {
                     setPastedText('');
+                    setEditedRows({});
                     setImportResult(null);
                   }}
                   className="text-xs text-slate-500 hover:text-slate-800 cursor-pointer"
@@ -613,23 +883,24 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
               </div>
 
               {/* Preview Table */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+              <div className="border border-slate-200 rounded-xl overflow-hidden max-h-72 overflow-y-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-slate-100 text-[10px] uppercase font-bold text-slate-600 tracking-wider sticky top-0 border-b border-slate-200 z-10">
                     <tr>
-                      <th className="py-2.5 px-3">Action</th>
-                      <th className="py-2.5 px-3">Garment Name</th>
-                      <th className="py-2.5 px-3">Category / Variant</th>
-                      <th className="py-2.5 px-3">SKU / Barcode</th>
-                      <th className="py-2.5 px-3 text-right">Stock</th>
-                      <th className="py-2.5 px-3 text-right">Price (₹)</th>
-                      <th className="py-2.5 px-3 text-right">Cost (₹)</th>
-                      <th className="py-2.5 px-3">Rack / Season</th>
+                      <th className="py-2 px-2.5">Action</th>
+                      <th className="py-2 px-2.5">Garment Name</th>
+                      <th className="py-2 px-2.5">Category / Variant</th>
+                      <th className="py-2 px-2.5">SKU / Barcode</th>
+                      <th className="py-2 px-2.5 text-right">Stock</th>
+                      <th className="py-2 px-2.5 text-right">Price (₹)</th>
+                      <th className="py-2 px-2.5 text-right">Cost (₹)</th>
+                      <th className="py-2 px-2.5">Rack / Season</th>
+                      <th className="py-2 px-2.5 text-center">Edit</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
-                    {parsedRows.map((item, idx) => {
-                      const { status, row, matchedProduct, note } = item;
+                    {parsedRows.map((item) => {
+                      const { idx, status, row, matchedProduct, autofilledFields, note } = item;
                       const displayName = row.name || (matchedProduct ? matchedProduct.name : '—');
                       const displayCategory = row.category || (matchedProduct ? matchedProduct.category : '—');
                       const displaySize = row.size || (matchedProduct ? matchedProduct.size : '—');
@@ -639,18 +910,31 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
                       const displayRack = row.rack || (matchedProduct ? matchedProduct.rack : '—');
                       const displaySeason = row.season || (matchedProduct ? matchedProduct.season : '—');
 
+                      const isSkuAutofilled = autofilledFields.includes('sku');
+                      const isBarcodeAutofilled = autofilledFields.includes('barcode');
+                      const isCategoryAutofilled = autofilledFields.includes('category');
+                      const isSizeAutofilled = autofilledFields.includes('size');
+                      const isColorAutofilled = autofilledFields.includes('color');
+                      const isCostAutofilled = autofilledFields.includes('costPrice');
+                      const isSellingPriceAutofilled = autofilledFields.includes('sellingPrice');
+                      const isStockAutofilled = autofilledFields.includes('stock');
+                      const isRackAutofilled = autofilledFields.includes('rack');
+                      const isManuallyEdited = Boolean(editedRows[idx]);
+
                       return (
                         <tr
                           key={idx}
                           className={
-                            status === 'update'
+                            isManuallyEdited
+                              ? 'bg-amber-50/40 hover:bg-amber-50/70'
+                              : status === 'update'
                               ? 'hover:bg-slate-50'
                               : status === 'new'
                               ? 'bg-blue-50/30 hover:bg-blue-50/60'
                               : 'bg-slate-50/60 text-slate-400'
                           }
                         >
-                          <td className="py-2 px-3 whitespace-nowrap">
+                          <td className="py-2 px-2.5 whitespace-nowrap">
                             {status === 'update' ? (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1 w-fit">
                                 <Check className="w-3 h-3" />
@@ -668,46 +952,102 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
                             )}
                           </td>
 
-                          <td className="py-2 px-3">
-                            <div className="font-semibold text-slate-900 truncate max-w-[200px]" title={displayName}>
+                          <td className="py-2 px-2.5">
+                            <div className="font-semibold text-slate-900 truncate max-w-[210px]" title={displayName}>
                               {displayName}
                             </div>
-                            <div className="text-[10px] text-slate-500">{note}</div>
+                            <div className="text-[10px] text-slate-500 truncate max-w-[210px]" title={note}>
+                              {isManuallyEdited && (
+                                <span className="text-amber-700 font-bold mr-1">✏️ Edited •</span>
+                              )}
+                              {note}
+                            </div>
                           </td>
 
-                          <td className="py-2 px-3 whitespace-nowrap">
-                            <div className="flex items-center gap-1.5 flex-wrap">
+                          <td className="py-2 px-2.5 whitespace-nowrap">
+                            <div className="flex items-center gap-1 flex-wrap">
                               {displayCategory !== '—' && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
-                                  {displayCategory}
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium flex items-center gap-0.5 ${
+                                    isCategoryAutofilled
+                                      ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                      : 'bg-slate-100 text-slate-700'
+                                  }`}
+                                  title={isCategoryAutofilled ? 'Category inferred from garment name' : undefined}
+                                >
+                                  {isCategoryAutofilled && <Sparkles className="w-2.5 h-2.5 text-purple-600" />}
+                                  <span>{displayCategory}</span>
                                 </span>
                               )}
                               {displaySize !== '—' && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">
-                                  {displaySize}
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5 ${
+                                    isSizeAutofilled
+                                      ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                                      : 'bg-indigo-50 text-indigo-700'
+                                  }`}
+                                  title={isSizeAutofilled ? 'Size extracted from garment name' : undefined}
+                                >
+                                  {isSizeAutofilled && <Sparkles className="w-2.5 h-2.5 text-indigo-600" />}
+                                  <span>{displaySize}</span>
                                 </span>
                               )}
                               {displayColor !== '—' && (
-                                <span className="text-[10px] text-slate-600">{displayColor}</span>
+                                <span
+                                  className={`text-[10px] flex items-center gap-0.5 ${
+                                    isColorAutofilled ? 'text-purple-700 font-semibold' : 'text-slate-600'
+                                  }`}
+                                  title={isColorAutofilled ? 'Color extracted from garment name' : undefined}
+                                >
+                                  {isColorAutofilled && <Sparkles className="w-2.5 h-2.5 text-purple-600" />}
+                                  <span>{displayColor}</span>
+                                </span>
                               )}
                             </div>
                           </td>
 
-                          <td className="py-2 px-3 font-mono text-[11px]">
-                            <div className="text-slate-800 font-medium">{displaySku}</div>
+                          <td className="py-2 px-2.5 font-mono text-[11px] whitespace-nowrap">
+                            <div className="flex items-center gap-1">
+                              <span className="text-slate-800 font-medium">{displaySku}</span>
+                              {isSkuAutofilled && (
+                                <span
+                                  className="text-[9px] font-bold px-1 rounded bg-purple-100 text-purple-700 border border-purple-200"
+                                  title="Structured SKU generated from garment category, type, color, and size"
+                                >
+                                  Auto
+                                </span>
+                              )}
+                            </div>
                             {displayBarcode !== '—' && (
-                              <div className="text-[10px] text-slate-400">{displayBarcode}</div>
+                              <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                                <span>{displayBarcode}</span>
+                                {isBarcodeAutofilled && (
+                                  <span
+                                    className="text-[9px] font-semibold text-emerald-600"
+                                    title="Standard 12-digit Indian retail EAN barcode generated"
+                                  >
+                                    EAN
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </td>
 
-                          <td className="py-2 px-3 text-right font-mono whitespace-nowrap">
+                          <td className="py-2 px-2.5 text-right font-mono whitespace-nowrap">
                             {typeof row.stock === 'number' && matchedProduct ? (
                               <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
                                 {matchedProduct.stock} → {row.stock}
                               </span>
                             ) : typeof row.stock === 'number' ? (
-                              <span className="font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-                                {row.stock} pcs
+                              <span
+                                className={`font-bold px-1.5 py-0.5 rounded ${
+                                  isStockAutofilled
+                                    ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                    : 'text-blue-700 bg-blue-50'
+                                }`}
+                                title={isStockAutofilled ? 'Default opening stock applied' : undefined}
+                              >
+                                {row.stock} pcs {isStockAutofilled && '✨'}
                               </span>
                             ) : typeof row.stockDelta === 'number' && matchedProduct ? (
                               <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
@@ -718,23 +1058,39 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
                             )}
                           </td>
 
-                          <td className="py-2 px-3 text-right font-mono whitespace-nowrap">
+                          <td className="py-2 px-2.5 text-right font-mono whitespace-nowrap">
                             {typeof row.sellingPrice === 'number' && matchedProduct ? (
                               <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
                                 ₹{matchedProduct.sellingPrice} → ₹{row.sellingPrice}
                               </span>
                             ) : typeof row.sellingPrice === 'number' ? (
-                              <span className="font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-                                ₹{row.sellingPrice}
+                              <span
+                                className={`font-bold px-1.5 py-0.5 rounded ${
+                                  isSellingPriceAutofilled
+                                    ? 'bg-purple-50 text-purple-800 border border-purple-200'
+                                    : 'text-blue-700 bg-blue-50'
+                                }`}
+                                title={isSellingPriceAutofilled ? 'Price estimated from cost markup' : undefined}
+                              >
+                                ₹{row.sellingPrice} {isSellingPriceAutofilled && '✨'}
                               </span>
                             ) : (
                               <span className="text-slate-400 text-[10px]">No change</span>
                             )}
                           </td>
 
-                          <td className="py-2 px-3 text-right font-mono whitespace-nowrap">
+                          <td className="py-2 px-2.5 text-right font-mono whitespace-nowrap">
                             {typeof row.costPrice === 'number' ? (
-                              <span className="text-slate-700">₹{row.costPrice}</span>
+                              <span
+                                className={`px-1.5 py-0.5 rounded ${
+                                  isCostAutofilled
+                                    ? 'bg-emerald-50 text-emerald-800 font-bold border border-emerald-200'
+                                    : 'text-slate-700'
+                                }`}
+                                title={isCostAutofilled ? 'Cost estimated at 50% of selling price' : undefined}
+                              >
+                                ₹{row.costPrice} {isCostAutofilled && '✨'}
+                              </span>
                             ) : (
                               <span className="text-slate-400 text-[10px]">
                                 {matchedProduct ? `₹${matchedProduct.costPrice}` : '—'}
@@ -742,11 +1098,29 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
                             )}
                           </td>
 
-                          <td className="py-2 px-3 text-[11px] whitespace-nowrap">
-                            <span className="text-slate-700 font-medium">{displayRack}</span>
+                          <td className="py-2 px-2.5 text-[11px] whitespace-nowrap">
+                            <div className="flex items-center gap-1">
+                              <span className="text-slate-700 font-medium">{displayRack}</span>
+                              {isRackAutofilled && (
+                                <span className="text-[9px] text-purple-600" title="Rack auto-assigned from department">
+                                  ✨
+                                </span>
+                              )}
+                            </div>
                             {displaySeason !== '—' && (
                               <span className="text-[10px] text-slate-400 block">{displaySeason}</span>
                             )}
+                          </td>
+
+                          <td className="py-2 px-2.5 text-center whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(idx, row)}
+                              className="p-1 rounded text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                              title="Edit this garment before importing"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
                           </td>
                         </tr>
                       );
@@ -791,6 +1165,192 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Modal: Inline Row Editor */}
+        {editingRowIdx !== null && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">
+                      Edit Preview Row #{editingRowIdx + 1}
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Adjust attributes before importing into store inventory
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs max-h-[60vh] overflow-y-auto px-0.5">
+                <div className="col-span-2 space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700">Garment Name</label>
+                  <input
+                    type="text"
+                    value={editFormData.name || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-medium focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700">SKU Code</label>
+                  <input
+                    type="text"
+                    value={editFormData.sku || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, sku: e.target.value.toUpperCase() })}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-mono focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700">Retail Barcode</label>
+                  <input
+                    type="text"
+                    value={editFormData.barcode || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, barcode: e.target.value })}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-mono focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700">Category</label>
+                  <select
+                    value={editFormData.category || 'Men'}
+                    onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value as ClothingCategory })}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="Men">Men</option>
+                    <option value="Women">Women</option>
+                    <option value="Kids">Kids</option>
+                    <option value="Accessories">Accessories</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700">Sub-Category</label>
+                  <input
+                    type="text"
+                    value={editFormData.subCategory || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, subCategory: e.target.value })}
+                    placeholder="e.g. Shirts, Kurtis, Jeans"
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700">Size</label>
+                  <input
+                    type="text"
+                    value={editFormData.size || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, size: e.target.value })}
+                    placeholder="e.g. M, L, XL, 40, 42"
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-bold focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700">Color</label>
+                  <input
+                    type="text"
+                    value={editFormData.color || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, color: e.target.value })}
+                    placeholder="e.g. Navy Blue, White"
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700">Stock (Pcs)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editFormData.stock ?? ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, stock: parseCleanNumber(e.target.value) })}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-mono focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700">Selling Price (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editFormData.sellingPrice ?? ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, sellingPrice: parseCleanNumber(e.target.value) })}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-mono font-bold focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700">Cost Price (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editFormData.costPrice ?? ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, costPrice: parseCleanNumber(e.target.value) })}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg font-mono focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700">Rack / Shelf</label>
+                  <input
+                    type="text"
+                    value={editFormData.rack || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, rack: e.target.value })}
+                    placeholder="Rack A-1"
+                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                {editedRows[editingRowIdx] ? (
+                  <button
+                    type="button"
+                    onClick={() => handleResetRowToAuto(editingRowIdx)}
+                    className="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset to Auto</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveEdit}
+                    className="px-3.5 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs cursor-pointer flex items-center gap-1"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Save Changes</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

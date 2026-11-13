@@ -69,6 +69,7 @@ import {
 } from '../data/seedData';
 
 import { playBarcodeBeep } from '../utils/audio';
+import { autofillRow } from '../utils/csvAutofill';
 import {
   getSupabaseConfig,
   saveSupabaseCredentials,
@@ -1822,6 +1823,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setProducts((prev) => {
       const copy = [...prev];
       const newlyAdded: Product[] = [];
+      const existingSkusSet = new Set(copy.map((p) => p.sku.toLowerCase()));
+      const existingBarcodesSet = new Set(copy.map((p) => p.barcode));
 
       items.forEach((row, idx) => {
         const skuQ = (row.sku || '').trim().toLowerCase();
@@ -1913,68 +1916,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
 
           copy[foundIdx] = updatedProduct;
+          if (updatedProduct.sku) existingSkusSet.add(updatedProduct.sku.toLowerCase());
+          if (updatedProduct.barcode) existingBarcodesSet.add(updatedProduct.barcode);
           if (isSupabaseAutoSync) asyncSyncProduct(updatedProduct);
           updatedCount++;
         } else {
-          // CREATE NEW PRODUCT IF NAME, SKU OR BARCODE IS PRESENT
-          if (nameQ || skuQ || barcodeQ) {
+          // CREATE NEW PRODUCT - Auto-enrich missing fields with intelligent defaults
+          const hasAnyNewData = Boolean(nameQ || skuQ || barcodeQ || row.category || row.sellingPrice);
+          if (hasAnyNewData) {
+            const autofillRes = autofillRow(row, copy, existingSkusSet, existingBarcodesSet);
+            const enriched = autofillRes.row;
             const timestamp = Date.now() + idx;
-            const category = normalizeCategory(row.category ? String(row.category) : undefined);
-            const season = normalizeSeason(row.season ? String(row.season) : undefined);
-
-            const catPrefix = category === 'Women' ? 'W' : category === 'Kids' ? 'K' : category === 'Accessories' ? 'ACC' : 'M';
-            const autoSku = (row.sku || '').trim() || `VT-${catPrefix}-${String(timestamp).slice(-6)}`;
-            const autoBarcode = (row.barcode || '').trim() || `890${Math.floor(100000000 + Math.random() * 900000000)}`;
+            const category = normalizeCategory(enriched.category ? String(enriched.category) : undefined);
+            const season = normalizeSeason(enriched.season ? String(enriched.season) : undefined);
 
             const stock =
-              typeof row.stock === 'number' && !isNaN(row.stock)
-                ? Math.max(0, row.stock)
-                : typeof row.stockDelta === 'number' && !isNaN(row.stockDelta)
-                ? Math.max(0, row.stockDelta)
-                : 0;
+              typeof enriched.stock === 'number' && !isNaN(enriched.stock)
+                ? Math.max(0, enriched.stock)
+                : typeof enriched.stockDelta === 'number' && !isNaN(enriched.stockDelta)
+                ? Math.max(0, enriched.stockDelta)
+                : 10;
 
             const sellingPrice =
-              typeof row.sellingPrice === 'number' && !isNaN(row.sellingPrice)
-                ? Math.max(0, row.sellingPrice)
+              typeof enriched.sellingPrice === 'number' && !isNaN(enriched.sellingPrice)
+                ? Math.max(0, enriched.sellingPrice)
                 : 0;
 
             const costPrice =
-              typeof row.costPrice === 'number' && !isNaN(row.costPrice)
-                ? Math.max(0, row.costPrice)
+              typeof enriched.costPrice === 'number' && !isNaN(enriched.costPrice)
+                ? Math.max(0, enriched.costPrice)
                 : 0;
 
             const taxRate =
-              typeof row.taxRate === 'number' && !isNaN(row.taxRate)
-                ? Math.max(0, row.taxRate)
-                : 5;
+              typeof enriched.taxRate === 'number' && !isNaN(enriched.taxRate)
+                ? Math.max(0, enriched.taxRate)
+                : (sellingPrice > 1000 ? 12 : 5);
 
             const minStockAlert =
-              typeof row.minStockAlert === 'number' && !isNaN(row.minStockAlert)
-                ? Math.max(0, row.minStockAlert)
+              typeof enriched.minStockAlert === 'number' && !isNaN(enriched.minStockAlert)
+                ? Math.max(0, enriched.minStockAlert)
                 : 5;
 
             const newProduct: Product = {
               id: `prod_${timestamp}`,
-              sku: autoSku,
-              barcode: autoBarcode,
-              name: (row.name || '').trim() || `Garment ${autoSku}`,
+              sku: (enriched.sku || '').trim(),
+              barcode: (enriched.barcode || '').trim(),
+              name: (enriched.name || '').trim() || `Garment ${enriched.sku || timestamp}`,
               category,
-              subCategory: (row.subCategory || '').trim() || 'General',
-              size: ((row.size || '').trim() || 'Free Size') as ClothingSize,
-              color: (row.color || '').trim() || 'Standard',
+              subCategory: (enriched.subCategory || '').trim() || 'General',
+              size: ((enriched.size || '').trim() || 'Free Size') as ClothingSize,
+              color: (enriched.color || '').trim() || 'Standard',
               season,
               stock,
               sellingPrice,
               costPrice,
               taxRate,
               minStockAlert,
-              brand: row.brand?.trim(),
-              rack: row.rack?.trim(),
-              description: row.description?.trim(),
+              brand: enriched.brand?.trim(),
+              rack: enriched.rack?.trim(),
+              description: enriched.description?.trim(),
             };
 
             copy.unshift(newProduct);
             newlyAdded.push(newProduct);
+            existingSkusSet.add(newProduct.sku.toLowerCase());
+            existingBarcodesSet.add(newProduct.barcode);
             if (isSupabaseAutoSync) asyncSyncProduct(newProduct);
             createdCount++;
           } else {
