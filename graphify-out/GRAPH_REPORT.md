@@ -1,17 +1,17 @@
 # Graph Report - Garment POS  (2026-11-14)
 
 ## Corpus Check
-- 90 files · ~195,783 words
+- 90 files · ~196,245 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: .example 1, (none) 1, .css 1)
 
 ## Summary
-- 593 nodes · 2045 edges · 29 communities (22 shown, 7 thin omitted)
+- 597 nodes · 2061 edges · 29 communities (22 shown, 7 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 104 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `8388ae7a`
+- Built from commit: `9e2d464c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -51,7 +51,7 @@
 2. `react` - 66 edges
 3. `lucide-react` - 63 edges
 4. `AppContextType` - 40 edges
-5. `AppProvider()` - 35 edges
+5. `AppProvider()` - 38 edges
 6. `printThermalReceiptHtml()` - 32 edges
 7. `EscPosBuilder` - 31 edges
 8. `ThermalReceipt()` - 30 edges
@@ -59,14 +59,14 @@
 10. `Product` - 26 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `StockTransferModalProps` --references--> `Product`  [EXTRACTED]
-  src/components/inventory/StockTransferModal.tsx → src/types.ts
-- `CustomerLedgerModalProps` --references--> `Customer`  [EXTRACTED]
-  src/components/khata/CustomerLedgerModal.tsx → src/types.ts
-- `PaymentReminderModalProps` --references--> `Customer`  [EXTRACTED]
-  src/components/khata/PaymentReminderModal.tsx → src/types.ts
 - `EditSaleModalProps` --references--> `SaleTransaction`  [EXTRACTED]
   src/components/sales/EditSaleModal.tsx → src/types.ts
+- `StockTransferModalProps` --references--> `Product`  [EXTRACTED]
+  src/components/inventory/StockTransferModal.tsx → src/types.ts
+- `thermalPrinterPlugin()` --calls--> `detectPrintersAndPorts()`  [EXTRACTED]
+  vite.config.ts → src/server/printerBridge.js
+- `thermalPrinterPlugin()` --calls--> `printRawToSerial()`  [EXTRACTED]
+  vite.config.ts → src/server/printerBridge.js
 - `thermalPrinterPlugin()` --calls--> `printRawToWindowsPrinter()`  [EXTRACTED]
   vite.config.ts → src/server/printerBridge.js
 
@@ -77,31 +77,31 @@
 
 ### Community 0 - "useApp"
 Cohesion: 0.09
-Nodes (64): lucide-react, react, App(), AppContent(), AlterationNotifyModal(), AlterationsManager(), TailorTagPreviewModal(), CloudAuthModal() (+56 more)
+Nodes (64): lucide-react, qrcode, react, App(), AppContent(), AlterationNotifyModal(), AlterationsManager(), TailorTagPreviewModal() (+56 more)
 
 ### Community 1 - "AppContextType"
-Cohesion: 0.12
-Nodes (17): BarcodeSvgProps, AppContextType, SupabaseConfig, AlterationDetails, AssociateCommissionPayout, CartItem, CashDrop, CloudUser (+9 more)
+Cohesion: 0.14
+Nodes (14): BarcodeSvgProps, AppContextType, SupabaseConfig, AlterationDetails, AssociateCommissionPayout, CartItem, CashDrop, CloudUser (+6 more)
 
 ### Community 2 - "escpos.ts"
 Cohesion: 0.18
-Nodes (22): ThermalReceipt(), disconnectBluetoothPrinter(), disconnectUsbPrinter(), EscPosBuilder, EscPosOptions, findWritableCharacteristic(), forgetBluetoothPrinter(), formatCreditNoteToEscPos() (+14 more)
+Nodes (21): ThermalReceipt(), KhataLedgerEntry, disconnectBluetoothPrinter(), disconnectUsbPrinter(), EscPosBuilder, EscPosOptions, findWritableCharacteristic(), forgetBluetoothPrinter() (+13 more)
 
 ### Community 3 - "supabase.ts"
 Cohesion: 0.08
-Nodes (62): AppProvider(), asyncSyncAlteration(), asyncSyncCompany(), asyncSyncCreditNote(), asyncSyncCustomer(), asyncSyncCustomerDisplayConfig(), asyncSyncCustomerMeasurement(), asyncSyncDayRegister() (+54 more)
+Nodes (63): AppProvider(), safeLoad(), asyncSyncAlteration(), asyncSyncCompany(), asyncSyncCreditNote(), asyncSyncCustomer(), asyncSyncCustomerDisplayConfig(), asyncSyncCustomerMeasurement() (+55 more)
 
 ### Community 4 - "CustomerCRM.tsx"
-Cohesion: 0.09
-Nodes (47): ManagerPinOverrideModal(), SignaturePadModal(), SignaturePadModalProps, CelebrationEvent, CelebrationsManager(), CustomerCRM(), CustomerMeasurementModal, CustomerMeasurementModalProps (+39 more)
+Cohesion: 0.08
+Nodes (52): ManagerPinOverrideModal(), ManagerPinOverrideModalProps, CelebrationEvent, CelebrationsManager(), CustomerCRM(), CustomerMeasurementModal, CustomerMeasurementModalProps, GARMENT_TYPES (+44 more)
 
 ### Community 5 - "StockAuditModal.tsx"
-Cohesion: 0.14
-Nodes (6): ErrorBoundary, Props, State, activeStreams, installCameraGuardian(), stopAllCameraHardware()
+Cohesion: 0.10
+Nodes (15): CameraBarcodeScannerModal(), CameraBarcodeScannerModalProps, ErrorBoundary, Props, State, StockAuditModal(), StockAuditModalProps, StockAuditItem (+7 more)
 
 ### Community 6 - "AppContext.tsx"
-Cohesion: 0.10
-Nodes (30): AppContext, INITIAL_GIFT_VOUCHERS, safeLoad(), STORAGE_KEYS, DEFAULT_LOYALTY_CONFIG, DEFAULT_STORE_BRANCHES, DEFAULT_USERS, INITIAL_ALTERATIONS (+22 more)
+Cohesion: 0.11
+Nodes (29): AppContext, INITIAL_GIFT_VOUCHERS, STORAGE_KEYS, DEFAULT_LOYALTY_CONFIG, DEFAULT_STORE_BRANCHES, DEFAULT_USERS, INITIAL_ALTERATIONS, INITIAL_CAMPAIGN_TEMPLATES (+21 more)
 
 ### Community 7 - "SmartRestockPredictorModal.tsx"
 Cohesion: 0.50
@@ -112,8 +112,8 @@ Cohesion: 0.13
 Nodes (21): devDependencies, autoprefixer@^10.4.21, tailwindcss@^4.3.3, tsx@^4.21.0, @types/express@^4.17.21, @types/node@^22.14.0, @types/react@^19.3.0, @types/react-dom@^19.3.0 (+13 more)
 
 ### Community 9 - "InventoryManager.tsx"
-Cohesion: 0.06
-Nodes (56): CameraBarcodeScannerModal(), CameraBarcodeScannerModalProps, BulkCsvImportModal(), BulkCsvImportModalProps, FIELD_ALIASES, FieldKey, matchHeaderToField(), parseCleanNumber() (+48 more)
+Cohesion: 0.07
+Nodes (52): WhatsAppLookbookModal(), BulkCsvImportModal(), BulkCsvImportModalProps, FIELD_ALIASES, FieldKey, matchHeaderToField(), parseCleanNumber(), parseCsvLine() (+44 more)
 
 ### Community 10 - "dependencies"
 Cohesion: 0.10
@@ -128,8 +128,8 @@ Cohesion: 0.22
 Nodes (8): @tailwindcss/vite@^4.3.3, vite@^8.3.0, @tailwindcss/vite, vite, detectPrintersAndPorts(), printRawToSerial(), printRawToWindowsPrinter(), thermalPrinterPlugin()
 
 ### Community 13 - "CustomerDisplayManager.tsx"
-Cohesion: 0.13
-Nodes (29): qrcode, UpiPaymentQrProps, CustomerDisplay(), CustomerDisplayManager(), CustomerDisplayPayload, CHANNEL_NAME, CONFIG_EVENT_NAME, CONFIG_STORAGE_KEY (+21 more)
+Cohesion: 0.15
+Nodes (27): CustomerDisplay(), CustomerDisplayManager(), CustomerDisplayPayload, CHANNEL_NAME, CONFIG_EVENT_NAME, CONFIG_STORAGE_KEY, CustomerDisplayCustomConfig, DEFAULT_CUSTOMER_DISPLAY_CONFIG (+19 more)
 
 ### Community 14 - "scripts"
 Cohesion: 0.33
@@ -164,8 +164,8 @@ Cohesion: 0.40
 Nodes (4): StockTransferModalProps, StockTransferItem, StockTransferOrder, StockTransferStatus
 
 ## Knowledge Gaps
-- **3 isolated node(s):** `INITIAL_PROMOTIONS`, `INITIAL_CREDIT_NOTES`, `INITIAL_ALTERATIONS`
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 116 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **3 isolated node(s):** `INITIAL_ALTERATIONS`, `INITIAL_CREDIT_NOTES`, `INITIAL_PROMOTIONS`
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 117 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
@@ -173,15 +173,15 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `react` connect `useApp` to `CustomerCRM.tsx`, `StockAuditModal.tsx`, `AppContext.tsx`, `SmartRestockPredictorModal.tsx`, `package.json`, `InventoryManager.tsx`, `dependencies`, `CustomerDisplayManager.tsx`, `OfflineSyncIndicator.tsx`, `types.ts`, `CompanySettings.tsx`, `GiftVouchersModal.tsx`, `StockTransferModal.tsx`?**
   _High betweenness centrality (0.132) - this node is a cross-community bridge._
-- **What connects `INITIAL_PROMOTIONS`, `INITIAL_CREDIT_NOTES`, `INITIAL_ALTERATIONS` to the rest of the system?**
+- **What connects `INITIAL_ALTERATIONS`, `INITIAL_CREDIT_NOTES`, `INITIAL_PROMOTIONS` to the rest of the system?**
   _3 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `useApp` be split into smaller, more focused modules?**
-  _Cohesion score 0.08837719298245614 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08773406269724385 - nodes in this community are weakly interconnected._
 - **Why does `lucide-react` connect `useApp` to `CustomerCRM.tsx`, `StockAuditModal.tsx`, `SmartRestockPredictorModal.tsx`, `package.json`, `InventoryManager.tsx`, `dependencies`, `CustomerDisplayManager.tsx`, `OfflineSyncIndicator.tsx`, `types.ts`, `CompanySettings.tsx`, `GiftVouchersModal.tsx`, `StockTransferModal.tsx`?**
-  _High betweenness centrality (0.099) - this node is a cross-community bridge._
+  _High betweenness centrality (0.098) - this node is a cross-community bridge._
 - **Should `AppContextType` be split into smaller, more focused modules?**
-  _Cohesion score 0.11764705882352941 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.14285714285714285 - nodes in this community are weakly interconnected._
 - **Why does `useApp()` connect `useApp` to `escpos.ts`, `CustomerCRM.tsx`, `AppContext.tsx`, `SmartRestockPredictorModal.tsx`, `InventoryManager.tsx`, `CustomerDisplayManager.tsx`, `OfflineSyncIndicator.tsx`, `types.ts`, `GiftVouchersModal.tsx`, `StockTransferModal.tsx`?**
-  _High betweenness centrality (0.070) - this node is a cross-community bridge._
+  _High betweenness centrality (0.069) - this node is a cross-community bridge._
 - **Should `supabase.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.08461538461538462 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08251748251748252 - nodes in this community are weakly interconnected._

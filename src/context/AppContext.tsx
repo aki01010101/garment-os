@@ -69,7 +69,7 @@ import {
 } from '../data/seedData';
 
 import { playBarcodeBeep } from '../utils/audio';
-import { autofillRow } from '../utils/csvAutofill';
+import { autofillRow, sanitizeBarcode, isInvalidOrCorruptedBarcode, generateRetailBarcode } from '../utils/csvAutofill';
 import { loadCustomerDisplayConfig, saveCustomerDisplayConfig } from '../utils/customerDisplayConfig';
 import {
   getSupabaseConfig,
@@ -1829,12 +1829,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const copy = [...prev];
       const newlyAdded: Product[] = [];
       const existingSkusSet = new Set(copy.map((p) => p.sku.toLowerCase()));
-      const existingBarcodesSet = new Set(copy.map((p) => p.barcode));
+      const existingBarcodesSet = new Set(
+        copy.map((p) => p.barcode).filter((b) => !isInvalidOrCorruptedBarcode(b))
+      );
       const updatedProductIdsInBatch = new Set<string>();
 
       items.forEach((row, idx) => {
         const skuQ = (row.sku || '').trim().toLowerCase();
-        const barcodeQ = (row.barcode || '').trim().toLowerCase();
+        const barcodeQ = sanitizeBarcode(row.barcode).toLowerCase();
         const nameQ = (row.name || '').trim().toLowerCase();
 
         // Check if row is completely blank
@@ -1856,7 +1858,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           foundInitialIdx = initialProducts.findIndex((p) => p.sku.toLowerCase() === skuQ && !updatedProductIdsInBatch.has(p.id));
         }
         if (foundInitialIdx === -1 && barcodeQ) {
-          foundInitialIdx = initialProducts.findIndex((p) => p.barcode.toLowerCase() === barcodeQ && !updatedProductIdsInBatch.has(p.id));
+          foundInitialIdx = initialProducts.findIndex((p) => sanitizeBarcode(p.barcode).toLowerCase() === barcodeQ && !updatedProductIdsInBatch.has(p.id));
         }
         // ONLY match by name if SKU and Barcode were NOT provided in the row, AND size matches exactly!
         if (foundInitialIdx === -1 && !skuQ && !barcodeQ && nameQ) {
@@ -1927,7 +1929,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           copy[foundCopyIdx] = updatedProduct;
           if (updatedProduct.sku) existingSkusSet.add(updatedProduct.sku.toLowerCase());
-          if (updatedProduct.barcode) existingBarcodesSet.add(updatedProduct.barcode);
+          if (updatedProduct.barcode && !isInvalidOrCorruptedBarcode(updatedProduct.barcode)) {
+            existingBarcodesSet.add(updatedProduct.barcode);
+          }
           if (isSupabaseAutoSync) asyncSyncProduct(updatedProduct);
           updatedCount++;
         } else {
@@ -1967,10 +1971,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 ? Math.max(0, enriched.minStockAlert)
                 : 5;
 
+            const cleanBarcode =
+              sanitizeBarcode(enriched.barcode) || generateRetailBarcode(existingBarcodesSet);
+
             const newProduct: Product = {
               id: `prod_${timestamp}`,
               sku: (enriched.sku || '').trim(),
-              barcode: (enriched.barcode || '').trim(),
+              barcode: cleanBarcode,
               name: (enriched.name || '').trim() || `Garment ${enriched.sku || timestamp}`,
               category,
               subCategory: (enriched.subCategory || '').trim() || 'General',

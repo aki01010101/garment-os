@@ -139,6 +139,92 @@ const SIZE_ALPHA_REGEX = /\b(XXS|XS|S|M|L|XL|XXL|2XL|3XL|4XL|5XL|6XL|Free\s*Size
 const SIZE_NUMERIC_REGEX = /\b(18|20|22|24|26|28|30|32|34|36|38|39|40|41|42|43|44|46|48|50|52|54|56)\b/;
 const SIZE_KIDS_REGEX = /\b(0-3M|3-6M|6-12M|1-2Y|2-3Y|3-4Y|4-5Y|5-6Y|7-8Y|9-10Y|11-12Y|13-14Y)\b/i;
 
+// Common garment and descriptor words that shouldn't be used as brand/style codes in SKUs
+const COMMON_GARMENT_STOP_WORDS = new Set([
+  'shirt', 'shirts', 'tshirt', 't-shirt', 'tee', 'tees', 'polo', 'polos',
+  'pant', 'pants', 'trouser', 'trousers', 'jeans', 'denim', 'denims',
+  'kurti', 'kurtis', 'kurta', 'kurtas', 'saree', 'sari', 'sarees', 'lehenga',
+  'anarkali', 'dress', 'dresses', 'top', 'tops', 'blouse', 'skirt', 'skirts',
+  'suit', 'suits', 'night', 'pajama', 'pyjama', 'boxer', 'shorts', 'blazer',
+  'jacket', 'jackets', 'hoodie', 'hoodies', 'sweater', 'sweaters', 'cardigan',
+  'men', 'mens', 'women', 'womens', 'ladies', 'kids', 'boys', 'girls', 'child',
+  'pure', 'cotton', 'linen', 'silk', 'wool', 'woolen', 'blend', 'chiffon',
+  'premium', 'luxury', 'casual', 'formal', 'festive', 'party', 'regular', 'slim',
+  'wear', 'apparel', 'clothing', 'garment', 'fashion', 'standard', 'classic',
+  'summer', 'winter', 'autumn', 'spring', 'printed', 'plain', 'solid', 'striped',
+  'fit', 'style', 'collection', 'edition', 'designer', 'exclusive'
+]);
+
+/**
+ * Extracts a distinctive 3-4 letter uppercase style/brand identifier from the garment name
+ * (e.g. "MELINI NIGHT SUIT" -> "MEL", "ZAP NIGHT SUIT" -> "ZAP", "SWEET TOUCH" -> "SWE").
+ */
+export function extractStyleCode(name?: string): string {
+  if (!name) return '';
+  const words = name
+    .replace(/[^A-Za-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter(Boolean);
+
+  for (const word of words) {
+    const lower = word.toLowerCase();
+    if (/^\d+$/.test(word)) continue;
+    if (/^(xxs|xs|s|m|l|xl|xxl|2xl|3xl|4xl|5xl|fs)$/i.test(word)) continue;
+    if (COMMON_GARMENT_STOP_WORDS.has(lower)) continue;
+    if (COLOR_MAP.some((c) => c.regex.test(word))) continue;
+
+    const cleanWord = word.replace(/[^A-Za-z]/g, '').toUpperCase();
+    if (cleanWord.length >= 3) {
+      if (cleanWord.length <= 4) return cleanWord;
+      return cleanWord.slice(0, 3);
+    }
+  }
+  return '';
+}
+
+/**
+ * Checks whether a barcode string is invalid, placeholder, corrupted by Excel scientific notation (e.g. 8.90E+11), or non-functional.
+ */
+export function isInvalidOrCorruptedBarcode(barcode?: string | null): boolean {
+  if (!barcode) return true;
+  const b = String(barcode).trim().replace(/^['"]|['"]$/g, '');
+  if (!b) return true;
+
+  // Detect Excel scientific notation corruption (e.g. 8.90E+11, 8.9012E+12)
+  if (/[0-9.]+[eE][+-]?[0-9]+/i.test(b) || /[eE]\+[0-9]+/i.test(b)) {
+    return true;
+  }
+
+  // Common placeholders or empty indicators
+  const lower = b.toLowerCase();
+  if (['n/a', 'na', 'null', 'undefined', 'none', 'nil', '-', '--', '0'].includes(lower)) {
+    return true;
+  }
+
+  // All zeros
+  if (/^0+$/.test(b)) {
+    return true;
+  }
+
+  // Barcodes with fewer than 3 characters are generally non-functional in retail POS
+  if (b.length < 3) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Returns a cleaned barcode or an empty string if the barcode is invalid or corrupted.
+ */
+export function sanitizeBarcode(barcode?: string | null): string {
+  if (isInvalidOrCorruptedBarcode(barcode)) {
+    return '';
+  }
+  return String(barcode).trim().replace(/^['"]|['"]$/g, '');
+}
+
 // -----------------------------------------------------------------------------
 // 2. NAME ATTRIBUTE EXTRACTION ENGINE
 // -----------------------------------------------------------------------------
@@ -318,18 +404,26 @@ export function generateSmartSku(
     if (extracted.subCatAbbr) subAbbr = extracted.subCatAbbr;
   }
 
-  // 3. Color Abbreviation
-  let colAbbr = 'STD';
+  // 3. Style / Brand Abbreviation from name (e.g. MEL for Melini, ZAP for Zap)
+  const styleCode = extractStyleCode(item.name);
+
+  // 4. Color Abbreviation
+  let colAbbr = '';
   const col = (item.color || '').trim();
   const matchedColor = COLOR_MAP.find((c) => c.regex.test(col));
   if (matchedColor) {
     colAbbr = matchedColor.abbr;
-  } else if (col && col.length >= 3) {
+  } else if (col && col.length >= 3 && col.toLowerCase() !== 'standard') {
     colAbbr = col.slice(0, 3).toUpperCase();
   }
 
-  // Candidate Base SKU
-  const baseSku = `${prefix}-${catAbbr}-${subAbbr}-${colAbbr}-${sizeAbbr}`;
+  // Candidate Base SKU components
+  const parts = [prefix, catAbbr, subAbbr];
+  if (styleCode) parts.push(styleCode);
+  if (colAbbr) parts.push(colAbbr);
+  parts.push(sizeAbbr);
+
+  const baseSku = parts.join('-');
 
   // If unique, return base SKU
   if (!existingSkus.has(baseSku.toLowerCase())) {
@@ -567,14 +661,18 @@ export function autofillRow(
 
   // 13. Smart Barcode Generation & Uniqueness Guarantee
   const rawBarcode = (row.barcode || '').trim();
-  if (!rawBarcode || existingBarcodesInBatch.has(rawBarcode)) {
+  const isCorrupted = isInvalidOrCorruptedBarcode(rawBarcode);
+  const isDuplicate = !isCorrupted && existingBarcodesInBatch.has(rawBarcode);
+
+  if (isCorrupted || isDuplicate) {
     row.barcode = generateRetailBarcode(existingBarcodesInBatch);
-    if (!rawBarcode) {
-      autofilledFields.push('barcode');
-      notes.push('Generated retail barcode');
-    } else {
-      autofilledFields.push('barcode');
+    autofilledFields.push('barcode');
+    if (isCorrupted && rawBarcode) {
+      notes.push('Corrupted Excel barcode replaced with unique EAN');
+    } else if (isDuplicate) {
       notes.push('Duplicate barcode replaced with unique EAN');
+    } else {
+      notes.push('Generated retail barcode');
     }
   } else {
     existingBarcodesInBatch.add(rawBarcode);

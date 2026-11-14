@@ -138,9 +138,9 @@
     "semantic_hash": ""
   },
   "src/components/inventory/BulkCsvImportModal.tsx": {
-    "mtime": 1794651915.4847033,
-    "seen": 1794652056.4108214,
-    "ast_hash": "434e3567636f3c230ce30de59d556154",
+    "mtime": 1794652276.835635,
+    "seen": 1794652363.0432596,
+    "ast_hash": "0439838e702b8dc22b4b10797d051856",
     "semantic_hash": ""
   },
   "src/components/inventory/BulkUpdateModal.tsx": {
@@ -306,9 +306,9 @@
     "semantic_hash": ""
   },
   "src/context/AppContext.tsx": {
-    "mtime": 1794651989.0735874,
-    "seen": 1794652056.4195125,
-    "ast_hash": "e24a6e763d1f49b49d6dbd6715471c45",
+    "mtime": 1794652304.8950677,
+    "seen": 1794652363.0522325,
+    "ast_hash": "f4b425ec884cae1dafbe2968999c7b69",
     "semantic_hash": ""
   },
   "src/data/seedData.ts": {
@@ -522,9 +522,9 @@
     "semantic_hash": ""
   },
   "src/utils/csvAutofill.ts": {
-    "mtime": 1794651874.5986066,
-    "seen": 1794652056.4208388,
-    "ast_hash": "58b36aab8d2fd3f2e2fb8a0ef18c3cbe",
+    "mtime": 1794652259.134413,
+    "seen": 1794652363.0541706,
+    "ast_hash": "c4b2243ec39b4722f26e7fffd9360d1e",
     "semantic_hash": ""
   },
   "src/components/pos/CustomerDisplayManager.tsx": {

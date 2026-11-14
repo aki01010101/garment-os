@@ -24,6 +24,8 @@ import {
   autofillRow,
   AutofillConfig,
   DEFAULT_AUTOFILL_CONFIG,
+  sanitizeBarcode,
+  isInvalidOrCorruptedBarcode,
 } from '../../utils/csvAutofill';
 
 export interface BulkCsvImportModalProps {
@@ -407,9 +409,11 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
             case 'sku':
               if (val) rowData.sku = val;
               break;
-            case 'barcode':
-              if (val) rowData.barcode = val;
+            case 'barcode': {
+              const cleanVal = sanitizeBarcode(val);
+              if (cleanVal) rowData.barcode = cleanVal;
               break;
+            }
             case 'name':
               if (val) rowData.name = val;
               break;
@@ -467,13 +471,15 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
 
         if (/^\d{8,}$/.test(secondCol)) {
           rowData.sku = firstCol;
-          rowData.barcode = secondCol;
+          const cleanB = sanitizeBarcode(secondCol);
+          if (cleanB) rowData.barcode = cleanB;
           rowData.stock = parseCleanNumber(thirdCol);
           rowData.sellingPrice = parseCleanNumber(fourthCol);
           rowData.costPrice = parseCleanNumber(fifthCol);
         } else if (!isNaN(Number(secondCol)) && secondCol !== '') {
           if (/^\d{8,}$/.test(firstCol)) {
-            rowData.barcode = firstCol;
+            const cleanB = sanitizeBarcode(firstCol);
+            if (cleanB) rowData.barcode = cleanB;
           } else {
             rowData.sku = firstCol;
           }
@@ -482,7 +488,8 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
           rowData.costPrice = parseCleanNumber(fourthCol);
         } else {
           rowData.sku = firstCol;
-          rowData.barcode = secondCol;
+          const cleanB = sanitizeBarcode(secondCol);
+          if (cleanB) rowData.barcode = cleanB;
         }
       }
 
@@ -493,7 +500,7 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
 
       // Check matching against existing products
       const skuQ = (rowData.sku || '').trim().toLowerCase();
-      const barcodeQ = (rowData.barcode || '').trim().toLowerCase();
+      const barcodeQ = sanitizeBarcode(rowData.barcode).toLowerCase();
       const nameQ = (rowData.name || '').trim().toLowerCase();
 
       let matched: Product | null = null;
@@ -501,7 +508,7 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
         matched = products.find((p) => p.sku.toLowerCase() === skuQ && !matchedCatalogProductIds.has(p.id)) || null;
       }
       if (!matched && barcodeQ) {
-        matched = products.find((p) => p.barcode.toLowerCase() === barcodeQ && !matchedCatalogProductIds.has(p.id)) || null;
+        matched = products.find((p) => sanitizeBarcode(p.barcode).toLowerCase() === barcodeQ && !matchedCatalogProductIds.has(p.id)) || null;
       }
       // ONLY match by name if SKU and Barcode were NOT provided in the CSV row, AND the size matches EXACTLY!
       if (!matched && !skuQ && !barcodeQ && nameQ) {
