@@ -21,6 +21,7 @@ import { FirstTimeSetupModal } from './components/onboarding/FirstTimeSetupModal
 import { CloudAuthModal } from './components/auth/CloudAuthModal';
 import { LandingPage } from './components/landing/LandingPage';
 import { CustomerDisplay } from './components/pos/CustomerDisplay';
+import { CustomerDisplayManager } from './components/pos/CustomerDisplayManager';
 import { ShieldAlert } from 'lucide-react';
 
 const AppContent: React.FC = () => {
@@ -147,6 +148,9 @@ const AppContent: React.FC = () => {
             {currentTab === 'cash' && hasPermission('cash') && <DayRegisterManager />}
             {currentTab === 'crm' && hasPermission('crm') && <CustomerCRM />}
             {currentTab === 'reports' && hasPermission('reports') && <ReportsDashboard />}
+            {currentTab === 'customer-display' && hasPermission('customer-display') && (
+              <CustomerDisplayManager />
+            )}
             {(currentTab === 'settings' || currentTab === 'companies') && hasPermission('settings') && (
               <SettingsManager />
             )}

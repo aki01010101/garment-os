@@ -795,6 +795,7 @@ export const ALL_APP_TABS: AppTabDefinition[] = [
   { id: 'cash', label: 'Day Register (Z)', desc: 'Till float, petty shop expenses, and day-end reconciliation', defaultRoles: ['admin', 'store_manager'] },
   { id: 'crm', label: 'CRM & Loyalty', desc: 'Customer phone directory, purchase history & loyalty points', defaultRoles: ['admin', 'store_manager'] },
   { id: 'reports', label: 'Reports & Taxes', desc: '7-day sales charts, GST reports, P&L, and business volume', defaultRoles: ['admin'] },
+  { id: 'customer-display', label: 'Customer Screen', desc: 'Customize secondary customer display, festive themes, slideshow, promotional media & payment QR', defaultRoles: ['admin', 'store_manager'] },
   { id: 'settings', label: 'Settings', desc: 'Billing entities, user roles, passwords, and permissions', defaultRoles: ['admin'] },
 ];
 

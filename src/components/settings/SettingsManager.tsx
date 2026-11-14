@@ -41,6 +41,7 @@ import {
   Zap,
   Loader2,
   HelpCircle,
+  MonitorPlay,
 } from 'lucide-react';
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
@@ -48,6 +49,7 @@ import { GoogleReviewQr } from '../common/GoogleReviewQr';
 import { SupabaseDatabaseSettings } from './SupabaseDatabaseSettings';
 import { FirstTimeSetupModal } from '../onboarding/FirstTimeSetupModal';
 import { PromotionsManager } from './PromotionsManager';
+import { CustomerDisplayManager } from '../pos/CustomerDisplayManager';
 import { PrinterGuideModal } from '../printer/PrinterGuideModal';
 import {
   formatTestReceipt,
@@ -93,7 +95,7 @@ export const SettingsManager: React.FC = () => {
     setEnableEReceiptQr,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'staff' | 'entities' | 'promotions' | 'preferences' | 'database'>('staff');
+  const [activeTab, setActiveTab] = useState<'staff' | 'entities' | 'promotions' | 'preferences' | 'database' | 'customer-display'>('staff');
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
   // UPI & Google Reviews Settings State
@@ -478,6 +480,17 @@ export const SettingsManager: React.FC = () => {
           >
             <Database className="w-3.5 h-3.5 text-indigo-600" />
             <span>Cloud Database (Supabase)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('customer-display')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'customer-display'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
+              }`}
+          >
+            <MonitorPlay className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Customer Screen Studio</span>
           </button>
         </div>
       </div>
@@ -1472,6 +1485,9 @@ export const SettingsManager: React.FC = () => {
 
       {/* TAB 4: Cloud Database (Supabase) */}
       {activeTab === 'database' && <SupabaseDatabaseSettings />}
+
+      {/* TAB 5: Customer Screen Studio */}
+      {activeTab === 'customer-display' && <CustomerDisplayManager />}
 
       {/* MODAL 1: Edit User Profile & Role */}
       {editingUser && (

@@ -43,228 +43,22 @@ import {
   BellRing,
 } from 'lucide-react';
 
-export type FestiveThemeKey =
-  | 'modern'
-  | 'christmas'
-  | 'new_year'
-  | 'diwali'
-  | 'eid'
-  | 'holi'
-  | 'navratri'
-  | 'tiranga';
-
-interface FestiveThemeConfig {
-  id: FestiveThemeKey;
-  name: string;
-  emoji: string;
-  badge: string;
-  greeting: string;
-  subGreeting: string;
-  accentGradient: string;
-  accentColor: string;
-  accentBorder: string;
-  particle: string;
-  bannerBg: string;
-  bannerText: string;
-}
-
-const FESTIVE_THEMES: Record<FestiveThemeKey, FestiveThemeConfig> = {
-  modern: {
-    id: 'modern',
-    name: 'Classic Modern',
-    emoji: '✨',
-    badge: 'Premium Collection',
-    greeting: 'Welcome to Our Fashion Boutique',
-    subGreeting: 'Curated Elegance, Bespoke Tailoring & Exceptional Quality',
-    accentGradient: 'from-indigo-600 to-purple-600',
-    accentColor: '#6366f1',
-    accentBorder: 'border-indigo-500/40',
-    particle: '✨',
-    bannerBg: 'bg-indigo-950/70 border-indigo-500/30',
-    bannerText: 'text-indigo-200',
-  },
-  christmas: {
-    id: 'christmas',
-    name: 'Merry Christmas',
-    emoji: '🎄',
-    badge: 'Holiday Magic',
-    greeting: 'Merry Christmas & Happy Holidays!',
-    subGreeting: 'May Your Season Be Filled with Warmth, Joy & Festive Styles!',
-    accentGradient: 'from-red-600 via-rose-600 to-emerald-700',
-    accentColor: '#dc2626',
-    accentBorder: 'border-red-500/50',
-    particle: '❄️',
-    bannerBg: 'bg-gradient-to-r from-red-950/80 via-rose-950/80 to-emerald-950/80 border-red-500/40',
-    bannerText: 'text-rose-100',
-  },
-  new_year: {
-    id: 'new_year',
-    name: 'Happy New Year',
-    emoji: '🎆',
-    badge: 'Celebrate 2027',
-    greeting: 'Happy New Year! Ring In Fresh Styles!',
-    subGreeting: 'Step into the New Year with Dazzling Elegance & Fresh Wardrobes!',
-    accentGradient: 'from-amber-500 via-yellow-500 to-purple-700',
-    accentColor: '#eab308',
-    accentBorder: 'border-amber-500/50',
-    particle: '✨',
-    bannerBg: 'bg-gradient-to-r from-amber-950/80 via-slate-900 to-purple-950/80 border-amber-500/40',
-    bannerText: 'text-amber-200',
-  },
-  diwali: {
-    id: 'diwali',
-    name: 'Shubh Deepavali',
-    emoji: '🪔',
-    badge: 'Festival of Lights',
-    greeting: 'Shubh Deepavali! Festival of Lights & Joy!',
-    subGreeting: 'Illuminate Your Celebrations with Grand Ethnic Wear & Golden Radiance!',
-    accentGradient: 'from-amber-600 via-orange-600 to-yellow-500',
-    accentColor: '#ea580c',
-    accentBorder: 'border-amber-500/50',
-    particle: '🪔',
-    bannerBg: 'bg-gradient-to-r from-orange-950/80 via-amber-950/80 to-red-950/80 border-amber-500/40',
-    bannerText: 'text-amber-100',
-  },
-  eid: {
-    id: 'eid',
-    name: 'Eid Mubarak',
-    emoji: '🌙',
-    badge: 'Blessed Celebrations',
-    greeting: 'Eid Mubarak! Celebrate in Style & Grace!',
-    subGreeting: 'Wishing You and Your Family Prosperity, Peace & Elegant Attire!',
-    accentGradient: 'from-emerald-600 via-teal-600 to-amber-500',
-    accentColor: '#059669',
-    accentBorder: 'border-emerald-500/50',
-    particle: '🌙',
-    bannerBg: 'bg-gradient-to-r from-emerald-950/80 via-teal-950/80 to-slate-900 border-emerald-500/40',
-    bannerText: 'text-emerald-100',
-  },
-  holi: {
-    id: 'holi',
-    name: 'Happy Holi',
-    emoji: '🎨',
-    badge: 'Festival of Colors',
-    greeting: 'Happy Holi! Splash into Vibrant Fashion!',
-    subGreeting: 'Celebrate with Joyous Festive Hues, Pure Cottons & Fresh Summer Styles!',
-    accentGradient: 'from-fuchsia-600 via-pink-500 to-cyan-500',
-    accentColor: '#d946ef',
-    accentBorder: 'border-pink-500/50',
-    particle: '🌸',
-    bannerBg: 'bg-gradient-to-r from-fuchsia-950/80 via-pink-950/80 to-cyan-950/80 border-pink-500/40',
-    bannerText: 'text-pink-100',
-  },
-  navratri: {
-    id: 'navratri',
-    name: 'Shubh Navratri',
-    emoji: '🪘',
-    badge: 'Dandiya & Garba Fest',
-    greeting: 'Shubh Navratri! Grand Festive Ethnic Collection!',
-    subGreeting: 'Dance into the Festivities with Vibrant Chaniya Cholis, Kurtas & Dupattas!',
-    accentGradient: 'from-rose-600 via-amber-600 to-orange-500',
-    accentColor: '#e11d48',
-    accentBorder: 'border-rose-500/50',
-    particle: '🪘',
-    bannerBg: 'bg-gradient-to-r from-rose-950/80 via-orange-950/80 to-amber-950/80 border-rose-500/40',
-    bannerText: 'text-rose-100',
-  },
-  tiranga: {
-    id: 'tiranga',
-    name: 'National Pride',
-    emoji: '🇮🇳',
-    badge: 'Pride of India',
-    greeting: 'Celebrating the Vibrant Spirit of India!',
-    subGreeting: 'Handcrafted Heritage Textiles, Khadi Weaves & Sustainable Fashion',
-    accentGradient: 'from-orange-600 via-slate-100 to-emerald-600',
-    accentColor: '#f97316',
-    accentBorder: 'border-orange-500/50',
-    particle: '🇮🇳',
-    bannerBg: 'bg-gradient-to-r from-orange-950/80 via-slate-900 to-emerald-950/80 border-orange-500/40',
-    bannerText: 'text-orange-100',
-  },
-};
-
-interface IdleMediaSlide {
-  id: string;
-  type: 'image' | 'video';
-  url: string;
-  tag: string;
-  title: string;
-  subtitle: string;
-  accent: string;
-  discountBadge?: string;
-}
-
-const DEFAULT_SLIDES: IdleMediaSlide[] = [
-  {
-    id: 'slide_1',
-    type: 'image',
-    url: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1600&q=80',
-    tag: 'Festive Ethnic Showcase',
-    title: 'Exquisite Heritage Sarees & Lehengas',
-    subtitle: 'Woven with gold zari, pure silks & bespoke craftsmanship for every celebration.',
-    accent: 'from-amber-600 to-rose-700',
-    discountBadge: 'Flat 20% Off on Bridal Wear',
-  },
-  {
-    id: 'slide_2',
-    type: 'image',
-    url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=1600&q=80',
-    tag: 'Gentlemen Ethnic & Formal',
-    title: 'Tailored Sherwanis, Kurtas & Fine Shirts',
-    subtitle: 'Bespoke collar cuts, Egyptian cotton weaves & regal celebratory silhouettes.',
-    accent: 'from-indigo-600 to-purple-700',
-    discountBadge: 'Buy 2 Get 1 Free on Shirts',
-  },
-  {
-    id: 'slide_3',
-    type: 'image',
-    url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1600&q=80',
-    tag: 'Contemporary Designer Couture',
-    title: 'Modern Fusion Silhouettes & Pret Wear',
-    subtitle: 'From casual breezy linens to statement evening ensembles tailored for comfort.',
-    accent: 'from-emerald-600 to-teal-700',
-    discountBadge: 'Extra 10% Off for VIP Members',
-  },
-  {
-    id: 'slide_4',
-    type: 'video',
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    tag: 'Live Fashion Campaign',
-    title: 'Runway Highlights & Fresh Arrivals',
-    subtitle: 'Watch our master artisan collection come alive in fluid drape and motion.',
-    accent: 'from-cyan-600 to-blue-700',
-    discountBadge: 'Complimentary Master Tailoring',
-  },
-];
-
-const PROMO_NOTIFICATIONS = [
-  {
-    id: 'notif_1',
-    code: 'FESTIVE500',
-    title: 'Festive Flash Deal',
-    text: 'Get flat ₹500 OFF instantly on all shopping bills above ₹3,000!',
-    badge: 'HOT OFFER',
-    color: 'from-amber-500 to-orange-600',
-  },
-  {
-    id: 'notif_2',
-    code: 'WELCOME10',
-    title: 'First-Time Shopper?',
-    text: 'Enjoy 10% Welcome Discount on your purchase with instant bill redemption.',
-    badge: 'NEW ARRIVALS',
-    color: 'from-emerald-500 to-teal-600',
-  },
-  {
-    id: 'notif_3',
-    code: 'VIPCLUB',
-    title: 'VIP Loyalty Rewards',
-    text: 'Earn 2X Loyalty Points on all Festive Silk and Sherwani sets today!',
-    badge: 'DOUBLE POINTS',
-    color: 'from-purple-500 to-indigo-600',
-  },
-];
+import {
+  FestiveThemeKey,
+  FestiveThemeConfig,
+  FESTIVE_THEMES,
+  IdleMediaSlide,
+  DEFAULT_SLIDES,
+  DEFAULT_PROMOS,
+  CustomerDisplayCustomConfig,
+  loadCustomerDisplayConfig,
+  saveCustomerDisplayConfig,
+  listenCustomerDisplayConfig,
+} from '../../utils/customerDisplayConfig';
 
 export const CustomerDisplay: React.FC = () => {
+  const [config, setConfig] = useState<CustomerDisplayCustomConfig>(() => loadCustomerDisplayConfig());
+
   const [payload, setPayload] = useState<CustomerDisplayPayload>(() => {
     return (
       getCurrentCustomerDisplay() || {
@@ -283,30 +77,22 @@ export const CustomerDisplay: React.FC = () => {
 
   // Light / Dark Mode State
   const [displayMode, setDisplayMode] = useState<'dark' | 'light'>(() => {
-    try {
-      return (localStorage.getItem('garment_customer_display_mode') as 'dark' | 'light') || 'dark';
-    } catch {
-      return 'dark';
-    }
+    return config.displayMode || 'dark';
   });
 
   const toggleDisplayMode = () => {
     setDisplayMode((prev) => {
-      const next = prev === 'dark' ? 'light' : 'dark';
-      try {
-        localStorage.setItem('garment_customer_display_mode', next);
-      } catch {}
+      const next: 'dark' | 'light' = prev === 'dark' ? 'light' : 'dark';
+      const updated: CustomerDisplayCustomConfig = { ...config, displayMode: next };
+      setConfig(updated);
+      saveCustomerDisplayConfig(updated);
       return next;
     });
   };
 
   // Festive Theme State
   const [festiveThemeKey, setFestiveThemeKey] = useState<FestiveThemeKey>(() => {
-    try {
-      return (localStorage.getItem('garment_customer_display_festive_theme') as FestiveThemeKey) || 'modern';
-    } catch {
-      return 'modern';
-    }
+    return config.activeFestiveTheme || 'modern';
   });
 
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
@@ -314,20 +100,15 @@ export const CustomerDisplay: React.FC = () => {
 
   const selectFestiveTheme = (themeKey: FestiveThemeKey) => {
     setFestiveThemeKey(themeKey);
-    try {
-      localStorage.setItem('garment_customer_display_festive_theme', themeKey);
-    } catch {}
+    const updated = { ...config, activeFestiveTheme: themeKey };
+    setConfig(updated);
+    saveCustomerDisplayConfig(updated);
     setIsThemePickerOpen(false);
   };
 
   // Slideshow State
   const [slides, setSlides] = useState<IdleMediaSlide[]>(() => {
-    try {
-      const saved = localStorage.getItem('garment_customer_display_slides');
-      return saved ? JSON.parse(saved) : DEFAULT_SLIDES;
-    } catch {
-      return DEFAULT_SLIDES;
-    }
+    return config.slides && config.slides.length > 0 ? config.slides : DEFAULT_SLIDES;
   });
 
   const [activeSlide, setActiveSlide] = useState(0);
@@ -340,15 +121,25 @@ export const CustomerDisplay: React.FC = () => {
 
   // Marquee announcement text
   const [tickerText, setTickerText] = useState<string>(() => {
-    try {
-      return (
-        localStorage.getItem('garment_customer_display_ticker') ||
-        '✨ Welcome to our Store • Complimentary Master-Tailor Alterations • Instant UPI, Card & Cash Payments Accepted • 7-Day Exchange Guarantee with Tags • Follow us for latest drops!'
-      );
-    } catch {
-      return '✨ Welcome to our Store • Complimentary Master-Tailor Alterations • Instant UPI & Card Payments';
-    }
+    return (
+      config.marqueeText ||
+      '✨ Welcome to our Store • Complimentary Master-Tailor Alterations • Instant UPI, Card & Cash Payments Accepted • 7-Day Exchange Guarantee with Tags • Follow us for latest drops!'
+    );
   });
+
+  // Real-time synchronization with Customer Display Studio admin updates
+  useEffect(() => {
+    const unsub = listenCustomerDisplayConfig((updatedConfig) => {
+      setConfig(updatedConfig);
+      setDisplayMode(updatedConfig.displayMode);
+      setFestiveThemeKey(updatedConfig.activeFestiveTheme);
+      if (updatedConfig.slides && updatedConfig.slides.length > 0) {
+        setSlides(updatedConfig.slides);
+      }
+      setTickerText(updatedConfig.marqueeText);
+    });
+    return () => unsub();
+  }, [config]);
 
   // Listen to live broadcast updates from cashier POS screen
   useEffect(() => {
@@ -377,10 +168,10 @@ export const CustomerDisplay: React.FC = () => {
   useEffect(() => {
     if (payload.state !== 'idle') return;
     const interval = setInterval(() => {
-      setActivePromoIndex((prev) => (prev + 1) % PROMO_NOTIFICATIONS.length);
+      setActivePromoIndex((prev) => (prev + 1) % (config.promoCards?.length || DEFAULT_PROMOS.length));
     }, 4500);
     return () => clearInterval(interval);
-  }, [payload.state]);
+  }, [payload.state, config.promoCards]);
 
   // Generate UPI QR SVG
   const [upiQrDataUrl, setUpiQrDataUrl] = useState<string>('');
@@ -477,7 +268,12 @@ export const CustomerDisplay: React.FC = () => {
 
   // Current Slide
   const currentSlide = slides[activeSlide] || slides[0] || DEFAULT_SLIDES[0];
-  const activePromo = PROMO_NOTIFICATIONS[activePromoIndex];
+  const promoNotifications = useMemo(() => {
+    return config.promoCards && config.promoCards.length > 0 ? config.promoCards : DEFAULT_PROMOS;
+  }, [config.promoCards]);
+  const activePromo = promoNotifications[activePromoIndex % promoNotifications.length] || promoNotifications[0];
+  const effectiveBrandName = config.brandNameOverride || payload.companyName || 'Fashion Boutique';
+  const effectiveBrandTagline = config.brandTaglineOverride || payload.companyTagline || 'Apparel & Ethnic Fashion Boutique';
 
   return (
     <div
@@ -526,7 +322,7 @@ export const CustomerDisplay: React.FC = () => {
                   isLight ? 'text-slate-900' : 'text-white'
                 }`}
               >
-                {payload.companyName || 'Fantasy Outfits'}
+                {effectiveBrandName}
               </h1>
               {festiveThemeKey !== 'modern' && (
                 <span className="text-base" title={activeTheme.name}>
@@ -535,7 +331,7 @@ export const CustomerDisplay: React.FC = () => {
               )}
             </div>
             <p className={`text-xs font-medium tracking-wide ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-              {payload.companyTagline || 'Apparel & Ethnic Fashion Boutique'}
+              {effectiveBrandTagline}
             </p>
           </div>
         </div>
