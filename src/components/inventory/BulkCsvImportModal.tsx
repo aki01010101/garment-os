@@ -58,17 +58,37 @@ type FieldKey =
   | 'description';
 
 const FIELD_ALIASES: Record<FieldKey, string[]> = {
-  sku: ['sku', 'skucode', 'itemcode', 'code', 'stylecode', 'styleno', 'articleno', 'articlecode', 'model', 'productcode'],
-  barcode: ['barcode', 'bar code', 'upc', 'ean', 'gtin', 'tag', 'tagno'],
-  name: ['garmentname', 'productname', 'itemname', 'name', 'item', 'garment', 'product', 'title', 'articlename'],
+  sku: [
+    'sku', 'skucode', 'itemcode', 'code', 'stylecode', 'styleno', 'articleno', 'articlecode',
+    'model', 'productcode', 'designno', 'catalogno', 'stylenumber', 'itemnumber', 'partnumber'
+  ],
+  barcode: ['barcode', 'bar code', 'upc', 'ean', 'gtin', 'tag', 'tagno', 'barcodeno', 'eancode', 'upccode'],
+  name: [
+    'garmentname', 'productname', 'itemname', 'name', 'item', 'garment', 'product', 'title',
+    'articlename', 'particulars', 'itemdescription', 'descriptionofgoods', 'productdescription',
+    'stylename', 'goods'
+  ],
   category: ['category', 'dept', 'department', 'section', 'apparelcategory', 'cat', 'group'],
   subCategory: ['subcategory', 'sub category', 'sub-category', 'subcat', 'type', 'itemtype', 'appareltype'],
-  size: ['size', 'sizes', 'garmentsize', 'measurement', 'sz'],
-  color: ['color', 'colour', 'shade', 'col'],
-  stock: ['stock', 'qty', 'quantity', 'stockqty', 'inventory', 'units', 'pieces', 'pcs', 'currentstock', 'openingstock', 'available', 'count'],
+  size: [
+    'size', 'sizes', 'garmentsize', 'measurement', 'sz', 'sizeuk', 'sizeus', 'sizefit', 'itemsize',
+    'variantsize', 'waist', 'chest', 'collar', 'dimension', 'dimensions', 'fit'
+  ],
+  color: ['color', 'colour', 'shade', 'col', 'pattern'],
+  stock: [
+    'stock', 'qty', 'quantity', 'stockqty', 'inventory', 'units', 'pieces', 'pcs',
+    'currentstock', 'openingstock', 'available', 'count', 'balance'
+  ],
   stockDelta: ['stockdelta', 'addstock', 'addqty', 'adjustment', 'delta', 'restock'],
-  sellingPrice: ['sellingprice', 'mrp', 'price', 'retailprice', 'saleprice', 'rate', 'unitprice', 'sellingrate', 'sp'],
-  costPrice: ['costprice', 'cost', 'purchaseprice', 'purchaserate', 'cp', 'buyingprice', 'costrate'],
+  sellingPrice: [
+    'sellingprice', 'mrp', 'price', 'retailprice', 'saleprice', 'rate', 'unitprice',
+    'sellingrate', 'sp', 'salesprice', 'salerate', 'amount', 'unitrate', 'itemrate',
+    'pricers', 'rateinr', 'priceinr', 'mrpval'
+  ],
+  costPrice: [
+    'costprice', 'cost', 'purchaseprice', 'purchaserate', 'cp', 'buyingprice', 'costrate',
+    'wholesaleprice', 'wholesalerate', 'dealerprice', 'purchasecost'
+  ],
   taxRate: ['taxrate', 'tax', 'gst', 'gst%', 'tax%', 'vat', 'gstrate', 'taxrate%'],
   season: ['season', 'collection', 'weather', 'seasons'],
   minStockAlert: ['minstockalert', 'minstock', 'alertqty', 'reorderlevel', 'reorderpoint', 'minimumstock', 'lowstockthreshold', 'threshold', 'alert'],
@@ -81,11 +101,102 @@ function matchHeaderToField(headerText: string): FieldKey | null {
   const clean = headerText.toLowerCase().replace(/[^a-z0-9%]/g, '');
   if (!clean) return null;
 
+  // 1. Direct alias match
   for (const [key, aliases] of Object.entries(FIELD_ALIASES)) {
     if (aliases.some((alias) => alias.replace(/[^a-z0-9%]/g, '') === clean)) {
       return key as FieldKey;
     }
   }
+
+  // 2. Fuzzy / Containment Fallbacks
+  if (clean.includes('barcode') || clean.includes('ean') || clean.includes('upc') || clean.includes('gtin')) {
+    return 'barcode';
+  }
+  if (clean.includes('cost') || clean.includes('purchase') || clean.includes('buying') || clean.includes('wholesalerate')) {
+    return 'costPrice';
+  }
+  if (
+    clean.includes('mrp') ||
+    clean.includes('retail') ||
+    clean.includes('selling') ||
+    clean.includes('saleprice') ||
+    clean.includes('salerate') ||
+    clean.startsWith('price') ||
+    clean.startsWith('rate') ||
+    clean === 'amount' ||
+    clean === 'sp'
+  ) {
+    return 'sellingPrice';
+  }
+  if (
+    clean.startsWith('size') ||
+    clean.endsWith('size') ||
+    clean.includes('waist') ||
+    clean.includes('chest') ||
+    clean.includes('measurement') ||
+    clean === 'sz' ||
+    clean === 'fit'
+  ) {
+    return 'size';
+  }
+  if (clean.includes('color') || clean.includes('colour') || clean.includes('shade')) {
+    return 'color';
+  }
+  if (
+    clean.includes('qty') ||
+    clean.includes('quantity') ||
+    clean.includes('stock') ||
+    clean === 'pcs' ||
+    clean === 'pieces' ||
+    clean === 'units'
+  ) {
+    return 'stock';
+  }
+  if (
+    clean.includes('sku') ||
+    clean.includes('stylecode') ||
+    clean.includes('styleno') ||
+    clean.includes('itemcode') ||
+    clean.includes('designno') ||
+    clean.includes('articleno')
+  ) {
+    return 'sku';
+  }
+  if (clean.includes('category') || clean.includes('department') || clean === 'dept') {
+    return 'category';
+  }
+  if (clean.includes('subcategory') || clean.includes('itemtype') || clean === 'subcat') {
+    return 'subCategory';
+  }
+  if (clean.includes('gst') || clean.includes('tax') || clean.includes('vat')) {
+    return 'taxRate';
+  }
+  if (clean.includes('rack') || clean.includes('shelf') || clean.includes('location') || clean.includes('aisle')) {
+    return 'rack';
+  }
+  if (clean.includes('brand') || clean.includes('vendor') || clean.includes('manufacturer')) {
+    return 'brand';
+  }
+  if (
+    clean.includes('particulars') ||
+    clean.includes('itemname') ||
+    clean.includes('productname') ||
+    clean.includes('garmentname') ||
+    clean.includes('descriptionofgoods') ||
+    clean === 'item' ||
+    clean === 'product' ||
+    clean === 'garment' ||
+    clean === 'name' ||
+    clean === 'title' ||
+    clean === 'goods' ||
+    clean === 'style'
+  ) {
+    return 'name';
+  }
+  if (clean.includes('desc') || clean.includes('detail') || clean.includes('note')) {
+    return 'description';
+  }
+
   return null;
 }
 
@@ -268,6 +379,7 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
 
     const existingSkusInBatch = new Set(products.map((p) => p.sku.toLowerCase()));
     const existingBarcodesInBatch = new Set(products.map((p) => p.barcode));
+    const matchedCatalogProductIds = new Set<string>();
 
     const results: Array<{
       idx: number;
@@ -386,31 +498,45 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
 
       let matched: Product | null = null;
       if (skuQ) {
-        matched = products.find((p) => p.sku.toLowerCase() === skuQ) || null;
+        matched = products.find((p) => p.sku.toLowerCase() === skuQ && !matchedCatalogProductIds.has(p.id)) || null;
       }
       if (!matched && barcodeQ) {
-        matched = products.find((p) => p.barcode.toLowerCase() === barcodeQ) || null;
+        matched = products.find((p) => p.barcode.toLowerCase() === barcodeQ && !matchedCatalogProductIds.has(p.id)) || null;
       }
-      if (!matched && nameQ) {
+      // ONLY match by name if SKU and Barcode were NOT provided in the CSV row, AND the size matches EXACTLY!
+      if (!matched && !skuQ && !barcodeQ && nameQ) {
         matched =
           products.find((p) => {
+            if (matchedCatalogProductIds.has(p.id)) return false;
             if (p.name.toLowerCase() !== nameQ) return false;
-            if (rowData.size && p.size.toLowerCase() !== rowData.size.toLowerCase().trim()) return false;
+            const rowSizeNorm = (rowData.size || '').toString().toLowerCase().trim();
+            const prodSizeNorm = (p.size || '').toString().toLowerCase().trim();
+            if (rowSizeNorm && prodSizeNorm !== rowSizeNorm) return false;
+            if (!rowSizeNorm && prodSizeNorm !== 'free size' && prodSizeNorm !== '') return false;
             if (rowData.color && p.color.toLowerCase() !== rowData.color.toLowerCase().trim()) return false;
             return true;
-          }) ||
-          products.find((p) => p.name.toLowerCase() === nameQ) ||
-          null;
+          }) || null;
       }
 
       if (matched) {
-        if (rowData.sku) existingSkusInBatch.add(rowData.sku.toLowerCase());
-        if (rowData.barcode) existingBarcodesInBatch.add(rowData.barcode);
+        matchedCatalogProductIds.add(matched.id);
+        existingSkusInBatch.add(matched.sku.toLowerCase());
+        existingBarcodesInBatch.add(matched.barcode);
+
+        const enrichedRow: BulkCsvImportRow = {
+          ...rowData,
+          sku: matched.sku,
+          barcode: matched.barcode,
+          name: rowData.name || matched.name,
+          category: rowData.category || matched.category,
+          size: rowData.size || matched.size,
+          color: rowData.color || matched.color,
+        };
 
         results.push({
           idx,
           status: 'update',
-          row: rowData,
+          row: enrichedRow,
           matchedProduct: matched,
           autofilledFields: [],
           notes: [],
@@ -421,7 +547,7 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
           nameQ || skuQ || barcodeQ || rowData.category || rowData.sellingPrice
         );
 
-        if (hasAnyData && enableAutofill) {
+        if (hasAnyData) {
           const autofillRes = autofillRow(
             rowData,
             products,
@@ -435,22 +561,12 @@ export const BulkCsvImportModal: React.FC<BulkCsvImportModalProps> = ({
             status: 'new',
             row: autofillRes.row,
             matchedProduct: null,
-            autofilledFields: autofillRes.autofilledFields,
+            autofilledFields: enableAutofill ? autofillRes.autofilledFields : [],
             notes: autofillRes.notes,
             note:
-              autofillRes.autofilledFields.length > 0
+              enableAutofill && autofillRes.autofilledFields.length > 0
                 ? `Autofilled: ${autofillRes.autofilledFields.join(', ')}`
                 : 'New garment will be added to catalog',
-          });
-        } else if (nameQ || skuQ || barcodeQ) {
-          results.push({
-            idx,
-            status: 'new',
-            row: rowData,
-            matchedProduct: null,
-            autofilledFields: [],
-            notes: [],
-            note: 'New garment will be added to catalog',
           });
         } else {
           results.push({

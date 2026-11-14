@@ -114,3 +114,4 @@ ON CONFLICT (id) DO NOTHING;
 -- Verification query
 SELECT id, display_mode, active_festive_theme, enable_slideshow, enable_video_showcase, updated_at 
 FROM customer_display_settings;
+

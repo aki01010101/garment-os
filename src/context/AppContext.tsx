@@ -1825,10 +1825,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setProducts((prev) => {
+      const initialProducts = [...prev];
       const copy = [...prev];
       const newlyAdded: Product[] = [];
       const existingSkusSet = new Set(copy.map((p) => p.sku.toLowerCase()));
       const existingBarcodesSet = new Set(copy.map((p) => p.barcode));
+      const updatedProductIdsInBatch = new Set<string>();
 
       items.forEach((row, idx) => {
         const skuQ = (row.sku || '').trim().toLowerCase();
@@ -1848,31 +1850,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return; // Ignore empty blank rows
         }
 
-        // 1. Try to find match in catalog
-        let foundIdx = -1;
+        // 1. Try to find match in pre-existing catalog only (never match another row from this batch)
+        let foundInitialIdx = -1;
         if (skuQ) {
-          foundIdx = copy.findIndex((p) => p.sku.toLowerCase() === skuQ);
+          foundInitialIdx = initialProducts.findIndex((p) => p.sku.toLowerCase() === skuQ && !updatedProductIdsInBatch.has(p.id));
         }
-        if (foundIdx === -1 && barcodeQ) {
-          foundIdx = copy.findIndex((p) => p.barcode.toLowerCase() === barcodeQ);
+        if (foundInitialIdx === -1 && barcodeQ) {
+          foundInitialIdx = initialProducts.findIndex((p) => p.barcode.toLowerCase() === barcodeQ && !updatedProductIdsInBatch.has(p.id));
         }
-        if (foundIdx === -1 && nameQ) {
-          // If name matches, match same size/color if provided
-          foundIdx = copy.findIndex((p) => {
+        // ONLY match by name if SKU and Barcode were NOT provided in the row, AND size matches exactly!
+        if (foundInitialIdx === -1 && !skuQ && !barcodeQ && nameQ) {
+          foundInitialIdx = initialProducts.findIndex((p) => {
+            if (updatedProductIdsInBatch.has(p.id)) return false;
             if (p.name.toLowerCase() !== nameQ) return false;
-            if (row.size && p.size.toLowerCase() !== row.size.toLowerCase().trim()) return false;
-            if (row.color && p.color.toLowerCase() !== row.color.toLowerCase().trim()) return false;
+            const rowSizeNorm = (row.size || '').toString().toLowerCase().trim();
+            const prodSizeNorm = (p.size || '').toString().toLowerCase().trim();
+            if (rowSizeNorm && prodSizeNorm !== rowSizeNorm) return false;
+            if (!rowSizeNorm && prodSizeNorm !== 'free size' && prodSizeNorm !== '') return false;
+            if (row.color && p.color.toLowerCase() !== String(row.color).toLowerCase().trim()) return false;
             return true;
           });
-          // Fallback to name-only match if still not found
-          if (foundIdx === -1) {
-            foundIdx = copy.findIndex((p) => p.name.toLowerCase() === nameQ);
-          }
         }
 
-        if (foundIdx !== -1) {
+        if (foundInitialIdx !== -1) {
           // UPDATE EXISTING PRODUCT (only update fields that were provided)
-          const current = copy[foundIdx];
+          const matchedTarget = initialProducts[foundInitialIdx];
+          updatedProductIdsInBatch.add(matchedTarget.id);
+
+          const foundCopyIdx = copy.findIndex((p) => p.id === matchedTarget.id);
+          const current = copy[foundCopyIdx] || matchedTarget;
 
           let stock = current.stock;
           if (typeof row.stock === 'number' && !isNaN(row.stock)) {
@@ -1919,7 +1925,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             minStockAlert,
           };
 
-          copy[foundIdx] = updatedProduct;
+          copy[foundCopyIdx] = updatedProduct;
           if (updatedProduct.sku) existingSkusSet.add(updatedProduct.sku.toLowerCase());
           if (updatedProduct.barcode) existingBarcodesSet.add(updatedProduct.barcode);
           if (isSupabaseAutoSync) asyncSyncProduct(updatedProduct);

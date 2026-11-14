@@ -6,13 +6,13 @@
   "4": "CustomerCRM.tsx",
   "5": "StockAuditModal.tsx",
   "6": "AppContext.tsx",
-  "7": "PromotionsManager.tsx",
+  "7": "SmartRestockPredictorModal.tsx",
   "8": "package.json",
   "9": "InventoryManager.tsx",
   "10": "dependencies",
   "11": "compilerOptions",
   "12": "vite.config.ts",
-  "13": "CustomerDisplay.tsx",
+  "13": "CustomerDisplayManager.tsx",
   "14": "scripts",
   "15": "OfflineSyncIndicator.tsx",
   "16": "vercel.json",
@@ -25,5 +25,7 @@
   "23": "CompanySettings.tsx",
   "24": "overrides",
   "25": "@vitejs/plugin-react",
-  "26": "GiftVouchersModal.tsx"
+  "26": "GiftVouchersModal.tsx",
+  "27": "StockTransferModal.tsx",
+  "28": "pos_rules.md"
 }

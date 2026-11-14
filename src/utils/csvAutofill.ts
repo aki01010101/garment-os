@@ -136,7 +136,7 @@ const SUBCATEGORY_RULES: Array<{
 
 // Common Alpha Sizes and Numeric Waist/Collar Sizes
 const SIZE_ALPHA_REGEX = /\b(XXS|XS|S|M|L|XL|XXL|2XL|3XL|4XL|5XL|6XL|Free\s*Size|FS)\b/i;
-const SIZE_NUMERIC_REGEX = /\b(26|28|30|32|34|36|38|39|40|41|42|43|44|46|48|50)\b/;
+const SIZE_NUMERIC_REGEX = /\b(18|20|22|24|26|28|30|32|34|36|38|39|40|41|42|43|44|46|48|50|52|54|56)\b/;
 const SIZE_KIDS_REGEX = /\b(0-3M|3-6M|6-12M|1-2Y|2-3Y|3-4Y|4-5Y|5-6Y|7-8Y|9-10Y|11-12Y|13-14Y)\b/i;
 
 // -----------------------------------------------------------------------------
@@ -246,10 +246,50 @@ export function generateSmartSku(
     color?: string;
     size?: string;
     name?: string;
+    sellingPrice?: number;
+    existingSkuCandidate?: string;
   },
   existingSkus: Set<string>,
   prefix: string = 'GOS'
 ): string {
+  const candidateRaw = (item.existingSkuCandidate || '').trim();
+  const sz = (item.size || '').trim();
+  let sizeAbbr = 'FS';
+  if (sz && sz.toLowerCase() !== 'free size') {
+    sizeAbbr = sz.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  }
+
+  // If a raw SKU candidate was provided in the CSV (e.g. supplier style code shared across rows)
+  if (candidateRaw) {
+    let candidate = candidateRaw;
+    if (existingSkus.has(candidate.toLowerCase())) {
+      // 1. Try appending size if not already ending in this size
+      if (sizeAbbr && sizeAbbr !== 'FS' && !candidate.toUpperCase().endsWith(sizeAbbr)) {
+        candidate = `${candidateRaw}-${sizeAbbr}`;
+      }
+      // 2. If still collides, try appending price indicator
+      if (existingSkus.has(candidate.toLowerCase()) && item.sellingPrice) {
+        candidate = `${candidate}-P${Math.round(item.sellingPrice)}`;
+      }
+      // 3. If still collides, append sequential -01, -02...
+      if (existingSkus.has(candidate.toLowerCase())) {
+        for (let seq = 1; seq <= 99; seq++) {
+          const testCandidate = `${candidate}-${String(seq).padStart(2, '0')}`;
+          if (!existingSkus.has(testCandidate.toLowerCase())) {
+            candidate = testCandidate;
+            break;
+          }
+        }
+      }
+    }
+    // Fallback if still somehow duplicate
+    if (existingSkus.has(candidate.toLowerCase())) {
+      candidate = `${candidate}-${Math.floor(100 + Math.random() * 900)}`;
+    }
+    existingSkus.add(candidate.toLowerCase());
+    return candidate;
+  }
+
   // 1. Category Abbreviation
   const cat = String(item.category || 'Men');
   const catAbbr =
@@ -288,13 +328,6 @@ export function generateSmartSku(
     colAbbr = col.slice(0, 3).toUpperCase();
   }
 
-  // 4. Size Abbreviation
-  let sizeAbbr = 'FS';
-  const sz = (item.size || '').trim();
-  if (sz && sz.toLowerCase() !== 'free size') {
-    sizeAbbr = sz.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-  }
-
   // Candidate Base SKU
   const baseSku = `${prefix}-${catAbbr}-${subAbbr}-${colAbbr}-${sizeAbbr}`;
 
@@ -302,6 +335,15 @@ export function generateSmartSku(
   if (!existingSkus.has(baseSku.toLowerCase())) {
     existingSkus.add(baseSku.toLowerCase());
     return baseSku;
+  }
+
+  // If colliding and selling price is available, try price differentiator
+  if (item.sellingPrice) {
+    const priceCandidate = `${baseSku}-P${Math.round(item.sellingPrice)}`;
+    if (!existingSkus.has(priceCandidate.toLowerCase())) {
+      existingSkus.add(priceCandidate.toLowerCase());
+      return priceCandidate;
+    }
   }
 
   // Append sequential numbers if colliding
@@ -496,9 +538,9 @@ export function autofillRow(
     autofilledFields.push('rack');
   }
 
-  // 12. Smart SKU Generation
+  // 12. Smart SKU Generation & Uniqueness Guarantee
   const rawSku = (row.sku || '').trim();
-  if (!rawSku) {
+  if (!rawSku || existingSkusInBatch.has(rawSku.toLowerCase())) {
     row.sku = generateSmartSku(
       {
         category: row.category,
@@ -506,22 +548,34 @@ export function autofillRow(
         color: row.color,
         size: String(row.size),
         name: row.name,
+        sellingPrice: row.sellingPrice,
+        existingSkuCandidate: rawSku || undefined,
       },
       existingSkusInBatch,
       effectiveConfig.skuPrefix || 'GOS'
     );
-    autofilledFields.push('sku');
-    notes.push(`Generated SKU: ${row.sku}`);
+    if (!rawSku) {
+      autofilledFields.push('sku');
+      notes.push(`Generated SKU: ${row.sku}`);
+    } else {
+      autofilledFields.push('sku');
+      notes.push(`Differentiated duplicate SKU: ${row.sku}`);
+    }
   } else {
     existingSkusInBatch.add(rawSku.toLowerCase());
   }
 
-  // 13. Smart Barcode Generation
+  // 13. Smart Barcode Generation & Uniqueness Guarantee
   const rawBarcode = (row.barcode || '').trim();
-  if (!rawBarcode) {
+  if (!rawBarcode || existingBarcodesInBatch.has(rawBarcode)) {
     row.barcode = generateRetailBarcode(existingBarcodesInBatch);
-    autofilledFields.push('barcode');
-    notes.push('Generated retail barcode');
+    if (!rawBarcode) {
+      autofilledFields.push('barcode');
+      notes.push('Generated retail barcode');
+    } else {
+      autofilledFields.push('barcode');
+      notes.push('Duplicate barcode replaced with unique EAN');
+    }
   } else {
     existingBarcodesInBatch.add(rawBarcode);
   }
