@@ -940,6 +940,8 @@ export interface CustomerDisplayPayload {
   grandTotal: number;
   customerName?: string;
   customerPhone?: string;
+  customerLoyaltyPoints?: number;
+  customerVipTier?: string;
   paymentMode?: string;
   upiUri?: string;
   googleReviewUrl?: string;

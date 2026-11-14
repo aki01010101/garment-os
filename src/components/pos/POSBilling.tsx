@@ -61,6 +61,7 @@ import { DigitalReceiptModal } from './DigitalReceiptModal';
 import { StoreCreditNotesModal } from './StoreCreditNotesModal';
 import { SignaturePadModal } from '../common/SignaturePadModal';
 import { CustomItemModal, CustomItemPayload } from './CustomItemModal';
+import { INITIAL_COUPONS } from '../../data/seedData';
 
 export const POSBilling: React.FC = () => {
   const {
@@ -658,6 +659,16 @@ export const POSBilling: React.FC = () => {
     }
   };
 
+  const handleApplyCouponDirect = (code: string) => {
+    setCouponError(null);
+    const res = applyCouponCode(code);
+    if (!res.success) {
+      setCouponError(res.message);
+    } else {
+      setCouponInput('');
+    }
+  };
+
   // Phone normalization for reliable matching
   const normalizePhone = (p?: string) => (p || '').replace(/[\s\-\+]/g, '').slice(-10);
 
@@ -826,12 +837,13 @@ export const POSBilling: React.FC = () => {
     const isUpiPayment =
       paymentMode === 'UPI' || (paymentMode === 'Split' && splitUpiVal > 0);
 
-    const upiPayAmount = paymentMode === 'Split' ? splitUpiVal : cartSummary.grandTotal;
+    const upiPayAmount = paymentMode === 'Split' && splitUpiVal > 0 ? splitUpiVal : cartSummary.grandTotal;
+    const effectiveUpiId = storeUpiId || 'retailstore@upi';
 
     const dynamicUpiUri =
-      isUpiPayment && storeUpiId && upiPayAmount > 0
+      effectiveUpiId && upiPayAmount > 0
         ? buildUpiPaymentUri({
-            upiId: storeUpiId,
+            upiId: effectiveUpiId,
             payeeName: storeUpiName || activeCompany.name,
             amount: upiPayAmount,
             transactionNote: `${activeCompany.name} Bill`,
@@ -858,6 +870,8 @@ export const POSBilling: React.FC = () => {
       grandTotal: cartSummary.grandTotal,
       customerName: selectedCustomer ? selectedCustomer.name : undefined,
       customerPhone: selectedCustomer ? selectedCustomer.phone : undefined,
+      customerLoyaltyPoints: selectedCustomer ? selectedCustomer.loyaltyPoints : undefined,
+      customerVipTier: selectedCustomer && selectedCustomer.loyaltyPoints >= 200 ? 'VIP Platinum' : (selectedCustomer ? 'Store Member' : undefined),
       paymentMode,
       upiUri: dynamicUpiUri,
       googleReviewUrl: activeCompany.googleReviewUrl || storeGoogleReviewUrl,
@@ -2545,10 +2559,76 @@ export const POSBilling: React.FC = () => {
 
               {isPromoOpen && (
                 <div className="mt-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2.5 text-xs">
-                  {/* Coupon Code Input */}
+                  {/* Store Coupons Available (Show First, Never Auto-Apply) */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Promotional Coupon Code:
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Tag className="w-3 h-3 text-indigo-600" />
+                        <span>Available Store Coupons:</span>
+                      </label>
+                      <span className="text-[10px] text-slate-400 font-medium">Click Apply to confirm</span>
+                    </div>
+
+                    <div className="space-y-1.5 mb-2.5">
+                      {INITIAL_COUPONS.map((cpn) => {
+                        const isApplied = appliedCoupon?.code === cpn.code;
+                        const isEligible = cartSummary.subtotal >= cpn.minBillAmount;
+                        const shortAmount = Math.max(0, cpn.minBillAmount - cartSummary.subtotal);
+                        return (
+                          <div
+                            key={cpn.code}
+                            className={`p-2 rounded-lg border text-xs transition-colors ${
+                              isApplied
+                                ? 'bg-indigo-50/80 border-indigo-300 ring-1 ring-indigo-200'
+                                : isEligible
+                                ? 'bg-white border-slate-200 hover:border-indigo-300'
+                                : 'bg-slate-50 border-slate-200 opacity-60'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 text-[10px]">
+                                    {cpn.code}
+                                  </span>
+                                  <span className="font-bold text-slate-800 text-[11px]">
+                                    {cpn.discountType === 'percentage'
+                                      ? `${cpn.discountValue}% OFF`
+                                      : `₹${cpn.discountValue} OFF`}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                                  {cpn.description}
+                                </p>
+                              </div>
+                              <div className="shrink-0">
+                                {isApplied ? (
+                                  <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded border border-indigo-200">
+                                    Applied ✓
+                                  </span>
+                                ) : isEligible ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApplyCouponDirect(cpn.code)}
+                                    className="px-2.5 py-1 text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded cursor-pointer shadow-2xs"
+                                  >
+                                    Apply
+                                  </button>
+                                ) : (
+                                  <span className="text-[9px] text-slate-500 font-medium bg-slate-100 px-1.5 py-0.5 rounded">
+                                    Min ₹{cpn.minBillAmount} (short ₹{Math.round(shortAmount)})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Or enter custom code */}
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+                      Or Enter Custom Coupon Code:
                     </label>
                     <form onSubmit={handleApplyCoupon} className="flex gap-1.5">
                       <input
