@@ -16,6 +16,7 @@ import {
   openCustomerDisplayWindow,
   broadcastCustomerDisplay,
 } from '../../utils/customerDisplaySync';
+import { asyncSyncCustomerDisplayConfig } from '../../services/supabase';
 import { buildUpiPaymentUri } from '../../utils/upi';
 import QRCode from 'qrcode';
 import {
@@ -121,7 +122,8 @@ export const CustomerDisplayManager: React.FC = () => {
   // Save changes
   const handleSave = () => {
     saveCustomerDisplayConfig(config);
-    showToast('Customer Screen settings saved & broadcasted to secondary displays!');
+    asyncSyncCustomerDisplayConfig(config);
+    showToast('Customer Screen settings saved, broadcasted & synced to database!');
   };
 
   // Reset to default
@@ -129,7 +131,8 @@ export const CustomerDisplayManager: React.FC = () => {
     if (window.confirm('Reset all Customer Display settings back to default factory settings?')) {
       const def = resetCustomerDisplayConfig();
       setConfig(def);
-      showToast('Settings reset to defaults.');
+      asyncSyncCustomerDisplayConfig(def);
+      showToast('Settings reset to defaults & synced to database.');
     }
   };
 

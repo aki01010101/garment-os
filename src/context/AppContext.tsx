@@ -70,6 +70,7 @@ import {
 
 import { playBarcodeBeep } from '../utils/audio';
 import { autofillRow } from '../utils/csvAutofill';
+import { loadCustomerDisplayConfig, saveCustomerDisplayConfig } from '../utils/customerDisplayConfig';
 import {
   getSupabaseConfig,
   saveSupabaseCredentials,
@@ -90,6 +91,7 @@ import {
   asyncSyncCompany,
   asyncSyncPromotion,
   asyncSyncDeletePromotion,
+  asyncSyncCustomerDisplayConfig,
   signInWithGoogle,
   signInWithEmail,
   signUpWithEmail,
@@ -657,6 +659,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       giftVouchers,
       promotions,
       creditPayments,
+      customerDisplayConfig: loadCustomerDisplayConfig(),
     });
     if (res.success) {
       setLastSupabaseSync(new Date().toISOString());
@@ -697,6 +700,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (res.data.loyaltyConfig) setLoyaltyConfig(res.data.loyaltyConfig);
       if (res.data.promotions && res.data.promotions.length > 0) setPromotions(res.data.promotions);
       if (res.data.creditPayments && res.data.creditPayments.length > 0) setCreditPayments(res.data.creditPayments);
+      if (res.data.customerDisplayConfig) saveCustomerDisplayConfig(res.data.customerDisplayConfig);
 
       if (res.data.settings) {
         const s = res.data.settings;

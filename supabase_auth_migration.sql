@@ -253,6 +253,44 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS customer_display_settings (
+  id TEXT PRIMARY KEY DEFAULT 'default',
+  display_mode TEXT NOT NULL DEFAULT 'dark',
+  active_festive_theme TEXT NOT NULL DEFAULT 'modern',
+  brand_name_override TEXT,
+  brand_tagline_override TEXT,
+  store_phone TEXT,
+  store_instagram TEXT,
+  enable_slideshow BOOLEAN NOT NULL DEFAULT TRUE,
+  slide_interval_seconds INT NOT NULL DEFAULT 6,
+  slides JSONB NOT NULL DEFAULT '[]'::jsonb,
+  enable_video_showcase BOOLEAN NOT NULL DEFAULT TRUE,
+  video_url TEXT,
+  video_title TEXT,
+  video_subtitle TEXT,
+  auto_loop_video BOOLEAN NOT NULL DEFAULT TRUE,
+  auto_mute_video BOOLEAN NOT NULL DEFAULT TRUE,
+  enable_marquee BOOLEAN NOT NULL DEFAULT TRUE,
+  marquee_speed TEXT NOT NULL DEFAULT 'normal',
+  marquee_text TEXT,
+  enable_promo_cards BOOLEAN NOT NULL DEFAULT TRUE,
+  promo_cards JSONB NOT NULL DEFAULT '[]'::jsonb,
+  show_dynamic_upi_qr BOOLEAN NOT NULL DEFAULT TRUE,
+  upi_id_override TEXT,
+  upi_merchant_name_override TEXT,
+  customer_greeting_size TEXT NOT NULL DEFAULT '3xl',
+  show_customer_loyalty BOOLEAN NOT NULL DEFAULT TRUE,
+  show_customer_vip_badge BOOLEAN NOT NULL DEFAULT TRUE,
+  mask_customer_phone BOOLEAN NOT NULL DEFAULT FALSE,
+  show_savings_callout BOOLEAN NOT NULL DEFAULT TRUE,
+  show_google_review_qr BOOLEAN NOT NULL DEFAULT TRUE,
+  google_review_url TEXT,
+  post_checkout_idle_timeout_seconds INT NOT NULL DEFAULT 15,
+  user_id UUID,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS promotions (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -377,7 +415,7 @@ BEGIN
       'staff_users', 'parked_carts', 'coupons', 'app_settings', 'promotions',
       'stock_audits', 'stock_transfers', 'associate_commissions',
       'campaign_templates', 'gift_vouchers', 'customer_measurements',
-      'associate_commission_payouts'
+      'associate_commission_payouts', 'customer_display_settings'
     ])
   LOOP
     -- Only operate on tables that actually exist in the public schema

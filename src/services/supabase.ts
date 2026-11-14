@@ -18,6 +18,10 @@ import {
   PromotionRule,
   CustomerCreditPayment,
 } from '../types';
+import {
+  CustomerDisplayCustomConfig,
+  DEFAULT_CUSTOMER_DISPLAY_CONFIG,
+} from '../utils/customerDisplayConfig';
 
 export const SUPABASE_STORAGE_KEYS = {
   URL: 'garment_os_supabase_url',
@@ -854,6 +858,82 @@ export function mapPromotionFromDb(row: any): PromotionRule {
   };
 }
 
+export function mapCustomerDisplayConfigToDb(cfg: CustomerDisplayCustomConfig, userId?: string) {
+  return {
+    id: userId ? `user_${userId}` : 'default',
+    display_mode: cfg.displayMode || 'dark',
+    active_festive_theme: cfg.activeFestiveTheme || 'modern',
+    brand_name_override: cfg.brandNameOverride || null,
+    brand_tagline_override: cfg.brandTaglineOverride || null,
+    store_phone: cfg.storePhone || null,
+    store_instagram: cfg.storeInstagram || null,
+    enable_slideshow: cfg.enableSlideshow ?? true,
+    slide_interval_seconds: cfg.slideIntervalSeconds || 6,
+    slides: cfg.slides || [],
+    enable_video_showcase: cfg.enableVideoShowcase ?? true,
+    video_url: cfg.videoUrl || null,
+    video_title: cfg.videoTitle || null,
+    video_subtitle: cfg.videoSubtitle || null,
+    auto_loop_video: cfg.autoLoopVideo ?? true,
+    auto_mute_video: cfg.autoMuteVideo ?? true,
+    enable_marquee: cfg.enableMarquee ?? true,
+    marquee_speed: cfg.marqueeSpeed || 'normal',
+    marquee_text: cfg.marqueeText || null,
+    enable_promo_cards: cfg.enablePromoCards ?? true,
+    promo_cards: cfg.promoCards || [],
+    show_dynamic_upi_qr: cfg.showDynamicUpiQr ?? true,
+    upi_id_override: cfg.upiIdOverride || null,
+    upi_merchant_name_override: cfg.upiMerchantNameOverride || null,
+    customer_greeting_size: cfg.customerGreetingSize || '3xl',
+    show_customer_loyalty: cfg.showCustomerLoyalty ?? true,
+    show_customer_vip_badge: cfg.showCustomerVipBadge ?? true,
+    mask_customer_phone: cfg.maskCustomerPhone ?? false,
+    show_savings_callout: cfg.showSavingsCallout ?? true,
+    show_google_review_qr: cfg.showGoogleReviewQr ?? true,
+    google_review_url: cfg.googleReviewUrl || null,
+    post_checkout_idle_timeout_seconds: cfg.postCheckoutIdleTimeoutSeconds || 15,
+    updated_at: new Date().toISOString(),
+    ...(userId ? { user_id: userId } : {}),
+  };
+}
+
+export function mapCustomerDisplayConfigFromDb(row: any): CustomerDisplayCustomConfig {
+  return {
+    ...DEFAULT_CUSTOMER_DISPLAY_CONFIG,
+    displayMode: row.display_mode || 'dark',
+    activeFestiveTheme: row.active_festive_theme || 'modern',
+    brandNameOverride: row.brand_name_override || '',
+    brandTaglineOverride: row.brand_tagline_override || '',
+    storePhone: row.store_phone || '+91 98765 43210',
+    storeInstagram: row.store_instagram || '@couture_apparel',
+    enableSlideshow: row.enable_slideshow ?? true,
+    slideIntervalSeconds: Number(row.slide_interval_seconds) || 6,
+    slides: Array.isArray(row.slides) && row.slides.length > 0 ? row.slides : DEFAULT_CUSTOMER_DISPLAY_CONFIG.slides,
+    enableVideoShowcase: row.enable_video_showcase ?? true,
+    videoUrl: row.video_url || DEFAULT_CUSTOMER_DISPLAY_CONFIG.videoUrl,
+    videoTitle: row.video_title || DEFAULT_CUSTOMER_DISPLAY_CONFIG.videoTitle,
+    videoSubtitle: row.video_subtitle || DEFAULT_CUSTOMER_DISPLAY_CONFIG.videoSubtitle,
+    autoLoopVideo: row.auto_loop_video ?? true,
+    autoMuteVideo: row.auto_mute_video ?? true,
+    enableMarquee: row.enable_marquee ?? true,
+    marqueeSpeed: row.marquee_speed || 'normal',
+    marqueeText: row.marquee_text || DEFAULT_CUSTOMER_DISPLAY_CONFIG.marqueeText,
+    enablePromoCards: row.enable_promo_cards ?? true,
+    promoCards: Array.isArray(row.promo_cards) && row.promo_cards.length > 0 ? row.promo_cards : DEFAULT_CUSTOMER_DISPLAY_CONFIG.promoCards,
+    showDynamicUpiQr: row.show_dynamic_upi_qr ?? true,
+    upiIdOverride: row.upi_id_override || '',
+    upiMerchantNameOverride: row.upi_merchant_name_override || '',
+    customerGreetingSize: row.customer_greeting_size || '3xl',
+    showCustomerLoyalty: row.show_customer_loyalty ?? true,
+    showCustomerVipBadge: row.show_customer_vip_badge ?? true,
+    maskCustomerPhone: row.mask_customer_phone ?? false,
+    showSavingsCallout: row.show_savings_callout ?? true,
+    showGoogleReviewQr: row.show_google_review_qr ?? true,
+    googleReviewUrl: row.google_review_url || DEFAULT_CUSTOMER_DISPLAY_CONFIG.googleReviewUrl,
+    postCheckoutIdleTimeoutSeconds: Number(row.post_checkout_idle_timeout_seconds) || 15,
+  };
+}
+
 // -----------------------------------------------------------------------------
 // RESILIENT POSTGREST UPSERT WITH SCHEMA AUTO-HEAL & RLS COLLISION RESOLUTION
 // -----------------------------------------------------------------------------
@@ -946,6 +1026,7 @@ export async function pushAllToSupabase(payload: {
   giftVouchers?: GiftVoucher[];
   promotions?: PromotionRule[];
   creditPayments?: CustomerCreditPayment[];
+  customerDisplayConfig?: CustomerDisplayCustomConfig;
 }, explicitUserId?: string): Promise<{ success: boolean; message: string; stats?: any }> {
   const supabase = getSupabase();
   if (!supabase) {
@@ -1104,6 +1185,30 @@ export async function pushAllToSupabase(payload: {
       );
     }
 
+    // 17. Customer Display Settings (Studio / Dual Monitor)
+    if (payload.customerDisplayConfig) {
+      try {
+        const dbRow = mapCustomerDisplayConfigToDb(payload.customerDisplayConfig, userId);
+        const res = await safeUpsert('customer_display_settings', dbRow, userId);
+        if (!res.success) {
+          // Graceful fallback to app_settings if customer_display_settings table is not migrated yet
+          const settingKey = userId ? `user_${userId}_customer_display_config` : 'customer_display_config';
+          await safeUpsert(
+            'app_settings',
+            {
+              key: settingKey,
+              value: payload.customerDisplayConfig,
+              updated_at: new Date().toISOString(),
+              ...(userId ? { user_id: userId } : {}),
+            },
+            userId
+          );
+        }
+      } catch (err) {
+        console.warn('Customer display settings sync warning:', err);
+      }
+    }
+
     if (errors.length > 0) {
       console.warn('pushAllToSupabase encountered errors on some tables:', errors);
       return {
@@ -1163,6 +1268,7 @@ export async function pullAllFromSupabase(): Promise<{
     giftVouchers?: GiftVoucher[];
     promotions?: PromotionRule[];
     creditPayments?: CustomerCreditPayment[];
+    customerDisplayConfig?: CustomerDisplayCustomConfig;
   };
 }> {
   const supabase = getSupabase();
@@ -1188,6 +1294,7 @@ export async function pullAllFromSupabase(): Promise<{
       settingsRes,
       giftVouchersRes,
       promotionsRes,
+      customerDisplayRes,
     ] = await Promise.all([
       supabase.from('companies').select('*'),
       supabase.from('products').select('*'),
@@ -1202,6 +1309,7 @@ export async function pullAllFromSupabase(): Promise<{
       supabase.from('app_settings').select('*'),
       supabase.from('gift_vouchers').select('*'),
       supabase.from('promotions').select('*'),
+      supabase.from('customer_display_settings').select('*'),
     ]);
 
     // Helper: When logged in, strictly prioritize rows that belong to this user (user_id === userId)
@@ -1221,6 +1329,16 @@ export async function pullAllFromSupabase(): Promise<{
         companiesRes.data &&
         companiesRes.data.some((r: any) => r.user_id === userId || (r.id && typeof r.id === 'string' && r.id.startsWith(userId + '_')))
     );
+
+    // Parse Customer Display Settings (try dedicated customer_display_settings table first)
+    let customerDisplayConfigFromDb: CustomerDisplayCustomConfig | undefined;
+    if (customerDisplayRes && customerDisplayRes.data && customerDisplayRes.data.length > 0) {
+      const userDisplayRows = filterByUser(customerDisplayRes.data);
+      const row = userDisplayRows[0] || customerDisplayRes.data[0];
+      if (row) {
+        customerDisplayConfigFromDb = mapCustomerDisplayConfigFromDb(row);
+      }
+    }
 
     // Parse App Settings prioritizing authenticated user's records
     let usersFromDb: UserAccount[] | undefined;
@@ -1251,6 +1369,9 @@ export async function pullAllFromSupabase(): Promise<{
         if (cleanKey === 'coupons') couponsFromDb = row.value;
         if (cleanKey === 'loyalty_config') loyaltyFromDb = row.value;
         if (cleanKey === 'customer_credit_payments') creditPaymentsFromDb = row.value;
+        if (cleanKey === 'customer_display_config' && !customerDisplayConfigFromDb) {
+          customerDisplayConfigFromDb = row.value;
+        }
         if (cleanKey === 'terminal_settings') {
           terminalSettings = { ...(terminalSettings || {}), ...(row.value || {}) };
         } else if (
@@ -1306,6 +1427,7 @@ export async function pullAllFromSupabase(): Promise<{
       giftVouchers: filteredGiftVouchers.length > 0 ? filteredGiftVouchers.map(mapGiftVoucherFromDb) : undefined,
       promotions: filteredPromotions.length > 0 ? filteredPromotions.map(mapPromotionFromDb) : undefined,
       creditPayments: creditPaymentsFromDb,
+      customerDisplayConfig: customerDisplayConfigFromDb,
     };
 
     const now = new Date().toISOString();
@@ -1465,5 +1587,29 @@ export async function asyncSyncDeletePromotion(promoId: string) {
     await query;
   } catch (err) {
     console.warn('Background Supabase promotion delete error:', err);
+  }
+}
+
+export async function asyncSyncCustomerDisplayConfig(config: CustomerDisplayCustomConfig) {
+  try {
+    const user = await getCloudUser();
+    const userId = user?.id;
+    const dbRow = mapCustomerDisplayConfigToDb(config, userId);
+    const res = await safeUpsert('customer_display_settings', dbRow, userId);
+    if (!res.success) {
+      const settingKey = userId ? `user_${userId}_customer_display_config` : 'customer_display_config';
+      await safeUpsert(
+        'app_settings',
+        {
+          key: settingKey,
+          value: config,
+          updated_at: new Date().toISOString(),
+          ...(userId ? { user_id: userId } : {}),
+        },
+        userId
+      );
+    }
+  } catch (err) {
+    console.warn('Background customer display settings sync error:', err);
   }
 }
