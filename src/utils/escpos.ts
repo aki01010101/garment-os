@@ -826,9 +826,10 @@ export async function printViaLocalBridge(
   try {
     onStatusUpdate?.('Sending ESC/POS payload to Everycom spooler...');
     let binary = '';
-    const len = payload.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(payload[i]);
+    const chunkSize = 8192;
+    for (let i = 0; i < payload.length; i += chunkSize) {
+      const chunk = payload.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, chunk as any);
     }
     const base64Data = btoa(binary);
 

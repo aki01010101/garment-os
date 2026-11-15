@@ -72,8 +72,8 @@
     "semantic_hash": ""
   },
   "src/components/common/BarcodeSvg.tsx": {
-    "mtime": 1794740891.5273342,
-    "seen": 1794741090.1059778,
+    "mtime": 1794741174.3862517,
+    "seen": 1794742171.4884198,
     "ast_hash": "608a34e8dc5427bbfda5ffe3ed7ad8c0",
     "semantic_hash": ""
   },
@@ -294,8 +294,8 @@
     "semantic_hash": ""
   },
   "src/components/tags/PriceTagGenerator.tsx": {
-    "mtime": 1794740941.5869572,
-    "seen": 1794741090.1139836,
+    "mtime": 1794741174.975815,
+    "seen": 1794742171.498408,
     "ast_hash": "fb59563642a9d547dff921bc69962920",
     "semantic_hash": ""
   },
@@ -324,9 +324,9 @@
     "semantic_hash": ""
   },
   "src/server/printerBridge.js": {
-    "mtime": 1794740990.9258492,
-    "seen": 1794741090.1145995,
-    "ast_hash": "1ab2a69e8b39574edba741491d6f93df",
+    "mtime": 1794741843.9684794,
+    "seen": 1794742171.499374,
+    "ast_hash": "64bf8840648886281409bea0ffe6ae0b",
     "semantic_hash": ""
   },
   "src/services/supabase.ts": {
@@ -366,15 +366,15 @@
     "semantic_hash": ""
   },
   "src/utils/escpos.ts": {
-    "mtime": 1794741031.3142166,
-    "seen": 1794741090.1159396,
-    "ast_hash": "7f4b67bb3712f2ed1c92c17e2ccc2c7f",
+    "mtime": 1794741852.270065,
+    "seen": 1794742171.5010579,
+    "ast_hash": "aa4ff29ae7a028c12a8937ccdda35800",
     "semantic_hash": ""
   },
   "src/utils/printReceipt.ts": {
-    "mtime": 1794740954.7600937,
-    "seen": 1794741090.1160977,
-    "ast_hash": "5f298264e421a4738eaa65f6da24311b",
+    "mtime": 1794741820.497779,
+    "seen": 1794742171.5014486,
+    "ast_hash": "43127f57ef74f27cef1b7a452f50862e",
     "semantic_hash": ""
   },
   "src/utils/upi.ts": {
@@ -396,8 +396,8 @@
     "semantic_hash": ""
   },
   "vite.config.ts": {
-    "mtime": 1794740999.4126391,
-    "seen": 1794741090.1165788,
+    "mtime": 1794741175.7252245,
+    "seen": 1794742171.5019693,
     "ast_hash": "58172384dc385b4153166ebac027babc",
     "semantic_hash": ""
   },

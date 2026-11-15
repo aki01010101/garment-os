@@ -86,9 +86,10 @@ Write-Output "$res|$target";
       try { if (fs.existsSync(tmpBin)) fs.unlinkSync(tmpBin); } catch {}
       if (err) return reject(err);
       const out = stdout.trim();
-      const parts = out.split('|');
-      if (parts[0] === 'True') {
-        resolve({ success: true, printerName: parts[1] || printerName });
+      if (out.includes('True')) {
+        const match = out.match(/True\|(.*)/);
+        const resolvedName = match ? match[1].trim() : printerName;
+        resolve({ success: true, printerName: resolvedName });
       } else {
         reject(new Error(stderr || `Printing returned: ${out}`));
       }

@@ -494,14 +494,17 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
       iframe = document.createElement('iframe');
       iframe.id = 'price-tag-print-iframe';
       iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '-9999px';
+      iframe.style.width = isA4 ? '210mm' : '50mm';
+      iframe.style.height = isA4 ? '297mm' : '200mm';
       iframe.style.border = '0';
       iframe.style.opacity = '0';
       iframe.style.pointerEvents = 'none';
       document.body.appendChild(iframe);
+    } else {
+      iframe.style.width = isA4 ? '210mm' : '50mm';
+      iframe.style.height = isA4 ? '297mm' : '200mm';
     }
 
     const doc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -511,15 +514,16 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
       return;
     }
 
+    const isLandscape = orientation === 'landscape';
+
+    // When printing thermal rolls (50x25, 50x32, hang-tag), we MUST use the explicit orientation keyword
+    // (portrait or landscape). If length dimensions (50mm 27mm) are passed where width > height, Chrome's
+    // print engine automatically infers landscape, forces landscape preview, and errors on portrait roll printers.
     const pageCss = isA4
-      ? `@page { size: A4 portrait; margin: 8mm 6mm; }`
-      : format === '50x25'
-      ? `@page { size: 50mm 27mm; margin: 0mm; }`
-      : format === '50x32'
-      ? `@page { size: 50mm 34mm; margin: 0mm; }`
-      : isHangTag
-      ? `@page { size: 48mm 82mm; margin: 0mm; }`
-      : `@page { size: ${orientation}; margin: 0mm; }`;
+      ? `@page { size: A4 ${isLandscape ? 'landscape' : 'portrait'}; margin: 8mm 6mm; }`
+      : isLandscape
+      ? `@page { size: landscape; margin: 0mm; }`
+      : `@page { size: portrait; margin: 0mm; }`;
 
     const containerCss = isA4
       ? `
@@ -574,7 +578,7 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
             html, body {
               width: ${isA4 ? '210mm' : tagWidth};
               height: auto;
-              margin: 0;
+              margin: 0 auto;
               padding: 0;
               background-color: #ffffff;
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -585,6 +589,11 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
             }
             .space-y-3 > * + * {
               margin-top: 0 !important;
+            }
+            .tags-container {
+              width: ${isA4 ? '210mm' : tagWidth};
+              margin: 0 auto;
+              padding: 0;
             }
             .thermal-tag-roll {
               width: ${tagWidth} !important;
@@ -598,7 +607,7 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
               background: #ffffff !important;
               border: none !important;
               box-shadow: none !important;
-              margin: 0 !important;
+              margin: 0 auto !important;
               overflow: hidden !important;
               display: flex !important;
               flex-direction: column !important;
@@ -637,7 +646,7 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
     `);
     doc.close();
 
-    setTimeout(() => {
+    const triggerPrint = () => {
       try {
         if (iframe.contentWindow) {
           iframe.contentWindow.focus();
@@ -651,7 +660,15 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
         window.focus();
         window.print();
       }
-    }, 350);
+    };
+
+    // Give iframe time to settle rendering and font layout
+    if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+      setTimeout(triggerPrint, 250);
+    } else {
+      iframe.onload = () => setTimeout(triggerPrint, 250);
+      setTimeout(triggerPrint, 400);
+    }
   } catch (error) {
     console.error('Print price tags error:', error);
     window.focus();
