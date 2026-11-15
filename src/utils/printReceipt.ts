@@ -513,6 +513,12 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
 
     const pageCss = isA4
       ? `@page { size: A4 portrait; margin: 8mm 6mm; }`
+      : format === '50x25'
+      ? `@page { size: 50mm 27mm; margin: 0mm; }`
+      : format === '50x32'
+      ? `@page { size: 50mm 34mm; margin: 0mm; }`
+      : isHangTag
+      ? `@page { size: 48mm 82mm; margin: 0mm; }`
       : `@page { size: ${orientation}; margin: 0mm; }`;
 
     const containerCss = isA4
@@ -556,9 +562,14 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
               box-sizing: border-box;
               margin: 0;
               padding: 0;
+              color: #000000 !important;
+              border-color: #000000 !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
               color-adjust: exact !important;
+              -webkit-font-smoothing: none !important;
+              font-smooth: never !important;
+              text-rendering: geometricPrecision !important;
             }
             html, body {
               width: ${isA4 ? '210mm' : tagWidth};
@@ -567,8 +578,10 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
               padding: 0;
               background-color: #ffffff;
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-              color: #000000;
-              -webkit-font-smoothing: antialiased;
+              color: #000000 !important;
+              -webkit-font-smoothing: none !important;
+              font-smooth: never !important;
+              image-rendering: pixelated !important;
             }
             .space-y-3 > * + * {
               margin-top: 0 !important;
@@ -583,13 +596,16 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
               padding: 1.2mm 1.5mm !important;
               box-sizing: border-box !important;
               background: #ffffff !important;
-              border: 0.5px solid #cccccc !important;
+              border: none !important;
               box-shadow: none !important;
               margin: 0 !important;
               overflow: hidden !important;
               display: flex !important;
               flex-direction: column !important;
               justify-content: space-between !important;
+              -webkit-font-smoothing: none !important;
+              font-smooth: never !important;
+              text-rendering: geometricPrecision !important;
             }
             ${containerCss}
             svg {
@@ -599,8 +615,11 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
               shape-rendering: crispEdges !important;
+              image-rendering: pixelated !important;
             }
             svg rect, svg path {
+              fill: #000000 !important;
+              shape-rendering: crispEdges !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }

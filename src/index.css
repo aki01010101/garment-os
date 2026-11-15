@@ -387,6 +387,17 @@
     max-width: 50mm !important;
     margin: 0 !important;
     padding: 0 !important;
+    color: #000000 !important;
+    -webkit-font-smoothing: none !important;
+    font-smooth: never !important;
+  }
+
+  #print-mount-point.is-tag-print * {
+    color: #000000 !important;
+    border-color: #000000 !important;
+    -webkit-font-smoothing: none !important;
+    font-smooth: never !important;
+    text-rendering: geometricPrecision !important;
   }
 
   #print-mount-point.is-tag-print .thermal-tag-roll {
@@ -406,6 +417,8 @@
     break-after: page !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    -webkit-font-smoothing: none !important;
+    font-smooth: never !important;
   }
 
   #print-mount-point.is-tag-print.is-tag-25mm .thermal-tag-roll {

@@ -103,15 +103,15 @@ export const BarcodeSvg: React.FC<BarcodeSvgProps> = ({
         {
           type: 'svg',
           width: qrSize,
-          margin: 1,
+          margin: 0,
           color: { dark: '#000000', light: '#ffffff' },
-          errorCorrectionLevel: 'M',
+          errorCorrectionLevel: 'L',
         },
         (err, str) => {
           if (!err && str) {
             svgOutput = str.replace(
               '<svg',
-              `<svg width="${qrSize}" height="${qrSize}" style="display:block;margin:0 auto;width:100%;height:100%;max-width:${qrSize}px;max-height:${qrSize}px;-webkit-print-color-adjust:exact;print-color-adjust:exact;"`
+              `<svg width="${qrSize}" height="${qrSize}" shape-rendering="crispEdges" style="display:block;margin:0 auto;width:100%;height:100%;max-width:${qrSize}px;max-height:${qrSize}px;shape-rendering:crispEdges;-webkit-print-color-adjust:exact;print-color-adjust:exact;"`
             );
           }
         }

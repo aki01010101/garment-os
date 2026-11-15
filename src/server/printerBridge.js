@@ -41,7 +41,7 @@ public class RawPrinterHelper {
 
     public static bool SendBytesToPrinter(string szPrinterName, byte[] bytes) {
         IntPtr hPrinter;
-        DOCINFOA di = new DOCINFOA { pDocName = "GarmentOS Receipt", pDataType = "RAW" };
+        DOCINFOA di = new DOCINFOA { pDocName = "GarmentOS Label", pDataType = "RAW" };
         if (OpenPrinter(szPrinterName, out hPrinter, IntPtr.Zero)) {
             if (StartDocPrinter(hPrinter, 1, di)) {
                 if (StartPagePrinter(hPrinter)) {
@@ -66,9 +66,17 @@ public class RawPrinterHelper {
 if (-not ([System.Management.Automation.PSTypeName]'RawPrinterHelper').Type) {
     Add-Type -TypeDefinition $code;
 }
-$res = [RawPrinterHelper]::SendBytesToPrinter('${printerName.replace(/'/g, "''")}', $bytes);
+$target = '${printerName.replace(/'/g, "''")}';
+$installed = Get-Printer | Select-Object -ExpandProperty Name;
+if (-not ($installed -contains $target)) {
+    $match = Get-Printer | Where-Object { $_.Name -like '*Everycom*' -or $_.Name -like '*POS*' -or $_.DriverName -like '*Everycom*' -or $_.DriverName -like '*58*' } | Select-Object -First 1;
+    if ($match) {
+        $target = $match.Name;
+    }
+}
+$res = [RawPrinterHelper]::SendBytesToPrinter($target, $bytes);
 Remove-Item -Path '${tmpBin.replace(/'/g, "''")}' -ErrorAction SilentlyContinue;
-Write-Output $res;
+Write-Output "$res|$target";
 `;
     const psFile = path.join(os.tmpdir(), `gos_usb_${Date.now()}.ps1`);
     fs.writeFileSync(psFile, psScript);
@@ -78,8 +86,9 @@ Write-Output $res;
       try { if (fs.existsSync(tmpBin)) fs.unlinkSync(tmpBin); } catch {}
       if (err) return reject(err);
       const out = stdout.trim();
-      if (out === 'True') {
-        resolve({ success: true, printerName });
+      const parts = out.split('|');
+      if (parts[0] === 'True') {
+        resolve({ success: true, printerName: parts[1] || printerName });
       } else {
         reject(new Error(stderr || `Printing returned: ${out}`));
       }
@@ -135,8 +144,20 @@ export function detectPrintersAndPorts() {
   try {
     const psScript = `
 $printers = Get-Printer | Where-Object { $_.Name -like '*Everycom*' -or $_.Name -like '*POS*' -or $_.DriverName -like '*58*' -or $_.DriverName -like '*80*' -or $_.DriverName -like '*POS*' -or $_.DriverName -like '*Thermal*' } | Select-Object Name, DriverName, PortName;
-$ports = Get-CimInstance Win32_SerialPort | Select-Object DeviceID, Name, Description;
-@{ printers = @($printers); ports = @($ports) } | ConvertTo-Json -Compress
+$spNames = [System.IO.Ports.SerialPort]::GetPortNames();
+$portsList = @();
+foreach ($p in $spNames) {
+    $portsList += @{ DeviceID = $p; Name = $p; Description = 'Serial / Bluetooth SPP Port' };
+}
+$cimPorts = Get-CimInstance Win32_SerialPort -ErrorAction SilentlyContinue | Select-Object DeviceID, Name, Description;
+if ($cimPorts) {
+    foreach ($cp in $cimPorts) {
+        if (-not ($spNames -contains $cp.DeviceID)) {
+            $portsList += $cp;
+        }
+    }
+}
+@{ printers = @($printers); ports = @($portsList) } | ConvertTo-Json -Compress
 `;
     const tmpFile = path.join(os.tmpdir(), `detect_printers_${Date.now()}.ps1`);
     fs.writeFileSync(tmpFile, psScript);

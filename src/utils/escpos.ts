@@ -237,6 +237,14 @@ export class EscPosBuilder {
     return this;
   }
 
+  // ESC J n: Print and feed paper by exact n dots (1 dot = 1/8 mm = 0.125mm at 203 DPI)
+  // Essential for 2mm gap between stickers: 2.0mm * 8 dots/mm = 16 dots
+  feedDots(dots: number = 16): this {
+    const d = Math.max(0, Math.min(255, Math.round(dots)));
+    this.buffer.push(0x1b, 0x4a, d);
+    return this;
+  }
+
   // Auto Guillotine Paper Cut
   cut(partial: boolean = false): this {
     this.feed(3);
@@ -950,14 +958,16 @@ async function findWritableCharacteristic(server: any): Promise<any> {
  */
 export async function printViaWebBluetooth(
   payload: Uint8Array,
-  onStatusUpdate?: (status: string) => void
+  onStatusUpdate?: (status: string) => void,
+  portName?: string
 ): Promise<{ success: boolean; deviceName?: string; error?: string }> {
-  // 1. On Windows with local server, Bluetooth thermal printers connect to COM4 / COM3.
-  // Try printing directly via local bridge to COM4 first if available!
-  onStatusUpdate?.('Connecting to Bluetooth Thermal Printer (COM4)...');
-  const bridgeRes = await printViaLocalBridge(payload, { portName: 'COM4' }, onStatusUpdate);
+  // 1. On Windows with local server, Bluetooth thermal printers connect to COM4 / COM3 / COM5.
+  // Try printing directly via local bridge to specified or detected COM port first!
+  const targetPort = portName || 'COM4';
+  onStatusUpdate?.(`Connecting to Bluetooth Thermal Printer (${targetPort})...`);
+  const bridgeRes = await printViaLocalBridge(payload, { portName: targetPort }, onStatusUpdate);
   if (bridgeRes.success) {
-    return { success: true, deviceName: 'Everycom Bluetooth (COM4)' };
+    return { success: true, deviceName: `Everycom Bluetooth (${targetPort})` };
   }
 
   // 2. If local bridge was unreachable, try Web Serial API (Chrome/Edge native port picker for Bluetooth SPP)
@@ -1086,13 +1096,15 @@ export async function printViaWebBluetooth(
  */
 export async function printViaWebUsb(
   payload: Uint8Array,
-  onStatusUpdate?: (status: string) => void
+  onStatusUpdate?: (status: string) => void,
+  printerName?: string
 ): Promise<{ success: boolean; deviceName?: string; error?: string }> {
   // 1. Try local Windows RAW Spooler API first (100% reliable on Windows, zero driver dithering, instant!)
-  onStatusUpdate?.('Connecting to Everycom USB Printer...');
-  const bridgeRes = await printViaLocalBridge(payload, { printerName: 'Everycom-58-Series' }, onStatusUpdate);
+  const targetPrinter = printerName || 'Everycom-58-Series';
+  onStatusUpdate?.(`Connecting to ${targetPrinter} via USB...`);
+  const bridgeRes = await printViaLocalBridge(payload, { printerName: targetPrinter }, onStatusUpdate);
   if (bridgeRes.success) {
-    return { success: true, deviceName: 'Everycom-58-Series (USB)' };
+    return { success: true, deviceName: `${targetPrinter} (USB Direct)` };
   }
 
   // 2. If local bridge was unreachable, try WebUSB (for Android or systems with WinUSB driver)
@@ -1260,7 +1272,7 @@ export function renderTagToCanvas(
 
   const canvas = document.createElement('canvas');
   canvas.width = 384; // 48mm printable width at 203 DPI (8 dots/mm)
-  canvas.height = is25mm ? 192 : 240; // 24mm height for 50x25, 30mm height for 50x32
+  canvas.height = is25mm ? 200 : 256; // Exact 25mm (200 dots) for 50x25, 32mm (256 dots) for 50x32
   const ctx = canvas.getContext('2d');
   if (!ctx) return canvas;
 
@@ -1275,7 +1287,6 @@ export function renderTagToCanvas(
   const {
     product,
     brandTitle = 'FANTASY',
-    contactNumber = '+919416109928',
     codeType = 'qr',
     saleOfferPercentage = 0,
   } = tag;
@@ -1285,30 +1296,26 @@ export function renderTagToCanvas(
       ? Math.round(product.sellingPrice * (1 - saleOfferPercentage / 100))
       : product.sellingPrice;
 
-  const leftX = 10;
-  const rightX = 374;
+  const leftX = 8;
+  const rightX = 376;
 
   if (is25mm) {
-    // 50mm x 25mm Compact Layout (192 dots height)
+    // 50mm x 25mm Compact Layout (200 dots height at 203 DPI)
 
-    // 1. TOP HEADER: Brand Title (left) & Phone Number (right)
-    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText((brandTitle || 'FANTASY').toUpperCase(), leftX, 3);
+    // 1. TOP HEADER: Brand Title Centered (no contact number)
+    ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText((brandTitle || 'FANTASY').toUpperCase(), canvas.width / 2, 2);
 
-    ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(contactNumber, rightX, 5);
-
-    // Top header rule
-    ctx.lineWidth = 1.2;
+    // Top header dividing rule
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(leftX, 19);
-    ctx.lineTo(rightX, 19);
+    ctx.moveTo(leftX, 21);
+    ctx.lineTo(rightX, 21);
     ctx.stroke();
 
-    // 2. PRODUCT NAME (Bold, single line, truncated with ellipsis if exceeding label width)
-    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    // 2. PRODUCT NAME (Bold, single line)
+    ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
     ctx.textAlign = 'left';
     let name = product.name || 'Apparel Item';
     const maxNameWidth = rightX - leftX;
@@ -1318,39 +1325,42 @@ export function renderTagToCanvas(
       }
       name = name + '...';
     }
-    ctx.fillText(name, leftX, 22);
+    ctx.fillText(name, leftX, 24);
 
     // 3. CATEGORY & COLOR
     const catParts = [product.category, product.subCategory].filter((c) => c && c !== 'General');
     const catText = (catParts.length > 0 ? catParts.join(' · ') : 'GARMENT').toUpperCase();
     ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-    ctx.fillText(catText, leftX, 38);
+    ctx.fillText(catText, leftX, 39);
 
     if (product.color) {
       ctx.font = 'bold 10px "JetBrains Mono", Courier, monospace';
       ctx.textAlign = 'right';
-      ctx.fillText(product.color, rightX, 38);
+      ctx.fillText(product.color, rightX, 39);
     }
 
     // Subheader dividing rule
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.moveTo(leftX, 50);
-    ctx.lineTo(rightX, 50);
+    ctx.moveTo(leftX, 52);
+    ctx.lineTo(rightX, 52);
     ctx.stroke();
 
-    // 4. BOTTOM SPLIT (y = 53 to 188)
+    // 4. BOTTOM 3 COLUMNS:
+    // LEFT: Big QR Code (or 1D Barcode) with code under it
+    // CENTER: Much Larger SELLING PRICE
+    // RIGHT: Much Larger SIZE
     const codeValue = (product.barcode || product.sku || '000000').trim();
 
     if (codeType === 'qr') {
       try {
-        const qr = QRCode.create(codeValue, { errorCorrectionLevel: 'M' });
+        const qr = QRCode.create(codeValue, { errorCorrectionLevel: 'L' });
         const size = qr.modules.size;
-        const targetSize = 88;
+        const targetSize = 106; // Enlarged QR Code
         const cellSize = Math.floor(targetSize / size);
         const actualSize = cellSize * size;
-        const qrStartX = leftX + 4;
-        const qrStartY = 54;
+        const qrStartX = leftX + 2;
+        const qrStartY = 55;
 
         ctx.fillStyle = '#000000';
         for (let r = 0; r < size; r++) {
@@ -1361,11 +1371,11 @@ export function renderTagToCanvas(
           }
         }
 
-        // Center text under QR code
+        // Center code text under QR code
         ctx.font = 'bold 10px "JetBrains Mono", Courier, monospace';
         ctx.textAlign = 'center';
         const textCenterX = qrStartX + Math.floor(actualSize / 2);
-        ctx.fillText(codeValue, textCenterX, qrStartY + actualSize + 4);
+        ctx.fillText(codeValue, textCenterX, qrStartY + actualSize + 2);
       } catch (err) {
         console.warn('QR canvas render error:', err);
       }
@@ -1382,11 +1392,11 @@ export function renderTagToCanvas(
           const bitString: string = encoded.data || '';
 
           if (bitString) {
-            const barcodeWidth = 135;
-            const barcodeHeight = 55;
+            const barcodeWidth = 140;
+            const barcodeHeight = 65;
             const barWidth = barcodeWidth / bitString.length;
-            const barStartX = leftX + 4;
-            const barStartY = 64;
+            const barStartX = leftX + 2;
+            const barStartY = 60;
 
             ctx.fillStyle = '#000000';
             for (let i = 0; i < bitString.length; i++) {
@@ -1405,250 +1415,229 @@ export function renderTagToCanvas(
       }
     }
 
-    // 4. BOTTOM 3 COLUMNS:
-    // LEFT: QR Code / 1D Barcode (centered under code)
-    // CENTER: PRICE (Label, Value, (INCL. TAXES))
-    // RIGHT: SIZE (Label, Value)
-
-    // CENTER COLUMN: SELLING PRICE
-    const centerX = 205;
+    // CENTER COLUMN: SELLING PRICE (Enlarged)
+    const centerX = 215;
     ctx.textAlign = 'center';
 
     // PRICE LABEL
-    ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#475569';
-    ctx.fillText('PRICE', centerX, 64);
+    ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = '#000000';
+    ctx.fillText('PRICE', centerX, 56);
 
-    // PRICE VALUES
+    // PRICE VALUES (Big & Bold)
     if (saleOfferPercentage > 0) {
       // Strikethrough original price
       const origPriceStr = `₹${product.sellingPrice}`;
-      ctx.font = 'bold 10px "JetBrains Mono", Courier, monospace';
-      ctx.fillStyle = '#64748b';
-      ctx.fillText(origPriceStr, centerX, 78);
+      ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
+      ctx.fillText(origPriceStr, centerX, 70);
       const strikeWidth = ctx.measureText(origPriceStr).width;
-      ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(centerX - strikeWidth / 2, 84);
-      ctx.lineTo(centerX + strikeWidth / 2, 84);
+      ctx.moveTo(centerX - strikeWidth / 2, 76);
+      ctx.lineTo(centerX + strikeWidth / 2, 76);
       ctx.stroke();
 
       // Discounted price
-      ctx.font = 'bold 22px "JetBrains Mono", Courier, monospace';
-      ctx.fillStyle = '#000000';
-      ctx.fillText(`₹${discountedPrice}`, centerX, 92);
+      ctx.font = 'bold 30px "JetBrains Mono", Courier, monospace';
+      ctx.fillText(`₹${discountedPrice}`, centerX, 84);
 
       // Taxes
       ctx.font = 'bold 8.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-      ctx.fillStyle = '#64748b';
-      ctx.fillText('(INCL. TAXES)', centerX, 122);
+      ctx.fillText('(INCL. TAXES)', centerX, 124);
     } else {
       // Standard price
-      ctx.font = 'bold 26px "JetBrains Mono", Courier, monospace';
-      ctx.fillStyle = '#000000';
-      ctx.fillText(`₹${product.sellingPrice}`, centerX, 80);
+      ctx.font = 'bold 36px "JetBrains Mono", Courier, monospace';
+      ctx.fillText(`₹${product.sellingPrice}`, centerX, 72);
 
       // Taxes
       ctx.font = 'bold 8.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-      ctx.fillStyle = '#64748b';
       ctx.fillText('(INCL. TAXES)', centerX, 120);
     }
 
-    // RIGHT COLUMN: SIZE
+    // RIGHT COLUMN: SIZE (Enlarged)
     ctx.textAlign = 'right';
-    ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#475569';
-    ctx.fillText('SIZE', rightX, 64);
+    ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = '#000000';
+    ctx.fillText('SIZE', rightX - 2, 56);
 
     const sizeVal = (product.size || 'FREE').toUpperCase();
     ctx.font = sizeVal.length > 4
-      ? 'bold 13px "JetBrains Mono", Courier, monospace'
-      : 'bold 24px "JetBrains Mono", Courier, monospace';
-    ctx.fillStyle = '#000000';
-    ctx.fillText(sizeVal, rightX, 82);
+      ? 'bold 18px "JetBrains Mono", Courier, monospace'
+      : 'bold 32px "JetBrains Mono", Courier, monospace';
+    ctx.fillText(sizeVal, rightX - 2, 76);
   } else {
     // 50mm x 32mm Layout (240 dots height)
 
-  // 1. TOP HEADER: Brand Title (left) & Phone Number (right)
-  ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText((brandTitle || 'FANTASY').toUpperCase(), leftX, 6);
+    // 1. TOP HEADER: Brand Title Centered (Contact number removed)
+    ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#000000';
+    ctx.fillText((brandTitle || 'FANTASY').toUpperCase(), (leftX + rightX) / 2, 6);
 
-  ctx.font = 'bold 12px "JetBrains Mono", Courier, monospace';
-  ctx.textAlign = 'right';
-  ctx.fillText(contactNumber, rightX, 8);
-
-  // Top header rule
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(leftX, 25);
-  ctx.lineTo(rightX, 25);
-  ctx.stroke();
-
-  // 2. PRODUCT NAME (Bold, single line, truncated with ellipsis if exceeding label width)
-  ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-  ctx.textAlign = 'left';
-  let name = product.name || 'Apparel Item';
-  const maxNameWidth = rightX - leftX;
-  if (ctx.measureText(name).width > maxNameWidth) {
-    while (ctx.measureText(name + '...').width > maxNameWidth && name.length > 3) {
-      name = name.slice(0, -1);
-    }
-    name = name + '...';
-  }
-  ctx.fillText(name, leftX, 29);
-
-  // 3. CATEGORY & COLOR
-  const catParts = [product.category, product.subCategory].filter((c) => c && c !== 'General');
-  const catText = (catParts.length > 0 ? catParts.join(' · ') : 'GARMENT').toUpperCase();
-  ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-  ctx.fillText(catText, leftX, 48);
-
-  if (product.color) {
-    ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(product.color, rightX, 48);
-  }
-
-  // Subheader dividing rule
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(leftX, 64);
-  ctx.lineTo(rightX, 64);
-  ctx.stroke();
-
-  // 4. BOTTOM SPLIT:
-  // LEFT COLUMN: QR Code (or 1D Barcode) + Code Value
-  // RIGHT COLUMN: SIZE, PRICE, TAXES
-  const codeValue = (product.barcode || product.sku || '000000').trim();
-
-  if (codeType === 'qr') {
-    try {
-      const qr = QRCode.create(codeValue, { errorCorrectionLevel: 'M' });
-      const size = qr.modules.size;
-      const targetSize = 104;
-      const cellSize = Math.floor(targetSize / size);
-      const actualSize = cellSize * size;
-      const qrStartX = leftX + 4;
-      const qrStartY = 70;
-
-      ctx.fillStyle = '#000000';
-      for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-          if (qr.modules.get(r, c)) {
-            ctx.fillRect(qrStartX + c * cellSize, qrStartY + r * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-
-      // Center text under QR code
-      ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
-      ctx.textAlign = 'center';
-      const textCenterX = qrStartX + Math.floor(actualSize / 2);
-      ctx.fillText(codeValue, textCenterX, qrStartY + actualSize + 5);
-    } catch (err) {
-      console.warn('QR canvas render error:', err);
-    }
-  } else {
-    // 1D Barcode (Code 128)
-    try {
-      const Code128Module = (JsBarcode as any).getModule
-        ? (JsBarcode as any).getModule('CODE128')
-        : null;
-
-      if (Code128Module) {
-        const encoder = new Code128Module(codeValue, {});
-        const encoded = encoder.encode();
-        const bitString: string = encoded.data || '';
-
-        if (bitString) {
-          const barcodeWidth = 145;
-          const barcodeHeight = 70;
-          const barWidth = barcodeWidth / bitString.length;
-          const barStartX = leftX + 4;
-          const barStartY = 82;
-
-          ctx.fillStyle = '#000000';
-          for (let i = 0; i < bitString.length; i++) {
-            if (bitString[i] === '1') {
-              ctx.fillRect(barStartX + i * barWidth, barStartY, Math.ceil(barWidth), barcodeHeight);
-            }
-          }
-
-          ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
-          ctx.textAlign = 'center';
-          ctx.fillText(codeValue, barStartX + barcodeWidth / 2, barStartY + barcodeHeight + 4);
-        }
-      }
-    } catch (err) {
-      console.warn('Barcode canvas render error:', err);
-    }
-  }
-
-  // 4. BOTTOM 3 COLUMNS:
-  // LEFT: QR Code / 1D Barcode (centered under code)
-  // CENTER: PRICE (Label, Value, (INCL. TAXES))
-  // RIGHT: SIZE (Label, Value)
-
-  // CENTER COLUMN: SELLING PRICE
-  const centerX32 = 205;
-  ctx.textAlign = 'center';
-
-  // PRICE LABEL
-  ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = '#475569';
-  ctx.fillText('PRICE', centerX32, 80);
-
-  // PRICE VALUES
-  if (saleOfferPercentage > 0) {
-    // Strikethrough original price
-    const origPriceStr = `₹${product.sellingPrice}`;
-    ctx.font = 'bold 12px "JetBrains Mono", Courier, monospace';
-    ctx.fillStyle = '#64748b';
-    ctx.fillText(origPriceStr, centerX32, 98);
-    const strikeWidth = ctx.measureText(origPriceStr).width;
-    ctx.strokeStyle = '#64748b';
-    ctx.lineWidth = 1.2;
+    // Top header rule
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(centerX32 - strikeWidth / 2, 104);
-    ctx.lineTo(centerX32 + strikeWidth / 2, 104);
+    ctx.moveTo(leftX, 25);
+    ctx.lineTo(rightX, 25);
     ctx.stroke();
 
-    // Discounted price
-    ctx.font = 'bold 26px "JetBrains Mono", Courier, monospace';
+    // 2. PRODUCT NAME (Bold, single line, truncated with ellipsis if exceeding label width)
+    ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.textAlign = 'left';
     ctx.fillStyle = '#000000';
-    ctx.fillText(`₹${discountedPrice}`, centerX32, 112);
+    let name = product.name || 'Apparel Item';
+    const maxNameWidth = rightX - leftX;
+    if (ctx.measureText(name).width > maxNameWidth) {
+      while (ctx.measureText(name + '...').width > maxNameWidth && name.length > 3) {
+        name = name.slice(0, -1);
+      }
+      name = name + '...';
+    }
+    ctx.fillText(name, leftX, 29);
 
-    // Taxes
+    // 3. CATEGORY & COLOR
+    const catParts = [product.category, product.subCategory].filter((c) => c && c !== 'General');
+    const catText = (catParts.length > 0 ? catParts.join(' · ') : 'GARMENT').toUpperCase();
+    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    ctx.fillText(catText, leftX, 48);
+
+    if (product.color) {
+      ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(product.color, rightX, 48);
+    }
+
+    // Subheader dividing rule
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(leftX, 64);
+    ctx.lineTo(rightX, 64);
+    ctx.stroke();
+
+    // 4. BOTTOM SPLIT:
+    // LEFT COLUMN: QR Code (or 1D Barcode) + Code Value
+    // RIGHT COLUMN: SIZE, PRICE, TAXES
+    const codeValue = (product.barcode || product.sku || '000000').trim();
+
+    if (codeType === 'qr') {
+      try {
+        const qr = QRCode.create(codeValue, { errorCorrectionLevel: 'L' });
+        const size = qr.modules.size;
+        const targetSize = 112; // Enlarged QR Code
+        const cellSize = Math.floor(targetSize / size);
+        const actualSize = cellSize * size;
+        const qrStartX = leftX + 4;
+        const qrStartY = 70;
+
+        ctx.fillStyle = '#000000';
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (qr.modules.get(r, c)) {
+              ctx.fillRect(qrStartX + c * cellSize, qrStartY + r * cellSize, cellSize, cellSize);
+            }
+          }
+        }
+
+        // Center text under QR code
+        ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
+        ctx.textAlign = 'center';
+        const textCenterX = qrStartX + Math.floor(actualSize / 2);
+        ctx.fillText(codeValue, textCenterX, qrStartY + actualSize + 5);
+      } catch (err) {
+        console.warn('QR canvas render error:', err);
+      }
+    } else {
+      // 1D Barcode (Code 128)
+      try {
+        const Code128Module = (JsBarcode as any).getModule
+          ? (JsBarcode as any).getModule('CODE128')
+          : null;
+
+        if (Code128Module) {
+          const encoder = new Code128Module(codeValue, {});
+          const encoded = encoder.encode();
+          const bitString: string = encoded.data || '';
+
+          if (bitString) {
+            const barcodeWidth = 145;
+            const barcodeHeight = 70;
+            const barWidth = barcodeWidth / bitString.length;
+            const barStartX = leftX + 4;
+            const barStartY = 82;
+
+            ctx.fillStyle = '#000000';
+            for (let i = 0; i < bitString.length; i++) {
+              if (bitString[i] === '1') {
+                ctx.fillRect(barStartX + i * barWidth, barStartY, Math.ceil(barWidth), barcodeHeight);
+              }
+            }
+
+            ctx.font = 'bold 11px "JetBrains Mono", Courier, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(codeValue, barStartX + barcodeWidth / 2, barStartY + barcodeHeight + 4);
+          }
+        }
+      } catch (err) {
+        console.warn('Barcode canvas render error:', err);
+      }
+    }
+
+    // 4. BOTTOM 3 COLUMNS:
+    // CENTER COLUMN: SELLING PRICE (Enlarged)
+    const centerX32 = 205;
+    ctx.textAlign = 'center';
+
+    // PRICE LABEL
     ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#64748b';
-    ctx.fillText('(INCL. TAXES)', centerX32, 152);
-  } else {
-    // Standard price
-    ctx.font = 'bold 30px "JetBrains Mono", Courier, monospace';
     ctx.fillStyle = '#000000';
-    ctx.fillText(`₹${product.sellingPrice}`, centerX32, 98);
+    ctx.fillText('PRICE', centerX32, 78);
 
-    // Taxes
+    // PRICE VALUES (Pure #000000, high density)
+    if (saleOfferPercentage > 0) {
+      // Strikethrough original price
+      const origPriceStr = `₹${product.sellingPrice}`;
+      ctx.font = 'bold 12px "JetBrains Mono", Courier, monospace';
+      ctx.fillStyle = '#000000';
+      ctx.fillText(origPriceStr, centerX32, 96);
+      const strikeWidth = ctx.measureText(origPriceStr).width;
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(centerX32 - strikeWidth / 2, 102);
+      ctx.lineTo(centerX32 + strikeWidth / 2, 102);
+      ctx.stroke();
+
+      // Discounted price
+      ctx.font = 'bold 30px "JetBrains Mono", Courier, monospace';
+      ctx.fillText(`₹${discountedPrice}`, centerX32, 112);
+
+      // Taxes
+      ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+      ctx.fillText('(INCL. TAXES)', centerX32, 152);
+    } else {
+      // Standard price
+      ctx.font = 'bold 36px "JetBrains Mono", Courier, monospace';
+      ctx.fillStyle = '#000000';
+      ctx.fillText(`₹${product.sellingPrice}`, centerX32, 98);
+
+      // Taxes
+      ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+      ctx.fillText('(INCL. TAXES)', centerX32, 144);
+    }
+
+    // RIGHT COLUMN: SIZE (Enlarged)
+    ctx.textAlign = 'right';
     ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#64748b';
-    ctx.fillText('(INCL. TAXES)', centerX32, 144);
+    ctx.fillStyle = '#000000';
+    ctx.fillText('SIZE', rightX, 78);
+
+    const sizeVal32 = (product.size || 'FREE').toUpperCase();
+    ctx.font = sizeVal32.length > 4
+      ? 'bold 18px "JetBrains Mono", Courier, monospace'
+      : 'bold 32px "JetBrains Mono", Courier, monospace';
+    ctx.fillStyle = '#000000';
+    ctx.fillText(sizeVal32, rightX, 104);
   }
-
-  // RIGHT COLUMN: SIZE
-  ctx.textAlign = 'right';
-  ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = '#475569';
-  ctx.fillText('SIZE', rightX, 80);
-
-  const sizeVal32 = (product.size || 'FREE').toUpperCase();
-  ctx.font = sizeVal32.length > 4
-    ? 'bold 15px "JetBrains Mono", Courier, monospace'
-    : 'bold 28px "JetBrains Mono", Courier, monospace';
-  ctx.fillStyle = '#000000';
-  ctx.fillText(sizeVal32, rightX, 102);
-}
 
   return canvas;
 }
@@ -1673,9 +1662,10 @@ export function formatPriceTagsToEscPos(
       const canvas = renderTagToCanvas(tag, { rollSize });
       builder.rasterImage(canvas);
       if (idx < tags.length - 1) {
-        builder.feed(1); // Advance ~2-3mm across the gap to the next sticker
+        // Advance exact 2mm gap (16 dots at 203 DPI) across pre-cut label gap
+        builder.feedDots(16);
       } else {
-        builder.feed(2);
+        builder.feedDots(24);
       }
     });
     return builder.build();
@@ -1686,7 +1676,6 @@ export function formatPriceTagsToEscPos(
     const {
       product,
       brandTitle = 'FANTASY',
-      contactNumber = '+919416109928',
       codeType = 'qr',
       saleOfferPercentage = 0,
     } = tag;
@@ -1699,10 +1688,11 @@ export function formatPriceTagsToEscPos(
     const displayPrice = price % 1 === 0 ? price.toFixed(0) : price.toFixed(2);
 
     builder.initialize();
-    builder.bold(true);
-    builder.twoColumnRow((brandTitle || 'FANTASY').toUpperCase(), contactNumber, true);
-    builder.bold(false);
+    builder.align('center');
+    // Brand title centered at top (contact number removed per specification)
+    builder.bold(true).textSize('double-height').line((brandTitle || 'FANTASY').toUpperCase()).textSize('normal').bold(false);
     builder.separator('-');
+    builder.align('left');
     builder.bold(true).line(product.name).bold(false);
 
     const catParts = [product.category, product.subCategory].filter((c) => c && c !== 'General');
@@ -1711,11 +1701,11 @@ export function formatPriceTagsToEscPos(
     }
 
     const sizeColorParts = [
-      product.size ? `Size: ${product.size}` : '',
-      product.color ? `Color: ${product.color}` : '',
+      product.size ? `SIZE: ${product.size.toUpperCase()}` : '',
+      product.color ? `COLOR: ${product.color.toUpperCase()}` : '',
     ].filter(Boolean);
     if (sizeColorParts.length > 0) {
-      builder.line(sizeColorParts.join('  |  '));
+      builder.bold(true).line(sizeColorParts.join('  |  ')).bold(false);
     }
 
     const codeValue = (product.barcode || product.sku || '').trim();
@@ -1732,19 +1722,21 @@ export function formatPriceTagsToEscPos(
     builder
       .align('center')
       .bold(true)
+      .textSize('double')
       .line(
         saleOfferPercentage > 0
-          ? `OFFER: Rs. ${displayPrice} (Was Rs. ${product.sellingPrice})`
+          ? `Rs. ${displayPrice} (MRP Rs. ${product.sellingPrice})`
           : `Rs. ${displayPrice}`
       )
+      .textSize('normal')
       .bold(false)
       .align('left');
 
     builder.separator('-');
     if (idx < tags.length - 1) {
-      builder.feed(1);
+      builder.feedDots(16);
     } else {
-      builder.feed(2);
+      builder.feedDots(24);
     }
   });
 

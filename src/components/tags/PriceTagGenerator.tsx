@@ -169,7 +169,7 @@ export const PriceTagGenerator: React.FC = () => {
       const tagItems: PriceTagItem[] = tagsToPrint.map(({ product }) => ({
         product,
         brandTitle,
-        contactNumber,
+        contactNumber: '',
         codeType: tagCodeType,
         saleOfferPercentage,
         rollSize: rollSize === '50x32' ? '50x32' : '50x25',
@@ -178,16 +178,18 @@ export const PriceTagGenerator: React.FC = () => {
       const payload = formatPriceTagsToEscPos(tagItems, { columns: 32, rollSize: rollSize === '50x32' ? '50x32' : '50x25' });
 
       if (printMethod === 'usb') {
-        const res = await printViaWebUsb(payload, (status) => setPrintStatus(status));
+        const targetPrinter = detectedHardware.printers[0]?.Name || 'Everycom-58-Series';
+        const res = await printViaWebUsb(payload, (status) => setPrintStatus(status), targetPrinter);
         if (res.success) {
-          setPrintStatus(`✅ Printed ${tagsToPrint.length} tag(s) via USB (203 DPI Pitch-Black)!`);
+          setPrintStatus(`✅ Printed ${tagsToPrint.length} tag(s) via USB (${targetPrinter})!`);
         } else {
           setPrintStatus(`❌ USB Print Error: ${res.error}`);
         }
       } else if (printMethod === 'bluetooth') {
-        const res = await printViaWebBluetooth(payload, (status) => setPrintStatus(status));
+        const targetPort = detectedHardware.ports[0]?.DeviceID;
+        const res = await printViaWebBluetooth(payload, (status) => setPrintStatus(status), targetPort);
         if (res.success) {
-          setPrintStatus(`✅ Printed ${tagsToPrint.length} tag(s) via Bluetooth!`);
+          setPrintStatus(`✅ Printed ${tagsToPrint.length} tag(s) via Bluetooth (${targetPort || 'SPP'})!`);
         } else {
           setPrintStatus(`❌ Bluetooth Print Error: ${res.error}`);
         }
@@ -201,7 +203,7 @@ export const PriceTagGenerator: React.FC = () => {
 
   const resetToBrandDefaults = () => {
     setBrandTitle('Fantasy');
-    setContactNumber('+919416109928');
+    setContactNumber('');
     setTagCodeType('qr');
   };
 
@@ -396,32 +398,17 @@ export const PriceTagGenerator: React.FC = () => {
             </div>
 
             <div className="space-y-2 text-xs">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-slate-600 font-medium mb-1">
-                    Brand Name on Tag
-                  </label>
-                  <input
-                    type="text"
-                    value={brandTitle}
-                    onChange={(e) => setBrandTitle(e.target.value)}
-                    placeholder="e.g. Fantasy"
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-indigo-500 uppercase"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 font-medium mb-1">
-                    Contact Number
-                  </label>
-                  <input
-                    type="text"
-                    value={contactNumber}
-                    onChange={(e) => setContactNumber(e.target.value)}
-                    placeholder="+919416109928"
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
+              <div>
+                <label className="block text-slate-600 font-medium mb-1">
+                  Brand Name on Tag (Centered)
+                </label>
+                <input
+                  type="text"
+                  value={brandTitle}
+                  onChange={(e) => setBrandTitle(e.target.value)}
+                  placeholder="e.g. Fantasy"
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-indigo-500 uppercase text-center"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-2 pt-1">
@@ -763,17 +750,17 @@ export const PriceTagGenerator: React.FC = () => {
                           </div>
 
                           {/* QR Code / Barcode */}
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1px 0' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '2px 0' }}>
                             <BarcodeSvg
                               value={product.barcode || product.sku}
                               type={tagCodeType}
-                              qrSize={40}
-                              height={16}
-                              width={80}
+                              qrSize={52}
+                              height={20}
+                              width={90}
                               showText={tagCodeType === 'barcode'}
                             />
                             {tagCodeType === 'qr' && (
-                              <span style={{ fontSize: '6.5px', fontFamily: 'monospace', fontWeight: 700, marginTop: '1px' }}>
+                              <span style={{ fontSize: '7px', fontFamily: 'monospace', fontWeight: 700, color: '#000', marginTop: '1px' }}>
                                 {product.barcode || product.sku}
                               </span>
                             )}
@@ -781,17 +768,14 @@ export const PriceTagGenerator: React.FC = () => {
 
                           {/* Price Box */}
                           <div style={{ borderTop: '1.2px solid #000', paddingTop: '2px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '6px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                            <div style={{ fontSize: '6.5px', fontWeight: 800, color: '#000', textTransform: 'uppercase' }}>
                               MAXIMUM RETAIL PRICE
                             </div>
-                            <div style={{ fontSize: '15px', fontWeight: 900, color: '#000', fontFamily: 'monospace', lineHeight: '1.1' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 900, color: '#000', fontFamily: 'monospace', lineHeight: '1.1' }}>
                               ₹{discountedPrice}
                             </div>
-                            <div style={{ fontSize: '5.5px', color: '#64748b' }}>
+                            <div style={{ fontSize: '6px', color: '#000', fontWeight: 700 }}>
                               (INCLUSIVE OF ALL TAXES)
-                            </div>
-                            <div style={{ fontSize: '6px', color: '#000', marginTop: '1.5px', fontWeight: 600 }}>
-                              📞 {contactNumber}
                             </div>
                           </div>
                         </div>
@@ -835,13 +819,11 @@ export const PriceTagGenerator: React.FC = () => {
                           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        {/* 1. Top Header: Brand Name "Fantasy" & Contact Number */}
+                        {/* 1. Top Header: Brand Name Centered (Contact Number Removed) */}
                         <div
-                          className="flex items-center justify-between border-b border-black pb-0.5"
+                          className="text-center border-b border-black pb-0.5"
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
+                            textAlign: 'center',
                             borderBottom: '1px solid #000000',
                             paddingBottom: is25mm ? '0.5px' : '1px',
                             lineHeight: '1',
@@ -849,15 +831,16 @@ export const PriceTagGenerator: React.FC = () => {
                         >
                           <span
                             className="font-black tracking-wider uppercase text-black"
-                            style={{ fontWeight: 900, fontSize: is25mm ? '9px' : '10px', textTransform: 'uppercase', color: '#000000', letterSpacing: '0.5px' }}
+                            style={{
+                              fontWeight: 900,
+                              fontSize: is25mm ? '11px' : '12.5px',
+                              textTransform: 'uppercase',
+                              color: '#000000',
+                              letterSpacing: '0.8px',
+                              display: 'inline-block',
+                            }}
                           >
                             {brandTitle || 'FANTASY'}
-                          </span>
-                          <span
-                            className="font-bold text-black font-mono tracking-tight"
-                            style={{ fontWeight: 700, fontSize: is25mm ? '7px' : '7.5px', color: '#000000', fontFamily: 'monospace' }}
-                          >
-                            {contactNumber}
                           </span>
                         </div>
 
@@ -868,39 +851,41 @@ export const PriceTagGenerator: React.FC = () => {
                         >
                           <div
                             className="font-extrabold text-black truncate"
-                            style={{ fontWeight: 800, fontSize: is25mm ? '8.5px' : '9px', color: '#000000', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            style={{ fontWeight: 800, fontSize: is25mm ? '9px' : '10px', color: '#000000', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                             title={product.name}
                           >
                             {product.name}
                           </div>
                           <div
-                            className="font-semibold text-slate-700 flex items-center justify-between mt-0.5"
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: is25mm ? '7px' : '7.5px', color: '#334155', marginTop: is25mm ? '0.5px' : '1px' }}
+                            className="font-bold flex items-center justify-between mt-0.5"
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: is25mm ? '7.5px' : '8px', color: '#000000', marginTop: is25mm ? '0.5px' : '1px' }}
                           >
                             <span style={{ textTransform: 'uppercase' }}>
                               {product.category}
                               {product.subCategory && product.subCategory !== 'General' ? ` · ${product.subCategory}` : ''}
                             </span>
-                            <span style={{ fontFamily: 'monospace', color: '#64748b' }}>
-                              {product.color}
-                            </span>
+                            {product.color && (
+                              <span style={{ fontFamily: 'monospace', color: '#000000', fontWeight: 700 }}>
+                                {product.color}
+                              </span>
+                            )}
                           </div>
                         </div>
 
                         {/* 3. Bottom Row: 3 Columns -> QR Code (Left) | Price (Center) | Size (Right) */}
                         <div
-                          className="pt-0.5 border-t border-black/40 flex items-center justify-between"
+                          className="pt-0.5 border-t border-black flex items-center justify-between"
                           style={{
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            borderTop: '0.8px solid #000000',
+                            borderTop: '1px solid #000000',
                             paddingTop: is25mm ? '1px' : '1.5px',
                             marginTop: 'auto',
                             gap: '2px',
                           }}
                         >
-                          {/* Column 1: QR Code / Barcode (Left) */}
+                          {/* Column 1: QR Code / Barcode (Left - Enlarged) */}
                           <div
                             style={{
                               display: 'flex',
@@ -913,18 +898,18 @@ export const PriceTagGenerator: React.FC = () => {
                             <BarcodeSvg
                               value={product.barcode || product.sku}
                               type={tagCodeType}
-                              qrSize={is25mm ? 35 : 44}
-                              height={is25mm ? 15 : 18}
-                              width={is25mm ? 68 : 80}
+                              qrSize={is25mm ? 52 : 62}
+                              height={is25mm ? 18 : 22}
+                              width={is25mm ? 75 : 90}
                               showText={tagCodeType === 'barcode'}
-                              className="scale-95 origin-left"
+                              className="origin-left"
                             />
                             {tagCodeType === 'qr' && (
                               <span
                                 style={{
-                                  fontSize: is25mm ? '5.5px' : '6.5px',
+                                  fontSize: is25mm ? '6.5px' : '7.5px',
                                   fontFamily: 'monospace',
-                                  fontWeight: 700,
+                                  fontWeight: 800,
                                   color: '#000000',
                                   marginTop: '0.5px',
                                   lineHeight: '1',
@@ -936,7 +921,7 @@ export const PriceTagGenerator: React.FC = () => {
                             )}
                           </div>
 
-                          {/* Column 2: Selling Price (Center) */}
+                          {/* Column 2: Selling Price (Center - Enlarged) */}
                           <div
                             style={{
                               display: 'flex',
@@ -950,9 +935,9 @@ export const PriceTagGenerator: React.FC = () => {
                           >
                             <div
                               style={{
-                                fontSize: is25mm ? '5.5px' : '6px',
-                                fontWeight: 700,
-                                color: '#475569',
+                                fontSize: is25mm ? '6.5px' : '7.5px',
+                                fontWeight: 800,
+                                color: '#000000',
                                 textTransform: 'uppercase',
                                 lineHeight: '1',
                               }}
@@ -961,19 +946,19 @@ export const PriceTagGenerator: React.FC = () => {
                             </div>
                             <div
                               style={{
-                                fontSize: is25mm ? '13px' : '14px',
+                                fontSize: is25mm ? '17px' : '20px',
                                 fontWeight: 900,
                                 fontFamily: 'monospace',
                                 color: '#000000',
-                                lineHeight: '1.1',
+                                lineHeight: '1.05',
                               }}
                             >
                               {saleOfferPercentage > 0 ? (
                                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '2px' }}>
-                                  <span style={{ fontSize: is25mm ? '7px' : '8px', textDecoration: 'line-through', color: '#64748b' }}>
+                                  <span style={{ fontSize: is25mm ? '8.5px' : '9.5px', textDecoration: 'line-through', color: '#000000' }}>
                                     ₹{product.sellingPrice}
                                   </span>
-                                  <span style={{ fontSize: is25mm ? '13px' : '14px', fontWeight: 900, color: '#000000' }}>
+                                  <span style={{ fontSize: is25mm ? '17px' : '20px', fontWeight: 900, color: '#000000' }}>
                                     ₹{discountedPrice}
                                   </span>
                                 </div>
@@ -983,8 +968,9 @@ export const PriceTagGenerator: React.FC = () => {
                             </div>
                             <div
                               style={{
-                                fontSize: is25mm ? '5px' : '5.5px',
-                                color: '#64748b',
+                                fontSize: is25mm ? '5.5px' : '6px',
+                                color: '#000000',
+                                fontWeight: 700,
                                 textTransform: 'uppercase',
                                 lineHeight: '1',
                                 marginTop: '0.5px',
@@ -994,7 +980,7 @@ export const PriceTagGenerator: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Column 3: Garment Size (Right) */}
+                          {/* Column 3: Garment Size (Right - Enlarged) */}
                           <div
                             style={{
                               display: 'flex',
@@ -1008,9 +994,9 @@ export const PriceTagGenerator: React.FC = () => {
                           >
                             <div
                               style={{
-                                fontSize: is25mm ? '5.5px' : '6px',
-                                fontWeight: 700,
-                                color: '#475569',
+                                fontSize: is25mm ? '6.5px' : '7.5px',
+                                fontWeight: 800,
+                                color: '#000000',
                                 textTransform: 'uppercase',
                                 lineHeight: '1',
                               }}
@@ -1019,11 +1005,11 @@ export const PriceTagGenerator: React.FC = () => {
                             </div>
                             <div
                               style={{
-                                fontSize: (product.size || '').length > 4 ? (is25mm ? '9px' : '10px') : (is25mm ? '13px' : '14px'),
+                                fontSize: (product.size || '').length > 4 ? (is25mm ? '11px' : '13px') : (is25mm ? '17px' : '20px'),
                                 fontWeight: 900,
                                 fontFamily: 'monospace',
                                 color: '#000000',
-                                lineHeight: '1.1',
+                                lineHeight: '1.05',
                               }}
                             >
                               {product.size || 'FREE'}
