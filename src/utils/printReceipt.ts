@@ -627,10 +627,10 @@ export function printPriceTagsHtml(tagsHtml: string, options?: PriceTagPrintOpti
               image-rendering: pixelated !important;
             }
             svg rect, svg path {
-              fill: #000000 !important;
               shape-rendering: crispEdges !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
+              color-adjust: exact !important;
             }
             .no-print {
               display: none !important;

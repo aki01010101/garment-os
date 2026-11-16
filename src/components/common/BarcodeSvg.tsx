@@ -103,16 +103,19 @@ export const BarcodeSvg: React.FC<BarcodeSvgProps> = ({
         {
           type: 'svg',
           width: qrSize,
-          margin: 0,
+          margin: 1,
           color: { dark: '#000000', light: '#ffffff' },
           errorCorrectionLevel: 'L',
         },
         (err, str) => {
           if (!err && str) {
-            svgOutput = str.replace(
-              '<svg',
-              `<svg width="${qrSize}" height="${qrSize}" shape-rendering="crispEdges" style="display:block;margin:0 auto;width:100%;height:100%;max-width:${qrSize}px;max-height:${qrSize}px;shape-rendering:crispEdges;-webkit-print-color-adjust:exact;print-color-adjust:exact;"`
-            );
+            svgOutput = str
+              .replace(
+                '<svg',
+                `<svg width="${qrSize}" height="${qrSize}" shape-rendering="crispEdges" style="display:block;margin:0 auto;width:100%;height:100%;max-width:${qrSize}px;max-height:${qrSize}px;background:#ffffff;shape-rendering:crispEdges;-webkit-print-color-adjust:exact;print-color-adjust:exact;"`
+              )
+              .replace('<path fill="#ffffff"', '<path fill="#ffffff" style="fill:#ffffff !important;stroke:none !important;"')
+              .replace('<path stroke="#000000"', '<path stroke="#000000" fill="none" style="stroke:#000000 !important;fill:none !important;"');
           }
         }
       );
@@ -165,7 +168,7 @@ export const BarcodeSvg: React.FC<BarcodeSvgProps> = ({
         className="shape-rendering-crispEdges block"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <rect width={totalModules} height={height} fill="#ffffff" style={{ fill: '#ffffff' }} />
+        <rect width={totalModules} height={height} fill="#ffffff" style={{ fill: '#ffffff !important' }} />
         {rects.map((bar, idx) => (
           <rect
             key={idx}
@@ -174,7 +177,7 @@ export const BarcodeSvg: React.FC<BarcodeSvgProps> = ({
             width={bar.width}
             height={height}
             fill="#000000"
-            style={{ fill: '#000000', shapeRendering: 'crispEdges', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
+            style={{ fill: '#000000 !important', shapeRendering: 'crispEdges', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
           />
         ))}
       </svg>

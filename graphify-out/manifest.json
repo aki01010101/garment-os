@@ -72,9 +72,9 @@
     "semantic_hash": ""
   },
   "src/components/common/BarcodeSvg.tsx": {
-    "mtime": 1794741174.3862517,
-    "seen": 1794742171.4884198,
-    "ast_hash": "608a34e8dc5427bbfda5ffe3ed7ad8c0",
+    "mtime": 1794828518.6273606,
+    "seen": 1794828623.02872,
+    "ast_hash": "5f6d73126ce94570f6cbefa71d284dbd",
     "semantic_hash": ""
   },
   "src/components/common/CameraBarcodeScannerModal.tsx": {
@@ -324,8 +324,8 @@
     "semantic_hash": ""
   },
   "src/server/printerBridge.js": {
-    "mtime": 1794741843.9684794,
-    "seen": 1794742171.499374,
+    "mtime": 1794745606.6755934,
+    "seen": 1794828623.0344043,
     "ast_hash": "64bf8840648886281409bea0ffe6ae0b",
     "semantic_hash": ""
   },
@@ -366,15 +366,15 @@
     "semantic_hash": ""
   },
   "src/utils/escpos.ts": {
-    "mtime": 1794741852.270065,
-    "seen": 1794742171.5010579,
+    "mtime": 1794745606.9762914,
+    "seen": 1794828623.0354972,
     "ast_hash": "aa4ff29ae7a028c12a8937ccdda35800",
     "semantic_hash": ""
   },
   "src/utils/printReceipt.ts": {
-    "mtime": 1794741820.497779,
-    "seen": 1794742171.5014486,
-    "ast_hash": "43127f57ef74f27cef1b7a452f50862e",
+    "mtime": 1794828534.3225677,
+    "seen": 1794828623.0356083,
+    "ast_hash": "f109329736f5e63202736117697a3832",
     "semantic_hash": ""
   },
   "src/utils/upi.ts": {
