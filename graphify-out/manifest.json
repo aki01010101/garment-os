@@ -72,8 +72,8 @@
     "semantic_hash": ""
   },
   "src/components/common/BarcodeSvg.tsx": {
-    "mtime": 1794828518.6273606,
-    "seen": 1794828623.02872,
+    "mtime": 1794828734.342795,
+    "seen": 1794829124.20613,
     "ast_hash": "5f6d73126ce94570f6cbefa71d284dbd",
     "semantic_hash": ""
   },
@@ -294,9 +294,9 @@
     "semantic_hash": ""
   },
   "src/components/tags/PriceTagGenerator.tsx": {
-    "mtime": 1794741174.975815,
-    "seen": 1794742171.498408,
-    "ast_hash": "fb59563642a9d547dff921bc69962920",
+    "mtime": 1794829097.862576,
+    "seen": 1794829124.213359,
+    "ast_hash": "ebb554a8dfbf734b3af9882c98e67b9a",
     "semantic_hash": ""
   },
   "src/components/vendors/VendorPurchaseManager.tsx": {
@@ -366,14 +366,14 @@
     "semantic_hash": ""
   },
   "src/utils/escpos.ts": {
-    "mtime": 1794745606.9762914,
-    "seen": 1794828623.0354972,
-    "ast_hash": "aa4ff29ae7a028c12a8937ccdda35800",
+    "mtime": 1794829083.198126,
+    "seen": 1794829124.2158892,
+    "ast_hash": "ede7312de02fb306e6d23385be4839cd",
     "semantic_hash": ""
   },
   "src/utils/printReceipt.ts": {
-    "mtime": 1794828534.3225677,
-    "seen": 1794828623.0356083,
+    "mtime": 1794828734.625183,
+    "seen": 1794829124.2160232,
     "ast_hash": "f109329736f5e63202736117697a3832",
     "semantic_hash": ""
   },

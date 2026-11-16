@@ -1,7 +1,7 @@
-# Graph Report - Garment POS  (2026-11-15)
+# Graph Report - Garment POS  (2026-11-16)
 
 ## Corpus Check
-- 90 files · ~196,555 words
+- 90 files · ~196,562 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: .example 1, (none) 1, .css 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1f90973a`
+- Built from commit: `5ffbe378`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -57,16 +57,16 @@
 10. `printViaWebBluetooth()` - 26 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `registerPrinterRoutes()` --calls--> `printRawToWindowsPrinter()`  [EXTRACTED]
-  vite.config.ts → src/server/printerBridge.js
-- `registerPrinterRoutes()` --calls--> `printRawToSerial()`  [EXTRACTED]
-  vite.config.ts → src/server/printerBridge.js
-- `registerPrinterRoutes()` --calls--> `detectPrintersAndPorts()`  [EXTRACTED]
-  vite.config.ts → src/server/printerBridge.js
 - `StockTransferModalProps` --references--> `Product`  [EXTRACTED]
   src/components/inventory/StockTransferModal.tsx → src/types.ts
 - `ExtractedInvoiceItem` --references--> `ClothingCategory`  [EXTRACTED]
   src/components/vendors/InvoiceInwardingModal.tsx → src/types.ts
+- `registerPrinterRoutes()` --calls--> `detectPrintersAndPorts()`  [EXTRACTED]
+  vite.config.ts → src/server/printerBridge.js
+- `registerPrinterRoutes()` --calls--> `printRawToSerial()`  [EXTRACTED]
+  vite.config.ts → src/server/printerBridge.js
+- `registerPrinterRoutes()` --calls--> `printRawToWindowsPrinter()`  [EXTRACTED]
+  vite.config.ts → src/server/printerBridge.js
 
 ## Import Cycles
 - None detected.

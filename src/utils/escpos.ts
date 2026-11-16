@@ -882,7 +882,7 @@ export async function printViaWebSerial(
     }
 
     if (!port) {
-      onStatusUpdate?.('Select Bluetooth printer port (e.g. Standard Serial / COM4)...');
+      onStatusUpdate?.('Select Bluetooth printer port (e.g. Standard Serial)...');
       port = await navSerial.requestPort();
       if (!port) {
         return { success: false, error: 'No serial port selected.' };
@@ -962,132 +962,131 @@ export async function printViaWebBluetooth(
   onStatusUpdate?: (status: string) => void,
   portName?: string
 ): Promise<{ success: boolean; deviceName?: string; error?: string }> {
-  // 1. On Windows with local server, Bluetooth thermal printers connect to COM4 / COM3 / COM5.
-  // Try printing directly via local bridge to specified or detected COM port first!
-  const targetPort = portName || 'COM4';
-  onStatusUpdate?.(`Connecting to Bluetooth Thermal Printer (${targetPort})...`);
-  const bridgeRes = await printViaLocalBridge(payload, { portName: targetPort }, onStatusUpdate);
-  if (bridgeRes.success) {
-    return { success: true, deviceName: `Everycom Bluetooth (${targetPort})` };
-  }
-
-  // 2. If local bridge was unreachable, try Web Serial API (Chrome/Edge native port picker for Bluetooth SPP)
-  if (isWebSerialSupported()) {
-    onStatusUpdate?.('Attempting Bluetooth via Web Serial API...');
-    const serialRes = await printViaWebSerial(payload, onStatusUpdate);
-    if (serialRes.success) {
-      return serialRes;
+  // 1. If an explicit COM port was detected or provided, print via local bridge to that known port
+  if (portName && portName.trim()) {
+    onStatusUpdate?.(`Connecting to Bluetooth Thermal Printer (${portName})...`);
+    const bridgeRes = await printViaLocalBridge(payload, { portName }, onStatusUpdate);
+    if (bridgeRes.success) {
+      return { success: true, deviceName: `Everycom Bluetooth (${portName})` };
     }
   }
 
-  // 3. Fallback to Web Bluetooth (BLE GATT) for Android or BLE-capable thermal printers
-  if (!isWebBluetoothSupported()) {
-    return {
-      success: false,
-      error: 'Bluetooth printing failed. Ensure the printer is paired over Bluetooth (COM4) or use the USB Direct print method.',
-    };
-  }
+  // 2. Direct Web Bluetooth (BLE GATT)
+  // CRITICAL: Must be invoked immediately without any preceding async fetch/await delays
+  // to strictly preserve the browser's transient user activation (user gesture token)!
+  if (isWebBluetoothSupported()) {
+    const navBluetooth = (navigator as any).bluetooth;
+    let device = cachedBluetoothDevice;
+    let server: any = null;
 
-  const navBluetooth = (navigator as any).bluetooth;
-  let device = cachedBluetoothDevice;
-  let server: any = null;
-
-  try {
-    if (device) {
-      try {
-        if (!device.gatt?.connected) {
-          onStatusUpdate?.(`Reconnecting to paired printer (${device.name || 'Bluetooth Printer'})...`);
-          server = await device.gatt.connect();
-        } else {
-          server = device.gatt;
+    try {
+      if (device) {
+        try {
+          if (!device.gatt?.connected) {
+            onStatusUpdate?.(`Reconnecting to paired printer (${device.name || 'Bluetooth Printer'})...`);
+            server = await device.gatt.connect();
+          } else {
+            server = device.gatt;
+          }
+        } catch (reconnectErr) {
+          console.warn('Reconnecting to cached Bluetooth device failed:', reconnectErr);
+          device = null;
+          cachedBluetoothDevice = null;
+          cachedWriteCharacteristic = null;
         }
-      } catch (reconnectErr) {
-        console.warn('Reconnecting to cached Bluetooth device failed:', reconnectErr);
-        device = null;
-        cachedBluetoothDevice = null;
-        cachedWriteCharacteristic = null;
       }
-    }
-
-    if (!device) {
-      onStatusUpdate?.('Requesting Everycom / Bluetooth Printer...');
-      device = await navBluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: THERMAL_PRINTER_BLUETOOTH_SERVICES,
-      });
 
       if (!device) {
-        return { success: false, error: 'No printer device selected.' };
+        onStatusUpdate?.('Requesting Everycom / Bluetooth Printer...');
+        device = await navBluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: THERMAL_PRINTER_BLUETOOTH_SERVICES,
+        });
+
+        if (!device) {
+          return { success: false, error: 'No printer device selected.' };
+        }
+
+        cachedBluetoothDevice = device;
+
+        device.addEventListener('gattserverdisconnected', () => {
+          console.log('Printer GATT disconnected; retaining paired device reference');
+          cachedWriteCharacteristic = null;
+        });
+
+        onStatusUpdate?.(`Connecting to ${device.name || 'Everycom Printer'}...`);
+        server = await device.gatt.connect();
       }
 
-      cachedBluetoothDevice = device;
+      onStatusUpdate?.('Discovering printer communication channel...');
+      let writeChar = await findWritableCharacteristic(server);
 
-      device.addEventListener('gattserverdisconnected', () => {
-        console.log('Printer GATT disconnected; retaining paired device reference');
-        cachedWriteCharacteristic = null;
-      });
-
-      onStatusUpdate?.(`Connecting to ${device.name || 'Everycom Printer'}...`);
-      server = await device.gatt.connect();
-    }
-
-    onStatusUpdate?.('Discovering printer communication channel...');
-    let writeChar = await findWritableCharacteristic(server);
-
-    if (!writeChar && (!server || !server.connected)) {
-      server = await device.gatt.connect();
-      writeChar = await findWritableCharacteristic(server);
-    }
-
-    if (!writeChar) {
-      return {
-        success: false,
-        deviceName: device.name,
-        error: `Could not find a writable ESC/POS channel on ${device.name || 'printer'}. Ensure printer is powered on and in ESC/POS mode.`,
-      };
-    }
-
-    cachedWriteCharacteristic = writeChar;
-
-    onStatusUpdate?.(`Printing to ${device.name || 'Everycom Printer'}...`);
-
-    const CHUNK_SIZE = 64;
-    for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
-      const chunk = payload.slice(i, i + CHUNK_SIZE);
-      try {
-        if (writeChar.properties.writeWithoutResponse) {
-          await writeChar.writeValueWithoutResponse(chunk);
-        } else {
-          await writeChar.writeValue(chunk);
-        }
-      } catch (writeErr: any) {
-        console.warn('GATT write failed, attempting reconnect...', writeErr);
+      if (!writeChar && (!server || !server.connected)) {
         server = await device.gatt.connect();
         writeChar = await findWritableCharacteristic(server);
-        cachedWriteCharacteristic = writeChar;
-        if (!writeChar) throw writeErr;
-
-        if (writeChar.properties.writeWithoutResponse) {
-          await writeChar.writeValueWithoutResponse(chunk);
-        } else {
-          await writeChar.writeValue(chunk);
-        }
       }
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
 
-    onStatusUpdate?.('Print complete!');
-    return { success: true, deviceName: device.name || 'Everycom Printer' };
-  } catch (err: any) {
-    console.error('Web Bluetooth print error:', err);
-    cachedWriteCharacteristic = null;
+      if (!writeChar) {
+        return {
+          success: false,
+          deviceName: device.name,
+          error: `Could not find a writable ESC/POS channel on ${device.name || 'printer'}. Ensure printer is powered on and in ESC/POS mode.`,
+        };
+      }
 
-    if (err.name === 'NotFoundError' || err.message?.includes('cancelled')) {
-      cachedBluetoothDevice = null;
-      return { success: false, error: 'Printer connection was cancelled.' };
+      cachedWriteCharacteristic = writeChar;
+
+      onStatusUpdate?.(`Printing to ${device.name || 'Everycom Printer'}...`);
+
+      const CHUNK_SIZE = 64;
+      for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
+        const chunk = payload.slice(i, i + CHUNK_SIZE);
+        try {
+          if (writeChar.properties.writeWithoutResponse) {
+            await writeChar.writeValueWithoutResponse(chunk);
+          } else {
+            await writeChar.writeValue(chunk);
+          }
+        } catch (writeErr: any) {
+          console.warn('GATT write failed, attempting reconnect...', writeErr);
+          server = await device.gatt.connect();
+          writeChar = await findWritableCharacteristic(server);
+          cachedWriteCharacteristic = writeChar;
+          if (!writeChar) throw writeErr;
+
+          if (writeChar.properties.writeWithoutResponse) {
+            await writeChar.writeValueWithoutResponse(chunk);
+          } else {
+            await writeChar.writeValue(chunk);
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+
+      onStatusUpdate?.('Print complete!');
+      return { success: true, deviceName: device.name || 'Everycom Printer' };
+    } catch (err: any) {
+      console.error('Web Bluetooth print error:', err);
+      cachedWriteCharacteristic = null;
+
+      if (err.name === 'NotFoundError' || err.message?.includes('cancelled')) {
+        cachedBluetoothDevice = null;
+        return { success: false, error: 'Printer connection was cancelled.' };
+      }
+      return { success: false, error: err.message || 'Bluetooth printing failed. Ensure printer is turned on and in range.' };
     }
-    return { success: false, error: err.message || 'Bluetooth printing failed. Ensure printer is turned on and in range.' };
   }
+
+  // 3. Fallback to Web Serial API (Chrome/Edge native port picker for Bluetooth SPP COM ports)
+  if (isWebSerialSupported()) {
+    onStatusUpdate?.('Requesting Bluetooth / Serial Port...');
+    return await printViaWebSerial(payload, onStatusUpdate);
+  }
+
+  return {
+    success: false,
+    error: 'Bluetooth printing is not supported in this browser. Please use Google Chrome or Microsoft Edge, or switch to USB Direct print.',
+  };
 }
 
 /**

@@ -162,7 +162,7 @@ export const PriceTagGenerator: React.FC = () => {
     setPrintStatus(
       printMethod === 'usb'
         ? 'Connecting to USB Thermal Printer (203 DPI Dark)...'
-        : 'Connecting to Bluetooth Printer (COM4 / SPP)...'
+        : 'Connecting to Bluetooth Printer...'
     );
 
     try {
@@ -576,12 +576,12 @@ export const PriceTagGenerator: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <Bluetooth className={`w-3.5 h-3.5 ${printMethod === 'bluetooth' ? 'text-indigo-600' : 'text-slate-500'}`} />
                       <span className="text-[8.5px] font-bold px-1 rounded bg-indigo-100 text-indigo-800">
-                        SPP COM
+                        Wireless
                       </span>
                     </div>
                     <div className="mt-1">
                       <div className="text-[11px] font-bold text-slate-900 leading-tight">Bluetooth</div>
-                      <div className="text-[9px] text-slate-500">COM4 / BLE</div>
+                      <div className="text-[9px] text-slate-500">Direct Wireless</div>
                     </div>
                   </button>
 
