@@ -36,13 +36,43 @@ export interface EscPosOptions {
   includeCustomerSignature?: boolean;
 }
 
-// Common Bluetooth GATT Services for ESC/POS Thermal Printers (Everycom, TVS, Epson, MPT-II, POS-58)
-export const THERMAL_PRINTER_BLUETOOTH_SERVICES = [
-  '000018f0-0000-1000-8000-00805f9b34fb', // Standard Printer GATT Service
+// Common Bluetooth GATT Services for ESC/POS Thermal Printers (Everycom, TVS, Epson, MPT-II, POS-58, Xprinter, Rongta, Goojprt)
+export const THERMAL_PRINTER_BLUETOOTH_SERVICES: (string | number)[] = [
+  // 1. Most ubiquitous 58mm/80mm Thermal Printer Services
+  '0000fff0-0000-1000-8000-00805f9b34fb', // Primary FFF0 Service (Everycom, MPT-II, POS-58, Milestone, Goojprt)
+  0xfff0,
+  '0000ffe0-0000-1000-8000-00805f9b34fb', // HM-10 / CC2540 Transparent Serial (FFE0)
+  0xffe0,
+  '000018f0-0000-1000-8000-00805f9b34fb', // Official Bluetooth SIG Printer Service (18F0)
+  0x18f0,
+  '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC Transparent UART (Microchip/Everycom EC-58)
   'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Common OEM Thermal Printer Service
-  '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC Transparent UART (Everycom EC-58, EC-80, POS-58)
-  '0000ffe0-0000-1000-8000-00805f9b34fb', // HM-10 / CC2540 Serial Service
-  '0000ff00-0000-1000-8000-00805f9b34fb', // Custom SPP-over-BLE Service
+  '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic Semiconductor UART Service (NUS)
+
+  // 2. Additional Vendor-Specific Thermal Printer Services
+  '0000ff00-0000-1000-8000-00805f9b34fb', // Custom SPP-over-BLE (FF00)
+  0xff00,
+  '0000fee7-0000-1000-8000-00805f9b34fb', // WeChat / Tencent Hardware Standard Printer (FEE7)
+  0xfee7,
+  '0000ae30-0000-1000-8000-00805f9b34fb', // Rongta / iPrint BLE Service (AE30)
+  0xae30,
+  '0000ae00-0000-1000-8000-00805f9b34fb', // Xprinter BLE Service (AE00)
+  0xae00,
+  '0000ff80-0000-1000-8000-00805f9b34fb', // Custom OEM Service
+  '0000af30-0000-1000-8000-00805f9b34fb', // Custom OEM Service
+  '000018f1-0000-1000-8000-00805f9b34fb', // Custom Printer Service
+  'd973f2e0-b19e-11e2-9e96-0800200c9a66', // Custom SPP BLE
+  '0000fef5-0000-1000-8000-00805f9b34fb', // Dialog Semiconductor Serial Port
+  '00001101-0000-1000-8000-00805f9b34fb', // Serial Port Profile (SPP)
+  0x1101,
+
+  // 3. Generic Discovery & Attribute Services
+  '0000180a-0000-1000-8000-00805f9b34fb', // Device Information
+  0x180a,
+  '00001800-0000-1000-8000-00805f9b34fb', // Generic Access
+  0x1800,
+  '00001801-0000-1000-8000-00805f9b34fb', // Generic Attribute
+  0x1801,
 ];
 
 /**
@@ -921,33 +951,80 @@ export async function printViaWebSerial(
  * Helper to inspect primary services and locate a writable ESC/POS characteristic
  */
 async function findWritableCharacteristic(server: any): Promise<any> {
-  // Try known printer services first
+  // Method 1: Scan all primary services discovered on the device
+  try {
+    const services = await server.getPrimaryServices();
+    console.log(`[Bluetooth] Discovered ${services.length} primary service(s) on ${server.device?.name || 'device'}`);
+    for (const service of services) {
+      try {
+        const chars = await service.getCharacteristics();
+        console.log(`[Bluetooth] Service ${service.uuid} exposes ${chars.length} characteristic(s)`);
+        for (const char of chars) {
+          const canWrite = Boolean(
+            char.properties?.write ||
+            char.properties?.writeWithoutResponse ||
+            (char.properties as any)?.authenticatedSignedWrites
+          );
+          console.log(`[Bluetooth]   - Char ${char.uuid}: canWrite=${canWrite}`, char.properties);
+          if (canWrite) {
+            return char;
+          }
+        }
+      } catch (charErr) {
+        console.warn(`[Bluetooth] Could not inspect characteristics on service ${service.uuid}:`, charErr);
+      }
+    }
+  } catch (err) {
+    console.warn('[Bluetooth] getPrimaryServices() fallback triggered:', err);
+  }
+
+  // Method 2: Query known printer services individually
   for (const serviceUuid of THERMAL_PRINTER_BLUETOOTH_SERVICES) {
     try {
       const service = await server.getPrimaryService(serviceUuid);
+      if (!service) continue;
       const chars = await service.getCharacteristics();
       for (const char of chars) {
-        if (char.properties.write || char.properties.writeWithoutResponse) {
+        if (
+          char.properties?.write ||
+          char.properties?.writeWithoutResponse ||
+          (char.properties as any)?.authenticatedSignedWrites
+        ) {
+          console.log(`[Bluetooth] Found writable characteristic via direct service query: ${char.uuid}`);
           return char;
         }
       }
     } catch {}
   }
 
-  // Fallback: scan all available primary services
-  try {
-    const services = await server.getPrimaryServices();
-    for (const service of services) {
-      try {
-        const chars = await service.getCharacteristics();
-        for (const char of chars) {
-          if (char.properties.write || char.properties.writeWithoutResponse) {
+  // Method 3: Probe direct write characteristic UUIDs
+  const KNOWN_WRITE_CHAR_UUIDS = [
+    '0000fff2-0000-1000-8000-00805f9b34fb',
+    '0000fff1-0000-1000-8000-00805f9b34fb',
+    '0000ffe1-0000-1000-8000-00805f9b34fb',
+    '00002af1-0000-1000-8000-00805f9b34fb',
+    '49535343-8841-43f4-a8d4-ecbe34729bb3',
+    '49535343-1e4d-4bd9-ba61-23c647249616',
+    '6e400002-b5a3-f393-e0a9-e50e24dcca9e',
+    'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f',
+    '0000ff02-0000-1000-8000-00805f9b34fb',
+    '0000ae01-0000-1000-8000-00805f9b34fb',
+  ];
+
+  for (const serviceUuid of THERMAL_PRINTER_BLUETOOTH_SERVICES) {
+    try {
+      const service = await server.getPrimaryService(serviceUuid);
+      for (const charUuid of KNOWN_WRITE_CHAR_UUIDS) {
+        try {
+          const char = await service.getCharacteristic(charUuid);
+          if (char) {
+            console.log(`[Bluetooth] Found known writable characteristic by UUID: ${char.uuid}`);
             return char;
           }
-        }
-      } catch {}
-    }
-  } catch {}
+        } catch {}
+      }
+    } catch {}
+  }
 
   return null;
 }
@@ -1027,10 +1104,16 @@ export async function printViaWebBluetooth(
       }
 
       if (!writeChar) {
+        try {
+          if (device?.gatt?.connected) device.gatt.disconnect();
+        } catch {}
+        cachedBluetoothDevice = null;
+        cachedWriteCharacteristic = null;
+
         return {
           success: false,
           deviceName: device.name,
-          error: `Could not find a writable ESC/POS channel on ${device.name || 'printer'}. Ensure printer is powered on and in ESC/POS mode.`,
+          error: `Could not find a writable BLE GATT channel on "${device.name || 'Thermal Printer'}". If this printer uses Bluetooth Classic (SPP), please select "Bluetooth Serial (SPP)" or "USB Direct".`,
         };
       }
 

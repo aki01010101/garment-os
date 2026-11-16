@@ -7,6 +7,7 @@ import {
   formatPriceTagsToEscPos,
   printViaWebUsb,
   printViaWebBluetooth,
+  printViaWebSerial,
   detectLocalPrinters,
   PriceTagItem,
 } from '../../utils/escpos';
@@ -24,6 +25,7 @@ import {
   RotateCcw,
   Bluetooth,
   Usb,
+  Cable,
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -59,7 +61,7 @@ export const PriceTagGenerator: React.FC = () => {
   });
 
   // Printing mode & hardware detection state
-  const [printMethod, setPrintMethod] = useState<'usb' | 'bluetooth' | 'browser'>(() => {
+  const [printMethod, setPrintMethod] = useState<'usb' | 'bluetooth' | 'serial' | 'browser'>(() => {
     return (localStorage.getItem('tag_print_method') as any) || 'usb';
   });
   const [printStatus, setPrintStatus] = useState<string | null>(null);
@@ -77,7 +79,7 @@ export const PriceTagGenerator: React.FC = () => {
     });
   }, []);
 
-  const setAndSavePrintMethod = (method: 'usb' | 'bluetooth' | 'browser') => {
+  const setAndSavePrintMethod = (method: 'usb' | 'bluetooth' | 'serial' | 'browser') => {
     setPrintMethod(method);
     localStorage.setItem('tag_print_method', method);
   };
@@ -162,7 +164,11 @@ export const PriceTagGenerator: React.FC = () => {
     setPrintStatus(
       printMethod === 'usb'
         ? 'Connecting to USB Thermal Printer (203 DPI Dark)...'
-        : 'Connecting to Bluetooth Printer...'
+        : printMethod === 'bluetooth'
+        ? 'Connecting to Bluetooth Printer (BLE)...'
+        : printMethod === 'serial'
+        ? 'Connecting to Bluetooth Serial Port (SPP)...'
+        : 'Preparing System Print...'
     );
 
     try {
@@ -189,9 +195,16 @@ export const PriceTagGenerator: React.FC = () => {
         const targetPort = detectedHardware.ports[0]?.DeviceID;
         const res = await printViaWebBluetooth(payload, (status) => setPrintStatus(status), targetPort);
         if (res.success) {
-          setPrintStatus(`✅ Printed ${tagsToPrint.length} tag(s) via Bluetooth (${targetPort || 'SPP'})!`);
+          setPrintStatus(`✅ Printed ${tagsToPrint.length} tag(s) via Bluetooth (${targetPort || 'BLE'})!`);
         } else {
           setPrintStatus(`❌ Bluetooth Print Error: ${res.error}`);
+        }
+      } else if (printMethod === 'serial') {
+        const res = await printViaWebSerial(payload, (status) => setPrintStatus(status));
+        if (res.success) {
+          setPrintStatus(`✅ Printed ${tagsToPrint.length} tag(s) via Serial (${res.deviceName || 'COM Port'})!`);
+        } else {
+          setPrintStatus(`❌ Serial Print Error: ${res.error}`);
         }
       }
     } catch (err: any) {
@@ -233,6 +246,8 @@ export const PriceTagGenerator: React.FC = () => {
                 ? 'bg-cyan-700 hover:bg-cyan-800 disabled:bg-slate-300'
                 : printMethod === 'bluetooth'
                 ? 'bg-indigo-700 hover:bg-indigo-800 disabled:bg-slate-300'
+                : printMethod === 'serial'
+                ? 'bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-300'
                 : 'bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300'
             }`}
           >
@@ -242,13 +257,15 @@ export const PriceTagGenerator: React.FC = () => {
               <Usb className="w-4 h-4" />
             ) : printMethod === 'bluetooth' ? (
               <Bluetooth className="w-4 h-4" />
+            ) : printMethod === 'serial' ? (
+              <Cable className="w-4 h-4" />
             ) : (
               <Printer className="w-4 h-4" />
             )}
             <span>
               {isPrinting
                 ? 'Printing...'
-                : `Print ${tagsToPrint.length} Tags (${printMethod === 'usb' ? 'USB 203 DPI' : printMethod === 'bluetooth' ? 'Bluetooth' : 'System'})`}
+                : `Print ${tagsToPrint.length} Tags (${printMethod === 'usb' ? 'USB 203 DPI' : printMethod === 'bluetooth' ? 'Bluetooth' : printMethod === 'serial' ? 'BT Serial' : 'System'})`}
             </span>
           </button>
         </div>
@@ -542,7 +559,7 @@ export const PriceTagGenerator: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   <button
                     type="button"
                     onClick={() => setAndSavePrintMethod('usb')}
@@ -576,12 +593,33 @@ export const PriceTagGenerator: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <Bluetooth className={`w-3.5 h-3.5 ${printMethod === 'bluetooth' ? 'text-indigo-600' : 'text-slate-500'}`} />
                       <span className="text-[8.5px] font-bold px-1 rounded bg-indigo-100 text-indigo-800">
-                        Wireless
+                        BLE
                       </span>
                     </div>
                     <div className="mt-1">
                       <div className="text-[11px] font-bold text-slate-900 leading-tight">Bluetooth</div>
                       <div className="text-[9px] text-slate-500">Direct Wireless</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAndSavePrintMethod('serial')}
+                    className={`p-2 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                      printMethod === 'serial'
+                        ? 'border-emerald-600 bg-emerald-50/80 ring-1 ring-emerald-500 shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Cable className={`w-3.5 h-3.5 ${printMethod === 'serial' ? 'text-emerald-600' : 'text-slate-500'}`} />
+                      <span className="text-[8.5px] font-bold px-1 rounded bg-emerald-100 text-emerald-800">
+                        COM / SPP
+                      </span>
+                    </div>
+                    <div className="mt-1">
+                      <div className="text-[11px] font-bold text-slate-900 leading-tight">BT Serial</div>
+                      <div className="text-[9px] text-slate-500">Classic SPP Port</div>
                     </div>
                   </button>
 
@@ -629,7 +667,7 @@ export const PriceTagGenerator: React.FC = () => {
 
                 {/* Print Feedback Banner */}
                 {printStatus && (
-                  <div className={`p-2 rounded-lg border text-[11px] flex items-center justify-between gap-2 ${
+                  <div className={`p-2 rounded-lg border text-[11px] flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
                     printStatus.startsWith('✅')
                       ? 'bg-emerald-50 border-emerald-200 text-emerald-900 font-semibold'
                       : printStatus.startsWith('❌')
@@ -646,12 +684,38 @@ export const PriceTagGenerator: React.FC = () => {
                       )}
                       <span className="truncate">{printStatus}</span>
                     </span>
-                    <button
-                      onClick={() => setPrintStatus(null)}
-                      className="p-0.5 hover:bg-black/5 rounded text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {printStatus.startsWith('❌') && printMethod !== 'usb' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAndSavePrintMethod('usb');
+                            setPrintStatus(null);
+                          }}
+                          className="px-2 py-0.5 rounded bg-cyan-700 hover:bg-cyan-800 text-white font-semibold text-[10px] cursor-pointer"
+                        >
+                          Switch to USB Direct
+                        </button>
+                      )}
+                      {printStatus.startsWith('❌') && printMethod === 'bluetooth' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAndSavePrintMethod('serial');
+                            setPrintStatus(null);
+                          }}
+                          className="px-2 py-0.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-[10px] cursor-pointer"
+                        >
+                          Try BT Serial
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setPrintStatus(null)}
+                        className="p-0.5 hover:bg-black/5 rounded text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

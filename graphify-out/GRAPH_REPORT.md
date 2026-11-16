@@ -1,17 +1,17 @@
 # Graph Report - Garment POS  (2026-11-16)
 
 ## Corpus Check
-- 90 files · ~196,562 words
+- 90 files · ~197,083 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: .example 1, (none) 1, .css 1)
 
 ## Summary
-- 599 nodes · 2062 edges · 27 communities (20 shown, 7 thin omitted)
+- 599 nodes · 2064 edges · 27 communities (20 shown, 7 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 103 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5ffbe378`
+- Built from commit: `7499355c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -82,8 +82,8 @@ Cohesion: 0.12
 Nodes (17): ZReportPreviewModalProps, AppContextType, SupabaseConfig, AlterationDetails, AssociateCommissionPayout, BulkProductUpdate, CartItem, CashDrop (+9 more)
 
 ### Community 2 - "escpos.ts"
-Cohesion: 0.19
-Nodes (19): ThermalReceipt(), disconnectBluetoothPrinter(), disconnectUsbPrinter(), EscPosBuilder, EscPosOptions, forgetBluetoothPrinter(), formatCreditNoteToEscPos(), formatCreditPaymentReceiptToEscPos() (+11 more)
+Cohesion: 0.15
+Nodes (29): ThermalReceipt(), CreditNotePreviewModal(), PriceTagGenerator(), detectLocalPrinters(), disconnectBluetoothPrinter(), disconnectUsbPrinter(), EscPosBuilder, EscPosOptions (+21 more)
 
 ### Community 3 - "supabase.ts"
 Cohesion: 0.08
@@ -134,8 +134,8 @@ Cohesion: 0.33
 Nodes (6): scripts, build, clean, dev, lint, preview
 
 ### Community 15 - "printThermalReceiptHtml"
-Cohesion: 0.10
-Nodes (38): DayRegisterManager(), EndOfDaySummaryModal(), EndOfDaySummaryModalProps, ZReportPreviewModal(), CustomerMeasurementModalProps, GARMENT_TYPES, PRESET_STANDARDS, CustomerPurchasesModalProps (+30 more)
+Cohesion: 0.12
+Nodes (28): DayRegisterManager(), EndOfDaySummaryModal(), EndOfDaySummaryModalProps, ZReportPreviewModal(), CustomerMeasurementModalProps, GARMENT_TYPES, PRESET_STANDARDS, CustomerPurchasesModalProps (+20 more)
 
 ### Community 16 - "vercel.json"
 Cohesion: 0.33
@@ -173,5 +173,5 @@ _Questions this graph is uniquely positioned to answer:_
   _Cohesion score 0.11764705882352941 - nodes in this community are weakly interconnected._
 - **Why does `useApp()` connect `useApp` to `escpos.ts`, `CustomerCRM.tsx`, `AppContext.tsx`, `InvoiceInwardingModal.tsx`, `InventoryManager.tsx`, `CustomerDisplayManager.tsx`, `printThermalReceiptHtml`, `types.ts`, `BarcodeSvg.tsx`, `GiftVouchersModal.tsx`?**
   _High betweenness centrality (0.069) - this node is a cross-community bridge._
-- **Should `supabase.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.08461538461538462 - nodes in this community are weakly interconnected._
+- **Should `escpos.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.14513788098693758 - nodes in this community are weakly interconnected._

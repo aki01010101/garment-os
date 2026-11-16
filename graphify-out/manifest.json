@@ -294,9 +294,9 @@
     "semantic_hash": ""
   },
   "src/components/tags/PriceTagGenerator.tsx": {
-    "mtime": 1794829097.862576,
-    "seen": 1794829124.213359,
-    "ast_hash": "ebb554a8dfbf734b3af9882c98e67b9a",
+    "mtime": 1794829541.533476,
+    "seen": 1794829570.012178,
+    "ast_hash": "d2080f7a24d9bc316b9c94d978dd5f33",
     "semantic_hash": ""
   },
   "src/components/vendors/VendorPurchaseManager.tsx": {
@@ -366,9 +366,9 @@
     "semantic_hash": ""
   },
   "src/utils/escpos.ts": {
-    "mtime": 1794829083.198126,
-    "seen": 1794829124.2158892,
-    "ast_hash": "ede7312de02fb306e6d23385be4839cd",
+    "mtime": 1794829452.4237711,
+    "seen": 1794829570.0150754,
+    "ast_hash": "0309caef63a23b8c68ae5d2ae500cb1a",
     "semantic_hash": ""
   },
   "src/utils/printReceipt.ts": {
