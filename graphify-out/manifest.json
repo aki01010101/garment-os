@@ -108,9 +108,9 @@
     "semantic_hash": ""
   },
   "src/components/companies/CompanySettings.tsx": {
-    "mtime": 1794484010.5732691,
-    "seen": 1794487250.9930139,
-    "ast_hash": "a3aba40a05ae0c187ad4594e856453fc",
+    "mtime": 1795025563.9455676,
+    "seen": 1795025606.019712,
+    "ast_hash": "2685eaafb44e522258487f792e061441",
     "semantic_hash": ""
   },
   "src/components/crm/CustomerCRM.tsx": {
@@ -210,15 +210,15 @@
     "semantic_hash": ""
   },
   "src/components/pos/DigitalReceiptModal.tsx": {
-    "mtime": 1795022799.3503096,
-    "seen": 1795023098.0226479,
-    "ast_hash": "f7e428e112925b0eb579732eb556829f",
+    "mtime": 1795025480.1562965,
+    "seen": 1795025606.0232122,
+    "ast_hash": "d6bd5df6540539c1a53980b4be85a127",
     "semantic_hash": ""
   },
   "src/components/pos/POSBilling.tsx": {
-    "mtime": 1795024126.7646084,
-    "seen": 1795024237.0213003,
-    "ast_hash": "544af970a912b4a7feeb0bfc094877cd",
+    "mtime": 1795025420.646991,
+    "seen": 1795025606.0233574,
+    "ast_hash": "089526ffdea1cc39b5524a523fd84a0f",
     "semantic_hash": ""
   },
   "src/components/pos/StoreCreditNotesModal.tsx": {
@@ -228,9 +228,9 @@
     "semantic_hash": ""
   },
   "src/components/pos/ThermalReceipt.tsx": {
-    "mtime": 1795021372.7629955,
-    "seen": 1795021772.5397186,
-    "ast_hash": "7ee9041b86a7de1092addd6a737d6bb6",
+    "mtime": 1795025459.81828,
+    "seen": 1795025606.023493,
+    "ast_hash": "b1ceefab23dc2e73dfe9f6237731d060",
     "semantic_hash": ""
   },
   "src/components/printer/PrinterGuideModal.tsx": {
@@ -330,15 +330,15 @@
     "semantic_hash": ""
   },
   "src/services/supabase.ts": {
-    "mtime": 1795023047.3477566,
-    "seen": 1795023098.0252042,
-    "ast_hash": "082ceece123451b478db0289ff09975e",
+    "mtime": 1795025391.6975296,
+    "seen": 1795025606.0258112,
+    "ast_hash": "874e20e227015f5c09656f185f15dd29",
     "semantic_hash": ""
   },
   "src/types.ts": {
-    "mtime": 1795024094.8327968,
-    "seen": 1795024237.0259106,
-    "ast_hash": "04b9ef672771e48c847834271c642725",
+    "mtime": 1795025382.1469917,
+    "seen": 1795025606.0258138,
+    "ast_hash": "efa7a23db9306a506f46df14b40155d4",
     "semantic_hash": ""
   },
   "src/utils/audio.ts": {
@@ -480,9 +480,9 @@
     "semantic_hash": ""
   },
   "src/components/pos/CustomerDisplay.tsx": {
-    "mtime": 1795024205.0103252,
-    "seen": 1795024237.0207033,
-    "ast_hash": "f5cc79920cee4097b5bfe7cd9774f162",
+    "mtime": 1795025430.6684082,
+    "seen": 1795025606.023076,
+    "ast_hash": "3857b9b3ba0959a521df667c397ae417",
     "semantic_hash": ""
   },
   "src/components/pos/GiftVouchersModal.tsx": {

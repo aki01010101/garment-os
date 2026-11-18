@@ -178,6 +178,7 @@ export const CLOTHING_SIZE_GROUPS: SizeOptionGroup[] = [
 export type Season = 'Summer' | 'Winter' | 'Festive / Autumn' | 'All-Season';
 
 export type CompanyType = 'billed' | 'cash';
+export type LogoDisplayMode = 'logo_and_name' | 'logo_only' | 'name_only';
 
 export interface Company {
   id: string;
@@ -199,6 +200,11 @@ export interface Company {
   taxInclusive?: boolean; // true = prices are GST inclusive (MRP model), false = GST added separately on top
   isCompositionScheme?: boolean; // Composition GST: No tax breakup printed on bills; shows "GST Included in Price"
   googleReviewUrl?: string; // Direct Google Profile / Reviews link for receipt QR
+  // Store Logo & Display Settings (Configured in Settings > Billing Entities)
+  logoUrl?: string; // Base64 data URL or external image URL
+  logoDisplayMode?: LogoDisplayMode; // 'logo_and_name' (default), 'logo_only', 'name_only'
+  receiptLogoDisplayMode?: LogoDisplayMode; // Specific override for thermal & digital receipts (defaults to logoDisplayMode)
+  customerScreenLogoDisplayMode?: LogoDisplayMode; // Specific override for customer display (defaults to logoDisplayMode)
 }
 
 export interface Product {
@@ -982,6 +988,9 @@ export interface CustomerDisplayPayload {
   companyTagline?: string;
   companyPhone?: string;
   companyAddress?: string;
+  companyLogoUrl?: string;
+  companyLogoDisplayMode?: LogoDisplayMode;
+  companyCustomerScreenLogoDisplayMode?: LogoDisplayMode;
   items: CustomerDisplayItem[];
   subtotal: number;
   discountTotal: number;

@@ -31,8 +31,19 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
   receipt,
   googleReviewUrl,
 }) => {
-  const { loyaltyConfig } = useApp();
+  const { loyaltyConfig, companies, activeCompany } = useApp();
   const [copied, setCopied] = useState(false);
+
+  const companyForReceipt =
+    (receipt?.companyId ? companies?.find((c) => c.id === receipt.companyId) : null) ||
+    companies?.find((c) => c.name === receipt?.companyName) ||
+    activeCompany;
+
+  const effectiveLogoUrl = companyForReceipt?.logoUrl;
+  const effectiveReceiptDisplayMode =
+    companyForReceipt?.receiptLogoDisplayMode ||
+    companyForReceipt?.logoDisplayMode ||
+    (effectiveLogoUrl ? 'logo_and_name' : 'name_only');
 
   // Digital receipt URL or shareable link
   const digitalReceiptUrl = useMemo(() => {
@@ -201,10 +212,22 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
           <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-3">
             {/* Store & Bill Meta */}
             <div className="flex items-start justify-between border-b border-slate-200/80 pb-2.5">
-              <div>
-                <div className="font-bold text-slate-900 text-sm">{receipt.companyName}</div>
-                <div className="text-[10px] text-slate-500 font-mono">
-                  {receipt.companyTaxId} • {receipt.companyAddress}
+              <div className="flex items-center gap-2.5">
+                {effectiveLogoUrl &&
+                  (effectiveReceiptDisplayMode === 'logo_and_name' || effectiveReceiptDisplayMode === 'logo_only') && (
+                    <img
+                      src={effectiveLogoUrl}
+                      alt={receipt.companyName}
+                      className="h-10 max-w-[120px] object-contain rounded-lg p-0.5 bg-white border border-slate-200 shadow-2xs"
+                    />
+                  )}
+                <div>
+                  {effectiveReceiptDisplayMode !== 'logo_only' && (
+                    <div className="font-bold text-slate-900 text-sm">{receipt.companyName}</div>
+                  )}
+                  <div className="text-[10px] text-slate-500 font-mono">
+                    {receipt.companyTaxId} • {receipt.companyAddress}
+                  </div>
                 </div>
               </div>
               <div className="text-right">

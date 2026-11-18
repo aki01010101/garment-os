@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Company, CompanyType } from '../../types';
+import { Company, CompanyType, LogoDisplayMode } from '../../types';
 import { asyncSyncCompany } from '../../services/supabase';
 import {
   Building2,
@@ -24,6 +24,11 @@ import {
   CheckCircle2,
   Cloud,
   UploadCloud,
+  Image as ImageIcon,
+  Trash2,
+  Upload,
+  Monitor,
+  Eye,
 } from 'lucide-react';
 
 const ACCENT_COLOR_PRESETS = [
@@ -59,6 +64,7 @@ export const CompanySettings: React.FC = () => {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<Omit<Company, 'id'>>({
     name: '',
@@ -78,10 +84,50 @@ export const CompanySettings: React.FC = () => {
     taxInclusive: true,
     isCompositionScheme: true,
     googleReviewUrl: '',
+    logoUrl: '',
+    logoDisplayMode: 'logo_and_name',
+    receiptLogoDisplayMode: 'logo_and_name',
+    customerScreenLogoDisplayMode: 'logo_and_name',
   });
+
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setLogoUploadError('Please select a valid image file (PNG, JPG, SVG, WebP).');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoUploadError('Image size should be under 2MB for fast receipt printing & loading.');
+      return;
+    }
+
+    setLogoUploadError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setFormData((prev) => ({
+        ...prev,
+        logoUrl: result,
+        logoDisplayMode: prev.logoDisplayMode === 'name_only' ? 'logo_and_name' : (prev.logoDisplayMode || 'logo_and_name'),
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => {
+    setFormData((prev) => ({
+      ...prev,
+      logoUrl: '',
+      logoDisplayMode: 'name_only',
+    }));
+  };
 
   const handleOpenAdd = () => {
     setEditingCompany(null);
+    setLogoUploadError(null);
     setFormData({
       name: '',
       legalName: '',
@@ -100,18 +146,27 @@ export const CompanySettings: React.FC = () => {
       taxInclusive: true,
       isCompositionScheme: true,
       googleReviewUrl: '',
+      logoUrl: '',
+      logoDisplayMode: 'logo_and_name',
+      receiptLogoDisplayMode: 'logo_and_name',
+      customerScreenLogoDisplayMode: 'logo_and_name',
     });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (comp: Company) => {
     setEditingCompany(comp);
+    setLogoUploadError(null);
     setFormData({
       ...comp,
       enableDynamicGarmentGst: comp.enableDynamicGarmentGst ?? true,
       taxInclusive: comp.taxInclusive ?? true,
       isCompositionScheme: comp.isCompositionScheme ?? false,
       googleReviewUrl: comp.googleReviewUrl || '',
+      logoUrl: comp.logoUrl || '',
+      logoDisplayMode: comp.logoDisplayMode || (comp.logoUrl ? 'logo_and_name' : 'name_only'),
+      receiptLogoDisplayMode: comp.receiptLogoDisplayMode || comp.logoDisplayMode || (comp.logoUrl ? 'logo_and_name' : 'name_only'),
+      customerScreenLogoDisplayMode: comp.customerScreenLogoDisplayMode || comp.logoDisplayMode || (comp.logoUrl ? 'logo_and_name' : 'name_only'),
     });
     setIsModalOpen(true);
   };
@@ -211,19 +266,39 @@ export const CompanySettings: React.FC = () => {
               {/* Header */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-xs"
-                    style={{ backgroundColor: comp.accentColor || '#4f46e5' }}
-                  >
-                    {comp.name.charAt(0)}
-                  </div>
+                  {comp.logoUrl ? (
+                    <img
+                      src={comp.logoUrl}
+                      alt={comp.name}
+                      className="w-10 h-10 rounded-lg object-contain bg-white border border-slate-200 p-0.5 shadow-2xs shrink-0"
+                    />
+                  ) : (
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-xs shrink-0"
+                      style={{ backgroundColor: comp.accentColor || '#4f46e5' }}
+                    >
+                      {comp.name.charAt(0)}
+                    </div>
+                  )}
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">{comp.name}</h3>
                     <div className="text-[11px] text-slate-500">{comp.legalName}</div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {comp.logoUrl && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                      <ImageIcon className="w-3 h-3" />
+                      <span>
+                        {comp.logoDisplayMode === 'logo_only'
+                          ? 'Logo Only'
+                          : comp.logoDisplayMode === 'name_only'
+                          ? 'Name Only'
+                          : 'Logo + Name'}
+                      </span>
+                    </span>
+                  )}
                   {isBilled && comp.isCompositionScheme && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-300">
                       Composition GST (Bill of Supply)
@@ -950,7 +1025,298 @@ export const CompanySettings: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* BENTO CELL 7: Printed Receipt Return & Exchange Policy (12 Cols) */}
+                  {/* BENTO CELL 7: Store Logo & Header Display Modes (12 Cols) */}
+                  <div className="lg:col-span-12 bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-shadow space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-700">
+                          <ImageIcon className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                            Store Logo & Header Display Modes
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            Add custom business logo and configure how it appears on printed receipts and the customer screen.
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-slate-400 uppercase">Cell 07</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                      {/* Left: Upload & Logo Management (5 Cols) */}
+                      <div className="lg:col-span-5 space-y-3">
+                        <label className="block text-xs font-bold text-slate-700">
+                          Brand Logo Graphic
+                        </label>
+
+                        {formData.logoUrl ? (
+                          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col items-center justify-center gap-3">
+                            <div className="relative p-2 bg-white rounded-xl border border-slate-200 shadow-xs max-h-28 flex items-center justify-center">
+                              <img
+                                src={formData.logoUrl}
+                                alt="Store Logo Preview"
+                                className="max-h-24 max-w-[180px] object-contain"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <label
+                                htmlFor="logo-upload-input"
+                                className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                              >
+                                <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                                <span>Change Logo</span>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={handleRemoveLogo}
+                                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg text-xs font-semibold text-rose-700 flex items-center gap-1.5 cursor-pointer transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Remove</span>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-5 text-center transition-colors bg-slate-50/50">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-2 shadow-2xs">
+                              <Upload className="w-5 h-5" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-800">Upload Store Logo</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">PNG, JPG, SVG or WebP (max 2MB)</p>
+                            <label
+                              htmlFor="logo-upload-input"
+                              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs transition-colors"
+                            >
+                              <ImageIcon className="w-3.5 h-3.5" />
+                              <span>Select Image File</span>
+                            </label>
+                          </div>
+                        )}
+
+                        <input
+                          id="logo-upload-input"
+                          type="file"
+                          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                          onChange={handleLogoFileChange}
+                          className="hidden"
+                        />
+
+                        {logoUploadError && (
+                          <p className="text-[11px] text-rose-600 font-semibold">{logoUploadError}</p>
+                        )}
+
+                        {/* URL Fallback */}
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Or paste external image URL:
+                          </label>
+                          <input
+                            type="url"
+                            placeholder="https://example.com/logo.png"
+                            value={formData.logoUrl?.startsWith('data:') ? '' : formData.logoUrl || ''}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                logoUrl: e.target.value,
+                                logoDisplayMode: formData.logoDisplayMode === 'name_only' ? 'logo_and_name' : formData.logoDisplayMode,
+                              })
+                            }
+                            className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Right: How to Show the Logo (7 Cols) */}
+                      <div className="lg:col-span-7 space-y-3.5">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                            Header Logo Display Style:
+                          </label>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            {/* Option 1: Logo with Brand Name */}
+                            <label
+                              className={`p-3 rounded-xl border flex flex-col justify-between cursor-pointer transition-all ${
+                                (formData.logoDisplayMode || 'logo_and_name') === 'logo_and_name'
+                                  ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-500/20 shadow-xs'
+                                  : 'bg-white border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="font-extrabold text-xs text-slate-900">Logo + Name</span>
+                                <input
+                                  type="radio"
+                                  name="logoDisplayMode"
+                                  checked={(formData.logoDisplayMode || 'logo_and_name') === 'logo_and_name'}
+                                  onChange={() => setFormData({ ...formData, logoDisplayMode: 'logo_and_name' })}
+                                  className="text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                />
+                              </div>
+                              <p className="text-[10px] text-slate-500 leading-snug">
+                                Displays both the graphic logo and brand name text.
+                              </p>
+                            </label>
+
+                            {/* Option 2: Just Logo */}
+                            <label
+                              className={`p-3 rounded-xl border flex flex-col justify-between cursor-pointer transition-all ${
+                                formData.logoDisplayMode === 'logo_only'
+                                  ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-500/20 shadow-xs'
+                                  : 'bg-white border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="font-extrabold text-xs text-slate-900">Just Logo</span>
+                                <input
+                                  type="radio"
+                                  name="logoDisplayMode"
+                                  checked={formData.logoDisplayMode === 'logo_only'}
+                                  onChange={() => setFormData({ ...formData, logoDisplayMode: 'logo_only' })}
+                                  className="text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                />
+                              </div>
+                              <p className="text-[10px] text-slate-500 leading-snug">
+                                Displays only your logo graphic (hides text brand name).
+                              </p>
+                            </label>
+
+                            {/* Option 3: Just Brand Name */}
+                            <label
+                              className={`p-3 rounded-xl border flex flex-col justify-between cursor-pointer transition-all ${
+                                formData.logoDisplayMode === 'name_only'
+                                  ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-500/20 shadow-xs'
+                                  : 'bg-white border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="font-extrabold text-xs text-slate-900">Just Name</span>
+                                <input
+                                  type="radio"
+                                  name="logoDisplayMode"
+                                  checked={formData.logoDisplayMode === 'name_only'}
+                                  onChange={() => setFormData({ ...formData, logoDisplayMode: 'name_only' })}
+                                  className="text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                />
+                              </div>
+                              <p className="text-[10px] text-slate-500 leading-snug">
+                                Traditional text-only brand title (hides logo graphic).
+                              </p>
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Per-Destination Specific Controls */}
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                          <span className="text-[11px] font-bold text-slate-700 block uppercase tracking-wider">
+                            Destination Specific Overrides:
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div>
+                              <label className="block text-[11px] font-medium text-slate-600 mb-1 flex items-center gap-1">
+                                <Receipt className="w-3 h-3 text-indigo-600" />
+                                <span>Thermal & Digital Receipts:</span>
+                              </label>
+                              <select
+                                value={formData.receiptLogoDisplayMode || formData.logoDisplayMode || 'logo_and_name'}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, receiptLogoDisplayMode: e.target.value as LogoDisplayMode })
+                                }
+                                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800"
+                              >
+                                <option value="logo_and_name">Logo with Brand Name</option>
+                                <option value="logo_only">Just Logo (No Text Title)</option>
+                                <option value="name_only">Just Brand Name (Text Only)</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-medium text-slate-600 mb-1 flex items-center gap-1">
+                                <Monitor className="w-3 h-3 text-indigo-600" />
+                                <span>Customer Secondary Screen:</span>
+                              </label>
+                              <select
+                                value={formData.customerScreenLogoDisplayMode || formData.logoDisplayMode || 'logo_and_name'}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, customerScreenLogoDisplayMode: e.target.value as LogoDisplayMode })
+                                }
+                                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800"
+                              >
+                                <option value="logo_and_name">Logo with Brand Name</option>
+                                <option value="logo_only">Just Logo (No Text Title)</option>
+                                <option value="name_only">Just Brand Name (Text Only)</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom: Real-Time Dual Previews */}
+                    <div className="border-t border-slate-100 pt-3 space-y-2">
+                      <span className="text-[11px] font-bold text-slate-700 block uppercase tracking-wider flex items-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Real-Time Header Previews</span>
+                      </span>
+
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                        {/* Receipt Preview */}
+                        <div className="md:col-span-5 bg-white border border-neutral-300 rounded-xl p-3 text-center shadow-xs font-mono">
+                          <div className="text-[7.5px] text-neutral-400 mb-1">- - - 58MM RECEIPT HEADER - - -</div>
+                          {(formData.receiptLogoDisplayMode || formData.logoDisplayMode || 'logo_and_name') !== 'name_only' &&
+                            formData.logoUrl && (
+                              <div className="flex justify-center mb-1">
+                                <img
+                                  src={formData.logoUrl}
+                                  alt="Receipt Preview"
+                                  className="max-h-9 max-w-[120px] object-contain mx-auto"
+                                />
+                              </div>
+                            )}
+                          {(formData.receiptLogoDisplayMode || formData.logoDisplayMode) !== 'logo_only' && (
+                            <div className="font-black text-[11px] uppercase tracking-tight text-black">
+                              {formData.name || 'GARMENT OS STORE'}
+                            </div>
+                          )}
+                          <div className="text-[8px] text-neutral-600 mt-0.5">{formData.address || 'Commercial Market'}</div>
+                          <div className="text-[8px] text-neutral-600">Ph: {formData.phone || '+91 98123 00000'}</div>
+                        </div>
+
+                        {/* Customer Screen Header Preview */}
+                        <div className="md:col-span-7 bg-slate-900 text-white rounded-xl border border-slate-800 p-3 shadow-xs flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {(formData.customerScreenLogoDisplayMode || formData.logoDisplayMode || 'logo_and_name') !==
+                              'name_only' && formData.logoUrl ? (
+                              <img
+                                src={formData.logoUrl}
+                                alt="Screen Preview"
+                                className="h-9 max-w-[90px] object-contain rounded-lg p-0.5 bg-white"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-xs text-white">
+                                <Building2 className="w-4 h-4" />
+                              </div>
+                            )}
+                            {(formData.customerScreenLogoDisplayMode || formData.logoDisplayMode) !== 'logo_only' && (
+                              <div>
+                                <div className="font-extrabold text-xs uppercase tracking-tight">
+                                  {formData.name || 'GARMENT OS STORE'}
+                                </div>
+                                <div className="text-[9.5px] text-slate-400 truncate max-w-[180px]">
+                                  {formData.tagline || 'Retail Clothing Outlet'}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                            Customer Screen
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* BENTO CELL 8: Printed Receipt Return & Exchange Policy (12 Cols) */}
                   <div className="lg:col-span-12 bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-shadow space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                       <div className="flex items-center gap-2">
@@ -964,7 +1330,7 @@ export const CompanySettings: React.FC = () => {
                           <p className="text-[11px] text-slate-500">Customer terms printed at the bottom of 58mm / 80mm receipt tape.</p>
                         </div>
                       </div>
-                      <span className="text-[10px] font-mono font-bold text-slate-400 uppercase">Cell 07</span>
+                      <span className="text-[10px] font-mono font-bold text-slate-400 uppercase">Cell 08</span>
                     </div>
 
                     <div>

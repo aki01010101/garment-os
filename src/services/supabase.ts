@@ -302,6 +302,10 @@ export function mapCompanyToDb(c: Company, userId?: string) {
     tax_inclusive: c.taxInclusive ?? true,
     is_composition_scheme: c.isCompositionScheme ?? false,
     google_review_url: c.googleReviewUrl || null,
+    logo_url: c.logoUrl || null,
+    logo_display_mode: c.logoDisplayMode || 'logo_and_name',
+    receipt_logo_display_mode: c.receiptLogoDisplayMode || c.logoDisplayMode || 'logo_and_name',
+    customer_screen_logo_display_mode: c.customerScreenLogoDisplayMode || c.logoDisplayMode || 'logo_and_name',
     updated_at: new Date().toISOString(),
     ...(userId ? { user_id: userId } : {}),
   };
@@ -333,6 +337,10 @@ export function mapCompanyFromDb(row: any): Company {
     taxInclusive: row.tax_inclusive ?? true,
     isCompositionScheme: row.is_composition_scheme ?? false,
     googleReviewUrl: row.google_review_url || '',
+    logoUrl: row.logo_url || undefined,
+    logoDisplayMode: row.logo_display_mode || (row.logo_url ? 'logo_and_name' : 'name_only'),
+    receiptLogoDisplayMode: row.receipt_logo_display_mode || row.logo_display_mode || (row.logo_url ? 'logo_and_name' : 'name_only'),
+    customerScreenLogoDisplayMode: row.customer_screen_logo_display_mode || row.logo_display_mode || (row.logo_url ? 'logo_and_name' : 'name_only'),
   };
 }
 

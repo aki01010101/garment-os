@@ -78,6 +78,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   const receiptRef = useRef<HTMLDivElement>(null);
   const tailorSlipRef = useRef<HTMLDivElement>(null);
   const {
+    companies,
     updateSale,
     codePrintType,
     setCodePrintType,
@@ -97,6 +98,17 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     receipt?.googleReviewUrl || activeCompany?.googleReviewUrl || storeGoogleReviewUrl;
 
   const activeQrPixelSize = QR_SIZE_PIXELS[qrPrintSize] || 165;
+
+  const companyForReceipt =
+    (receipt?.companyId ? companies?.find((c) => c.id === receipt.companyId) : null) ||
+    companies?.find((c) => c.name === receipt?.companyName) ||
+    activeCompany;
+
+  const effectiveLogoUrl = companyForReceipt?.logoUrl;
+  const effectiveReceiptDisplayMode =
+    companyForReceipt?.receiptLogoDisplayMode ||
+    companyForReceipt?.logoDisplayMode ||
+    (effectiveLogoUrl ? 'logo_and_name' : 'name_only');
 
   const [copied, setCopied] = useState(false);
   const [whatsAppPhone, setWhatsAppPhone] = useState<string>('');
@@ -738,7 +750,29 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
 
               {/* Store & Legal Header */}
               <div className="text-center mb-1">
-                <div className="receipt-title uppercase tracking-tight">{receipt.companyName}</div>
+                {/* Brand Logo (Configured in Settings > Billing Entities) */}
+                {effectiveLogoUrl &&
+                  (effectiveReceiptDisplayMode === 'logo_and_name' || effectiveReceiptDisplayMode === 'logo_only') && (
+                    <div className="receipt-logo-wrapper flex items-center justify-center mb-1">
+                      <img
+                        src={effectiveLogoUrl}
+                        alt={receipt.companyName || 'Store Logo'}
+                        className="receipt-logo object-contain mx-auto"
+                        style={{
+                          maxHeight: effectiveReceiptDisplayMode === 'logo_only' ? '56px' : '44px',
+                          maxWidth: '160px',
+                          display: 'block',
+                          margin: '0 auto 4px auto',
+                        }}
+                      />
+                    </div>
+                  )}
+
+                {/* Brand Name Text (Omitted if mode is logo_only) */}
+                {effectiveReceiptDisplayMode !== 'logo_only' && (
+                  <div className="receipt-title uppercase tracking-tight">{receipt.companyName}</div>
+                )}
+
                 <div className="receipt-sub mt-0.5">{receipt.companyAddress}</div>
                 <div className="receipt-sub">Ph: {receipt.companyPhone}</div>
                 {receipt.companyTaxId && receipt.companyTaxId !== 'RETAIL-CASH-UNREG' ? (

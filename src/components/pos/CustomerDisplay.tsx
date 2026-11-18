@@ -318,33 +318,76 @@ export const CustomerDisplay: React.FC = () => {
             : 'bg-slate-900/90 border-slate-800'
         }`}
       >
-        <div className="flex items-center gap-4">
-          <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg font-black text-xl text-white bg-gradient-to-tr ${
-              activeTheme.accentGradient
-            }`}
-          >
-            <ShoppingBag className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1
-                className={`text-xl sm:text-2xl font-black tracking-tight uppercase ${
-                  isLight ? 'text-slate-900' : 'text-white'
+        {/* Brand Logo & Store Header (Based on Display Mode) */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          {payload.companyLogoUrl &&
+          ((payload.companyCustomerScreenLogoDisplayMode || payload.companyLogoDisplayMode) === 'logo_and_name' ||
+            (payload.companyCustomerScreenLogoDisplayMode || payload.companyLogoDisplayMode) === 'logo_only') ? (
+            <div className="flex items-center gap-3">
+              <img
+                src={payload.companyLogoUrl}
+                alt={effectiveBrandName}
+                className="h-12 sm:h-14 max-w-[160px] sm:max-w-[200px] object-contain rounded-xl p-1 bg-white shadow-xs border border-slate-200/60"
+              />
+              {(payload.companyCustomerScreenLogoDisplayMode || payload.companyLogoDisplayMode || 'logo_and_name') ===
+                'logo_and_name' && (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1
+                      className={`text-xl sm:text-2xl font-black tracking-tight uppercase ${
+                        isLight ? 'text-slate-900' : 'text-white'
+                      }`}
+                    >
+                      {effectiveBrandName}
+                    </h1>
+                    {festiveThemeKey !== 'modern' && (
+                      <span className="text-base" title={activeTheme.name}>
+                        {activeTheme.emoji}
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-xs font-medium tracking-wide ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {effectiveBrandTagline}
+                  </p>
+                </div>
+              )}
+              {(payload.companyCustomerScreenLogoDisplayMode || payload.companyLogoDisplayMode) === 'logo_only' &&
+                effectiveBrandTagline && (
+                  <p className={`hidden md:block text-xs font-medium tracking-wide ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {effectiveBrandTagline}
+                  </p>
+                )}
+            </div>
+          ) : (
+            <>
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg font-black text-xl text-white bg-gradient-to-tr ${
+                  activeTheme.accentGradient
                 }`}
               >
-                {effectiveBrandName}
-              </h1>
-              {festiveThemeKey !== 'modern' && (
-                <span className="text-base" title={activeTheme.name}>
-                  {activeTheme.emoji}
-                </span>
-              )}
-            </div>
-            <p className={`text-xs font-medium tracking-wide ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-              {effectiveBrandTagline}
-            </p>
-          </div>
+                <ShoppingBag className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1
+                    className={`text-xl sm:text-2xl font-black tracking-tight uppercase ${
+                      isLight ? 'text-slate-900' : 'text-white'
+                    }`}
+                  >
+                    {effectiveBrandName}
+                  </h1>
+                  {festiveThemeKey !== 'modern' && (
+                    <span className="text-base" title={activeTheme.name}>
+                      {activeTheme.emoji}
+                    </span>
+                  )}
+                </div>
+                <p className={`text-xs font-medium tracking-wide ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                  {effectiveBrandTagline}
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* ================= PROMINENT CUSTOMER RECOGNITION (BIGGER NAME) ================= */}

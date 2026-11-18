@@ -172,6 +172,25 @@
   width: 100%;
 }
 
+.thermal-receipt-58mm .receipt-logo-wrapper,
+.thermal-receipt-50mm .receipt-logo-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 2px auto;
+  width: 100%;
+}
+
+.thermal-receipt-58mm .receipt-logo,
+.thermal-receipt-50mm .receipt-logo {
+  display: block;
+  max-width: 44mm;
+  max-height: 16mm;
+  margin: 0 auto;
+  object-fit: contain;
+  filter: contrast(110%);
+}
+
 /* Tender Breakdown XL Styling */
 .receipt-tender-block {
   margin: 3px 0;

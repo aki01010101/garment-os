@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS companies (
   enable_dynamic_garment_gst BOOLEAN DEFAULT TRUE,
   tax_inclusive BOOLEAN DEFAULT TRUE,
   google_review_url TEXT,
+  logo_url TEXT,
+  logo_display_mode TEXT DEFAULT 'logo_and_name',
+  receipt_logo_display_mode TEXT DEFAULT 'logo_and_name',
+  customer_screen_logo_display_mode TEXT DEFAULT 'logo_and_name',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
