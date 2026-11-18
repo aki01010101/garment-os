@@ -1,7 +1,7 @@
 # Graph Report - Garment POS  (2026-11-18)
 
 ## Corpus Check
-- 91 files · ~202,830 words
+- 91 files · ~202,842 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: .example 1, (none) 1, .css 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `d8f61201`
+- Built from commit: `06f9c47c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -61,12 +61,12 @@
 ## Surprising Connections (you probably didn't know these)
 - `ExtractedInvoiceItem` --references--> `ClothingCategory`  [EXTRACTED]
   src/components/vendors/InvoiceInwardingModal.tsx → src/types.ts
-- `StockTransferModalProps` --references--> `Product`  [EXTRACTED]
-  src/components/inventory/StockTransferModal.tsx → src/types.ts
 - `CustomerLedgerModalProps` --references--> `Customer`  [EXTRACTED]
   src/components/khata/CustomerLedgerModal.tsx → src/types.ts
 - `PaymentReminderModalProps` --references--> `Customer`  [EXTRACTED]
   src/components/khata/PaymentReminderModal.tsx → src/types.ts
+- `StockTransferModalProps` --references--> `Product`  [EXTRACTED]
+  src/components/inventory/StockTransferModal.tsx → src/types.ts
 - `registerPrinterRoutes()` --calls--> `detectPrintersAndPorts()`  [EXTRACTED]
   vite.config.ts → src/server/printerBridge.js
 
@@ -160,7 +160,7 @@ Cohesion: 0.50
 Nodes (3): GiftVouchersModalProps, PRESET_AMOUNTS, GiftVoucher
 
 ## Knowledge Gaps
-- **3 isolated node(s):** `INITIAL_PROMOTIONS`, `INITIAL_CREDIT_NOTES`, `INITIAL_ALTERATIONS`
+- **3 isolated node(s):** `INITIAL_ALTERATIONS`, `INITIAL_CREDIT_NOTES`, `INITIAL_PROMOTIONS`
   These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 118 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -169,7 +169,7 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `react` connect `useApp` to `supabase.ts`, `CustomerCRM.tsx`, `StockAuditModal.tsx`, `AppContext.tsx`, `Company`, `package.json`, `InventoryManager.tsx`, `dependencies`, `CustomerDisplayManager.tsx`, `escpos.ts`, `types.ts`, `StockTransferModal.tsx`, `GiftVouchersModal.tsx`?**
   _High betweenness centrality (0.131) - this node is a cross-community bridge._
-- **What connects `INITIAL_PROMOTIONS`, `INITIAL_CREDIT_NOTES`, `INITIAL_ALTERATIONS` to the rest of the system?**
+- **What connects `INITIAL_ALTERATIONS`, `INITIAL_CREDIT_NOTES`, `INITIAL_PROMOTIONS` to the rest of the system?**
   _3 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `useApp` be split into smaller, more focused modules?**
   _Cohesion score 0.07894736842105263 - nodes in this community are weakly interconnected._

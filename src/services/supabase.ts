@@ -403,6 +403,8 @@ export function mapCustomerToDb(c: Customer, userId?: string) {
     phone: c.phone,
     email: c.email || null,
     loyalty_points: c.loyaltyPoints || 0,
+    loyalty_stamps: c.loyaltyStamps ?? c.profile?.loyaltyStamps ?? 0,
+    stamp_card_cycles_completed: c.stampCardCyclesCompleted ?? c.profile?.stampCardCyclesCompleted ?? 0,
     total_spend: c.totalSpend || 0,
     total_visits: c.totalVisits || 0,
     created_at: c.createdAt,

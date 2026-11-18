@@ -114,20 +114,20 @@
     "semantic_hash": ""
   },
   "src/components/crm/CustomerCRM.tsx": {
-    "mtime": 1795021636.3591757,
-    "seen": 1795021772.5368447,
+    "mtime": 1795022797.7160637,
+    "seen": 1795023098.0198138,
     "ast_hash": "788182bd0c1a0da3a372e523d0095efc",
     "semantic_hash": ""
   },
   "src/components/crm/CustomerProfileModal.tsx": {
-    "mtime": 1795021647.4238646,
-    "seen": 1795021772.5369794,
+    "mtime": 1795022798.4822052,
+    "seen": 1795023098.0199542,
     "ast_hash": "ce79f4bef92b48a98c620c482e2c0bf0",
     "semantic_hash": ""
   },
   "src/components/crm/CustomerPurchasesModal.tsx": {
-    "mtime": 1795021711.850243,
-    "seen": 1795021772.5369823,
+    "mtime": 1795022798.8971992,
+    "seen": 1795023098.0199573,
     "ast_hash": "fc4ae425cfd9a97dad4dc37e85b373c0",
     "semantic_hash": ""
   },
@@ -210,14 +210,14 @@
     "semantic_hash": ""
   },
   "src/components/pos/DigitalReceiptModal.tsx": {
-    "mtime": 1795021405.2530725,
-    "seen": 1795021772.5394566,
+    "mtime": 1795022799.3503096,
+    "seen": 1795023098.0226479,
     "ast_hash": "f7e428e112925b0eb579732eb556829f",
     "semantic_hash": ""
   },
   "src/components/pos/POSBilling.tsx": {
-    "mtime": 1795021505.1297326,
-    "seen": 1795021772.5395875,
+    "mtime": 1795022800.1602373,
+    "seen": 1795023098.0227816,
     "ast_hash": "eed70503f9ac2c58e1b89ea11fbb0172",
     "semantic_hash": ""
   },
@@ -306,8 +306,8 @@
     "semantic_hash": ""
   },
   "src/context/AppContext.tsx": {
-    "mtime": 1795021231.8927364,
-    "seen": 1795021772.5414426,
+    "mtime": 1795022801.2666981,
+    "seen": 1795023098.0247939,
     "ast_hash": "7e8a3ff8297ae79fbb8efe81eb074677",
     "semantic_hash": ""
   },
@@ -330,9 +330,9 @@
     "semantic_hash": ""
   },
   "src/services/supabase.ts": {
-    "mtime": 1795020978.9556746,
-    "seen": 1795021772.5417104,
-    "ast_hash": "aa1952dfb722c969a4da4c45dd56741d",
+    "mtime": 1795023047.3477566,
+    "seen": 1795023098.0252042,
+    "ast_hash": "082ceece123451b478db0289ff09975e",
     "semantic_hash": ""
   },
   "src/types.ts": {
@@ -366,8 +366,8 @@
     "semantic_hash": ""
   },
   "src/utils/escpos.ts": {
-    "mtime": 1795021307.1690826,
-    "seen": 1795021772.5426435,
+    "mtime": 1795022802.1154017,
+    "seen": 1795023098.026501,
     "ast_hash": "67158984f41a67895c10796fc3abe4dc",
     "semantic_hash": ""
   },
