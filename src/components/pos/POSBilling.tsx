@@ -1370,7 +1370,7 @@ export const POSBilling: React.FC = () => {
                                 return (
                                   <div
                                     key={n}
-                                    className={`flex flex-col items-center justify-center rounded-full text-center select-none ${
+                                    className={`flex flex-col items-center justify-center rounded-full text-center select-none shrink-0 aspect-square overflow-hidden ${
                                       isStamped
                                         ? 'bg-blue-600 text-white font-bold ring-1 ring-blue-400'
                                         : isWillEarn
@@ -1379,23 +1379,33 @@ export const POSBilling: React.FC = () => {
                                         ? 'bg-amber-50 border border-dashed border-amber-400 text-amber-900 font-bold'
                                         : 'bg-slate-50 border border-slate-200 text-slate-400'
                                     }`}
-                                    style={{ width: '28px', height: '28px' }}
+                                    style={{ width: '28px', height: '28px', minWidth: '28px', minHeight: '28px' }}
                                     title={n === 5 ? '5th Visit: Free Small Gift' : `Stamp #${n}`}
                                   >
                                     {isStamped ? (
                                       <div className="relative w-full h-full flex flex-col items-center justify-center leading-none overflow-hidden">
-                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25">
-                                          <Check className="w-5 h-5 stroke-[3] text-white" />
+                                        {/* Reduced tic mark moved to the side */}
+                                        <div className="absolute bottom-0.5 left-0.5 pointer-events-none opacity-30 z-0">
+                                          <Check className="w-2.5 h-2.5 stroke-[3.5] text-white" />
                                         </div>
-                                        <span
-                                          className="relative z-10 text-[6px] font-black text-white tracking-tight leading-none"
-                                          style={{ fontFamily: 'Georgia, serif' }}
+                                        {/* Slanted Fantasy text with zero line breaks */}
+                                        <div
+                                          className="relative z-10 flex flex-col items-center justify-center leading-none"
+                                          style={{ transform: 'rotate(-18deg)', width: '100%' }}
                                         >
-                                          Fantasy
-                                        </span>
-                                        <span className="relative z-10 text-[5px] font-bold text-blue-100 font-mono">
-                                          #{n}
-                                        </span>
+                                          <span
+                                            className="text-[6px] font-black text-white tracking-tight leading-none"
+                                            style={{
+                                              fontFamily: 'Georgia, serif',
+                                              whiteSpace: 'nowrap',
+                                            }}
+                                          >
+                                            Fantasy
+                                          </span>
+                                          <span className="text-[4.5px] font-bold text-blue-100 font-mono leading-none mt-0.5">
+                                            #{n}
+                                          </span>
+                                        </div>
                                       </div>
                                     ) : isWillEarn ? (
                                       <span className="text-[9px] font-black">+1</span>
@@ -1415,7 +1425,7 @@ export const POSBilling: React.FC = () => {
                                 return (
                                   <div
                                     key={n}
-                                    className={`flex flex-col items-center justify-center rounded-full text-center select-none ${
+                                    className={`flex flex-col items-center justify-center rounded-full text-center select-none shrink-0 aspect-square overflow-hidden ${
                                       isStamped
                                         ? 'bg-blue-600 text-white font-bold ring-1 ring-blue-400'
                                         : isWillEarn
@@ -1424,23 +1434,33 @@ export const POSBilling: React.FC = () => {
                                         ? 'bg-blue-50 border border-dashed border-blue-500 text-blue-900 font-bold'
                                         : 'bg-slate-50 border border-slate-200 text-slate-400'
                                     }`}
-                                    style={{ width: '28px', height: '28px' }}
+                                    style={{ width: '28px', height: '28px', minWidth: '28px', minHeight: '28px' }}
                                     title={n === 10 ? '10th Visit: Free Shirt / Top' : `Stamp #${n}`}
                                   >
                                     {isStamped ? (
                                       <div className="relative w-full h-full flex flex-col items-center justify-center leading-none overflow-hidden">
-                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25">
-                                          <Check className="w-5 h-5 stroke-[3] text-white" />
+                                        {/* Reduced tic mark moved to the side */}
+                                        <div className="absolute bottom-0.5 left-0.5 pointer-events-none opacity-30 z-0">
+                                          <Check className="w-2.5 h-2.5 stroke-[3.5] text-white" />
                                         </div>
-                                        <span
-                                          className="relative z-10 text-[6px] font-black text-white tracking-tight leading-none"
-                                          style={{ fontFamily: 'Georgia, serif' }}
+                                        {/* Slanted Fantasy text with zero line breaks */}
+                                        <div
+                                          className="relative z-10 flex flex-col items-center justify-center leading-none"
+                                          style={{ transform: 'rotate(-18deg)', width: '100%' }}
                                         >
-                                          Fantasy
-                                        </span>
-                                        <span className="relative z-10 text-[5px] font-bold text-blue-100 font-mono">
-                                          #{n}
-                                        </span>
+                                          <span
+                                            className="text-[6px] font-black text-white tracking-tight leading-none"
+                                            style={{
+                                              fontFamily: 'Georgia, serif',
+                                              whiteSpace: 'nowrap',
+                                            }}
+                                          >
+                                            Fantasy
+                                          </span>
+                                          <span className="text-[4.5px] font-bold text-blue-100 font-mono leading-none mt-0.5">
+                                            #{n}
+                                          </span>
+                                        </div>
                                       </div>
                                     ) : isWillEarn ? (
                                       <span className="text-[9px] font-black">+1</span>

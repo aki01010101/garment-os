@@ -216,9 +216,9 @@
     "semantic_hash": ""
   },
   "src/components/pos/POSBilling.tsx": {
-    "mtime": 1795023366.450764,
-    "seen": 1795023399.9893084,
-    "ast_hash": "a99961d40f76d99f2a682f53f0bc7b69",
+    "mtime": 1795023714.4179611,
+    "seen": 1795023788.701437,
+    "ast_hash": "3bc61834720fcb893ba7cdc43dd654bb",
     "semantic_hash": ""
   },
   "src/components/pos/StoreCreditNotesModal.tsx": {
@@ -546,9 +546,9 @@
     "semantic_hash": ""
   },
   "src/components/loyalty/LoyaltyStampCard.tsx": {
-    "mtime": 1795023354.954654,
-    "seen": 1795023399.9882474,
-    "ast_hash": "83e6867c17b4667997c07ee8150bdf77",
+    "mtime": 1795023750.7605803,
+    "seen": 1795023788.7004426,
+    "ast_hash": "2dd849198fc39d1e372140604d0f8ef1",
     "semantic_hash": ""
   },
   "package-lock.json": {

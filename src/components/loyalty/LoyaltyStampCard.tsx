@@ -47,22 +47,30 @@ export const LoyaltyStampCard: React.FC<LoyaltyStampCardProps> = ({
       return (
         <div
           key={num}
-          className={`relative flex flex-col items-center justify-center rounded-full text-center transition-all select-none overflow-hidden ${
+          className={`relative flex flex-col items-center justify-center rounded-full text-center transition-all select-none overflow-hidden shrink-0 aspect-square ${
             isStamped
               ? 'border-2 border-black bg-white text-black ring-1 ring-inset ring-neutral-300'
               : isMilestone
               ? 'border border-dashed border-black bg-neutral-50 text-black'
               : 'border border-neutral-400 bg-white text-neutral-500'
           }`}
-          style={{ width: '40px', height: '40px' }}
+          style={{
+            width: '35px',
+            height: '35px',
+            minWidth: '35px',
+            minHeight: '35px',
+            maxWidth: '35px',
+            maxHeight: '35px',
+            boxSizing: 'border-box',
+          }}
         >
           {isStamped ? (
-            <div className="relative w-full h-full flex flex-col items-center justify-center leading-none">
-              {/* Tic mark in the background behind Fantasy */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
+            <div className="relative w-full h-full flex flex-col items-center justify-center leading-none overflow-hidden">
+              {/* Small tic mark moved to the side (bottom-left) so Fantasy text is 100% visible */}
+              <div className="absolute bottom-1 left-1 pointer-events-none select-none z-0 opacity-35">
                 <svg
-                  className="w-7 h-7 text-neutral-300 stroke-current"
-                  style={{ strokeWidth: 3.5 }}
+                  className="w-3 h-3 text-black stroke-current"
+                  style={{ strokeWidth: 3 }}
                   viewBox="0 0 24 24"
                   fill="none"
                   strokeLinecap="round"
@@ -72,26 +80,34 @@ export const LoyaltyStampCard: React.FC<LoyaltyStampCardProps> = ({
                 </svg>
               </div>
 
-              {/* Fantasy text stamped in front of the tic mark */}
-              <div className="relative z-10 flex flex-col items-center justify-center leading-tight text-center px-0.5">
+              {/* Slanted "Fantasy" stamped text across circle diagonal - ZERO line breaks */}
+              <div
+                className="relative z-10 flex flex-col items-center justify-center text-center select-none"
+                style={{ transform: 'rotate(-18deg)', width: '100%' }}
+              >
                 <span
-                  className="text-[7.5px] font-black text-black tracking-tight"
-                  style={{ fontFamily: 'Georgia, serif', lineHeight: 1 }}
+                  className="text-[7px] font-black text-black tracking-tight"
+                  style={{
+                    fontFamily: 'Georgia, serif',
+                    lineHeight: 1,
+                    whiteSpace: 'nowrap',
+                    letterSpacing: '-0.1px',
+                  }}
                 >
                   Fantasy
                 </span>
-                <span className="text-[6px] font-extrabold font-mono text-neutral-800 leading-none mt-0.5">
+                <span className="text-[5.5px] font-extrabold font-mono text-neutral-800 leading-none mt-0.5">
                   #{num}
                 </span>
               </div>
             </div>
           ) : isMilestone ? (
             <div className="flex flex-col items-center leading-none">
-              <span className="text-[8px] font-black uppercase tracking-tight">{num === 5 ? 'GIFT' : 'TOP'}</span>
-              <span className="text-[7px] font-bold">#{num}</span>
+              <span className="text-[7.5px] font-black uppercase tracking-tight">{num === 5 ? 'GIFT' : 'TOP'}</span>
+              <span className="text-[6.5px] font-bold">#{num}</span>
             </div>
           ) : (
-            <span className="text-[11px] font-mono font-bold text-neutral-600">{num}</span>
+            <span className="text-[10.5px] font-mono font-bold text-neutral-600">{num}</span>
           )}
         </div>
       );
@@ -104,7 +120,7 @@ export const LoyaltyStampCard: React.FC<LoyaltyStampCardProps> = ({
           type="button"
           disabled={!interactive}
           onClick={() => interactive && onStampClick && onStampClick(num)}
-          className={`relative flex flex-col items-center justify-center rounded-full transition-all duration-200 select-none overflow-hidden ${
+          className={`relative flex flex-col items-center justify-center rounded-full transition-all duration-200 select-none overflow-hidden shrink-0 aspect-square ${
             interactive ? 'cursor-pointer hover:scale-105 active:scale-95' : 'cursor-default'
           } ${
             isStamped
@@ -113,24 +129,29 @@ export const LoyaltyStampCard: React.FC<LoyaltyStampCardProps> = ({
               ? 'bg-amber-50 border-2 border-dashed border-amber-400 text-amber-800'
               : 'bg-white border-2 border-slate-200 text-slate-400 hover:border-blue-300'
           }`}
-          style={{ width: '36px', height: '36px' }}
+          style={{ width: '36px', height: '36px', minWidth: '36px', minHeight: '36px' }}
           title={isMilestone ? `${milestoneLabel}: ${milestonePerk}` : `Visit Stamp #${num}`}
         >
           {isStamped ? (
             <div className="relative w-full h-full flex flex-col items-center justify-center leading-none overflow-hidden">
-              {/* Background Tic Mark */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 z-0">
-                <Check className="w-7 h-7 stroke-[3.5] text-white" />
+              {/* Background Tic Mark moved to the side */}
+              <div className="absolute bottom-1 left-1 pointer-events-none opacity-30 z-0">
+                <Check className="w-3.5 h-3.5 stroke-[3] text-white" />
               </div>
-              <span
-                className="relative z-10 text-[7px] font-black text-white tracking-tight leading-none"
-                style={{ fontFamily: 'Georgia, serif' }}
+              <div
+                className="relative z-10 flex flex-col items-center justify-center leading-none"
+                style={{ transform: 'rotate(-18deg)' }}
               >
-                Fantasy
-              </span>
-              <span className="relative z-10 text-[6.5px] font-extrabold text-blue-100 font-mono mt-0.5">
-                #{num}
-              </span>
+                <span
+                  className="text-[7px] font-black text-white tracking-tight leading-none"
+                  style={{ fontFamily: 'Georgia, serif', whiteSpace: 'nowrap' }}
+                >
+                  Fantasy
+                </span>
+                <span className="text-[6px] font-extrabold text-blue-100 font-mono mt-0.5">
+                  #{num}
+                </span>
+              </div>
             </div>
           ) : isMilestone ? (
             <div className="flex flex-col items-center leading-tight">
@@ -157,7 +178,7 @@ export const LoyaltyStampCard: React.FC<LoyaltyStampCardProps> = ({
       <div
         key={num}
         onClick={() => interactive && onStampClick && onStampClick(num)}
-        className={`group relative flex flex-col items-center justify-center rounded-full transition-all duration-200 select-none overflow-hidden ${
+        className={`group relative flex flex-col items-center justify-center rounded-full transition-all duration-200 select-none overflow-hidden shrink-0 aspect-square ${
           interactive ? 'cursor-pointer hover:shadow-md hover:scale-105' : ''
         } ${
           isStamped
@@ -166,24 +187,29 @@ export const LoyaltyStampCard: React.FC<LoyaltyStampCardProps> = ({
             ? 'bg-blue-50/60 border-2 border-dashed border-blue-400 text-blue-900 shadow-2xs'
             : 'bg-white border-2 border-blue-200/80 text-blue-300 hover:border-blue-400'
         }`}
-        style={{ width: '48px', height: '48px' }}
+        style={{ width: '48px', height: '48px', minWidth: '48px', minHeight: '48px' }}
       >
         {isStamped ? (
-          <div className="relative w-full h-full flex flex-col items-center justify-center leading-none text-center">
-            {/* Tic mark in the background */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-25 z-0">
-              <Check className="w-10 h-10 stroke-[4] text-white" />
+          <div className="relative w-full h-full flex flex-col items-center justify-center leading-none text-center select-none overflow-hidden">
+            {/* Tic mark reduced and moved to the side */}
+            <div className="absolute bottom-1.5 left-1.5 pointer-events-none select-none opacity-30 z-0">
+              <Check className="w-4 h-4 stroke-[3.5] text-white" />
             </div>
-            {/* "Fantasy" stamped in front */}
-            <span
-              className="relative z-10 text-[9.5px] font-black text-white tracking-tight"
-              style={{ fontFamily: 'Georgia, serif' }}
+            {/* "Fantasy" slanted across circle */}
+            <div
+              className="relative z-10 flex flex-col items-center justify-center leading-tight text-center"
+              style={{ transform: 'rotate(-18deg)' }}
             >
-              Fantasy
-            </span>
-            <span className="relative z-10 text-[8px] font-black tracking-wider text-blue-200 font-mono mt-0.5">
-              #{num}
-            </span>
+              <span
+                className="text-[9.5px] font-black text-white tracking-tight"
+                style={{ fontFamily: 'Georgia, serif', lineHeight: 1, whiteSpace: 'nowrap' }}
+              >
+                Fantasy
+              </span>
+              <span className="text-[7.5px] font-black tracking-wider text-blue-200 font-mono mt-0.5">
+                #{num}
+              </span>
+            </div>
           </div>
         ) : isMilestone ? (
           <div className="flex flex-col items-center justify-center text-center p-0.5 leading-none">
@@ -238,13 +264,13 @@ export const LoyaltyStampCard: React.FC<LoyaltyStampCardProps> = ({
         )}
 
         {/* Row 1: Stamps 1 to 5 */}
-        <div className="flex items-center justify-between gap-1 my-1 px-1">
+        <div className="flex items-center justify-between gap-1 my-1 px-0.5">
           {[1, 2, 3, 4].map((num) => renderCircle(num, false, '', ''))}
           {renderCircle(5, true, 'Free Gift', config.milestone5GiftText)}
         </div>
 
         {/* Row 2: Stamps 6 to 10 */}
-        <div className="flex items-center justify-between gap-1 my-1 px-1">
+        <div className="flex items-center justify-between gap-1 my-1 px-0.5">
           {[6, 7, 8, 9].map((num) => renderCircle(num, false, '', ''))}
           {renderCircle(10, true, 'Free Gift', config.milestone10GiftText)}
         </div>
