@@ -1,7 +1,7 @@
 # Graph Report - Garment POS  (2026-11-18)
 
 ## Corpus Check
-- 91 files · ~202,842 words
+- 91 files · ~203,113 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: .example 1, (none) 1, .css 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `06f9c47c`
+- Built from commit: `da64f858`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

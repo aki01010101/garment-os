@@ -1383,7 +1383,20 @@ export const POSBilling: React.FC = () => {
                                     title={n === 5 ? '5th Visit: Free Small Gift' : `Stamp #${n}`}
                                   >
                                     {isStamped ? (
-                                      <Check className="w-3 h-3 stroke-[3]" />
+                                      <div className="relative w-full h-full flex flex-col items-center justify-center leading-none overflow-hidden">
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25">
+                                          <Check className="w-5 h-5 stroke-[3] text-white" />
+                                        </div>
+                                        <span
+                                          className="relative z-10 text-[6px] font-black text-white tracking-tight leading-none"
+                                          style={{ fontFamily: 'Georgia, serif' }}
+                                        >
+                                          Fantasy
+                                        </span>
+                                        <span className="relative z-10 text-[5px] font-bold text-blue-100 font-mono">
+                                          #{n}
+                                        </span>
+                                      </div>
                                     ) : isWillEarn ? (
                                       <span className="text-[9px] font-black">+1</span>
                                     ) : n === 5 ? (
@@ -1415,7 +1428,20 @@ export const POSBilling: React.FC = () => {
                                     title={n === 10 ? '10th Visit: Free Shirt / Top' : `Stamp #${n}`}
                                   >
                                     {isStamped ? (
-                                      <Check className="w-3 h-3 stroke-[3]" />
+                                      <div className="relative w-full h-full flex flex-col items-center justify-center leading-none overflow-hidden">
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25">
+                                          <Check className="w-5 h-5 stroke-[3] text-white" />
+                                        </div>
+                                        <span
+                                          className="relative z-10 text-[6px] font-black text-white tracking-tight leading-none"
+                                          style={{ fontFamily: 'Georgia, serif' }}
+                                        >
+                                          Fantasy
+                                        </span>
+                                        <span className="relative z-10 text-[5px] font-bold text-blue-100 font-mono">
+                                          #{n}
+                                        </span>
+                                      </div>
                                     ) : isWillEarn ? (
                                       <span className="text-[9px] font-black">+1</span>
                                     ) : n === 10 ? (
