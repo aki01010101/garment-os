@@ -216,9 +216,9 @@
     "semantic_hash": ""
   },
   "src/components/pos/POSBilling.tsx": {
-    "mtime": 1795023714.4179611,
-    "seen": 1795023788.701437,
-    "ast_hash": "3bc61834720fcb893ba7cdc43dd654bb",
+    "mtime": 1795024126.7646084,
+    "seen": 1795024237.0213003,
+    "ast_hash": "544af970a912b4a7feeb0bfc094877cd",
     "semantic_hash": ""
   },
   "src/components/pos/StoreCreditNotesModal.tsx": {
@@ -336,9 +336,9 @@
     "semantic_hash": ""
   },
   "src/types.ts": {
-    "mtime": 1795021279.159904,
-    "seen": 1795021772.541713,
-    "ast_hash": "3b34490bc18958dc2c5c5c674ce53d91",
+    "mtime": 1795024094.8327968,
+    "seen": 1795024237.0259106,
+    "ast_hash": "04b9ef672771e48c847834271c642725",
     "semantic_hash": ""
   },
   "src/utils/audio.ts": {
@@ -480,9 +480,9 @@
     "semantic_hash": ""
   },
   "src/components/pos/CustomerDisplay.tsx": {
-    "mtime": 1794645038.599092,
-    "seen": 1794652056.4161105,
-    "ast_hash": "350b869cd44890929ebf54560e08df5d",
+    "mtime": 1795024205.0103252,
+    "seen": 1795024237.0207033,
+    "ast_hash": "f5cc79920cee4097b5bfe7cd9774f162",
     "semantic_hash": ""
   },
   "src/components/pos/GiftVouchersModal.tsx": {
@@ -546,8 +546,8 @@
     "semantic_hash": ""
   },
   "src/components/loyalty/LoyaltyStampCard.tsx": {
-    "mtime": 1795023750.7605803,
-    "seen": 1795023788.7004426,
+    "mtime": 1795023895.7338161,
+    "seen": 1795024237.0202556,
     "ast_hash": "2dd849198fc39d1e372140604d0f8ef1",
     "semantic_hash": ""
   },

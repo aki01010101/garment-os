@@ -1,17 +1,17 @@
 # Graph Report - Garment POS  (2026-11-18)
 
 ## Corpus Check
-- 91 files · ~203,268 words
+- 91 files · ~204,129 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: .example 1, (none) 1, .css 1)
 
 ## Summary
-- 606 nodes · 2102 edges · 29 communities (21 shown, 8 thin omitted)
+- 606 nodes · 2105 edges · 29 communities (21 shown, 8 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 103 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `b9da905d`
+- Built from commit: `2994c16a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -61,12 +61,12 @@
 ## Surprising Connections (you probably didn't know these)
 - `ExtractedInvoiceItem` --references--> `ClothingCategory`  [EXTRACTED]
   src/components/vendors/InvoiceInwardingModal.tsx → src/types.ts
+- `StockTransferModalProps` --references--> `Product`  [EXTRACTED]
+  src/components/inventory/StockTransferModal.tsx → src/types.ts
 - `CustomerLedgerModalProps` --references--> `Customer`  [EXTRACTED]
   src/components/khata/CustomerLedgerModal.tsx → src/types.ts
 - `PaymentReminderModalProps` --references--> `Customer`  [EXTRACTED]
   src/components/khata/PaymentReminderModal.tsx → src/types.ts
-- `StockTransferModalProps` --references--> `Product`  [EXTRACTED]
-  src/components/inventory/StockTransferModal.tsx → src/types.ts
 - `registerPrinterRoutes()` --calls--> `detectPrintersAndPorts()`  [EXTRACTED]
   vite.config.ts → src/server/printerBridge.js
 

@@ -991,6 +991,12 @@ export interface CustomerDisplayPayload {
   customerPhone?: string;
   customerLoyaltyPoints?: number;
   customerVipTier?: string;
+  // Fantasy Check-in Stamp Card
+  customerStamps?: number;
+  customerStampCycles?: number;
+  stampsEarnedThisSale?: number;
+  stampConfig?: LoyaltyStampCardConfig;
+  showStampCardModal?: boolean;
   paymentMode?: string;
   upiUri?: string;
   googleReviewUrl?: string;

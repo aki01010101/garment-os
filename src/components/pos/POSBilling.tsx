@@ -821,6 +821,13 @@ export const POSBilling: React.FC = () => {
 
   // Broadcast live updates to Customer-Facing Secondary Display
   useEffect(() => {
+    const stampCfg = loyaltyConfig?.stampCard || DEFAULT_STAMP_CARD_CONFIG;
+    const minSpend = stampCfg.minPurchaseAmount || 1000;
+    const qualifiesByBill = cartSummary.grandTotal >= minSpend;
+    const autoEarned = qualifiesByBill ? 1 : 0;
+    const refEarned = friendReferralBonus ? (stampCfg.friendReferralBonus || 1) : 0;
+    const effectiveEarnedStamps = isStampOverrideActive ? stampsOverrideVal : (autoEarned + refEarned);
+
     if (cart.length === 0) {
       broadcastCustomerDisplay({
         state: 'idle',
@@ -833,6 +840,15 @@ export const POSBilling: React.FC = () => {
         discountTotal: 0,
         taxTotal: 0,
         grandTotal: 0,
+        customerName: selectedCustomer ? selectedCustomer.name : undefined,
+        customerPhone: selectedCustomer ? selectedCustomer.phone : undefined,
+        customerLoyaltyPoints: selectedCustomer ? selectedCustomer.loyaltyPoints : undefined,
+        customerVipTier: selectedCustomer && selectedCustomer.loyaltyPoints >= 200 ? 'VIP Platinum' : (selectedCustomer ? 'Store Member' : undefined),
+        customerStamps: selectedCustomer ? (selectedCustomer.loyaltyStamps ?? 0) : undefined,
+        customerStampCycles: selectedCustomer ? (selectedCustomer.stampCardCyclesCompleted ?? 0) : undefined,
+        stampsEarnedThisSale: 0,
+        stampConfig: loyaltyConfig?.stampCard,
+        showStampCardModal: isStampModalOpen,
         timestamp: Date.now(),
       });
       return;
@@ -886,6 +902,11 @@ export const POSBilling: React.FC = () => {
       customerPhone: selectedCustomer ? selectedCustomer.phone : undefined,
       customerLoyaltyPoints: selectedCustomer ? selectedCustomer.loyaltyPoints : undefined,
       customerVipTier: selectedCustomer && selectedCustomer.loyaltyPoints >= 200 ? 'VIP Platinum' : (selectedCustomer ? 'Store Member' : undefined),
+      customerStamps: selectedCustomer ? (selectedCustomer.loyaltyStamps ?? 0) : undefined,
+      customerStampCycles: selectedCustomer ? (selectedCustomer.stampCardCyclesCompleted ?? 0) : undefined,
+      stampsEarnedThisSale: selectedCustomer ? effectiveEarnedStamps : 0,
+      stampConfig: loyaltyConfig?.stampCard,
+      showStampCardModal: isStampModalOpen,
       paymentMode,
       upiUri: dynamicUpiUri,
       googleReviewUrl: activeCompany.googleReviewUrl || storeGoogleReviewUrl,
@@ -901,6 +922,11 @@ export const POSBilling: React.FC = () => {
     storeUpiId,
     storeUpiName,
     storeGoogleReviewUrl,
+    loyaltyConfig,
+    friendReferralBonus,
+    isStampOverrideActive,
+    stampsOverrideVal,
+    isStampModalOpen,
   ]);
 
   const executeCheckout = (sigToUse?: string) => {
@@ -981,6 +1007,11 @@ export const POSBilling: React.FC = () => {
         customerPhone: createdSale.customerPhone,
         invoiceNumber: createdSale.invoiceNumber,
         googleReviewUrl: activeCompany.googleReviewUrl || storeGoogleReviewUrl,
+        customerStamps: createdSale.stampsBalanceAfterSale,
+        customerStampCycles: createdSale.stampCardCycle,
+        stampsEarnedThisSale: createdSale.stampsEarnedThisSale,
+        stampConfig: loyaltyConfig?.stampCard,
+        showStampCardModal: false,
         timestamp: Date.now(),
       });
 

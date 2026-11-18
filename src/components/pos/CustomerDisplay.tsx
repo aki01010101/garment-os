@@ -41,7 +41,9 @@ import {
   Percent,
   Check,
   BellRing,
+  Award,
 } from 'lucide-react';
+import { LoyaltyStampCard } from '../loyalty/LoyaltyStampCard';
 
 import {
   FestiveThemeKey,
@@ -118,6 +120,15 @@ export const CustomerDisplay: React.FC = () => {
   const [isVideoMuted, setIsVideoMuted] = useState(true);
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   const [activePromoIndex, setActivePromoIndex] = useState(0);
+
+  // Fantasy Check-in Stamp Card Modal Preview
+  const [isStampModalOpen, setIsStampModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (payload.showStampCardModal !== undefined) {
+      setIsStampModalOpen(payload.showStampCardModal);
+    }
+  }, [payload.showStampCardModal]);
 
   // Marquee announcement text
   const [tickerText, setTickerText] = useState<string>(() => {
@@ -337,7 +348,7 @@ export const CustomerDisplay: React.FC = () => {
         </div>
 
         {/* ================= PROMINENT CUSTOMER RECOGNITION (BIGGER NAME) ================= */}
-        {payload.customerName && payload.state !== 'idle' ? (
+        {payload.customerName ? (
           <div
             className={`flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all shadow-sm ${
               isLight
@@ -368,6 +379,17 @@ export const CustomerDisplay: React.FC = () => {
                   <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-500 text-[10px] font-extrabold uppercase">
                     {payload.customerVipTier}
                   </span>
+                )}
+                {payload.customerStamps !== undefined && (
+                  <button
+                    type="button"
+                    onClick={() => setIsStampModalOpen(true)}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-[10px] font-bold shadow-2xs transition-all cursor-pointer"
+                    title="View Fantasy Check-in Card Preview"
+                  >
+                    <Award className="w-3 h-3" />
+                    <span>Card: {payload.customerStamps}/10</span>
+                  </button>
                 )}
               </div>
             </div>
@@ -491,6 +513,40 @@ export const CustomerDisplay: React.FC = () => {
         {/* ================= STATE 1: IDLE / MULTIMEDIA SLIDESHOW & OFFERS ================= */}
         {payload.state === 'idle' && (
           <div className="w-full max-w-7xl mx-auto h-full flex flex-col justify-between py-2 animate-in fade-in duration-300">
+            {/* Customer Check-in Recognition Bar (When customer is identified) */}
+            {payload.customerName && (
+              <div
+                className={`mb-3 p-3.5 rounded-2xl border flex items-center justify-between shadow-lg transition-all ${
+                  isLight
+                    ? 'bg-blue-50 border-blue-200 text-blue-950'
+                    : 'bg-blue-950/80 border-blue-500/40 text-blue-100'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-base shadow-xs">
+                    F
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase font-extrabold tracking-wider text-blue-500 dark:text-blue-300">
+                      Check-in Card Active
+                    </div>
+                    <div className="text-sm font-black">
+                      Welcome, {payload.customerName}! • {payload.customerStamps ?? 0}/10 Active Stamps
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsStampModalOpen(true)}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Award className="w-3.5 h-3.5" />
+                  <span>Preview Fantasy Card</span>
+                </button>
+              </div>
+            )}
+
             {/* Top Carousel / Video Card */}
             <div className="relative w-full flex-1 rounded-3xl overflow-hidden shadow-2xl border flex flex-col justify-end p-8 sm:p-12 transition-all">
               {/* Slide Background: Video or Image */}
@@ -720,7 +776,7 @@ export const CustomerDisplay: React.FC = () => {
             </div>
 
             {/* Right 5 Cols: Bill Payable & LIVE DYNAMIC PAYMENT QR */}
-            <div className="lg:col-span-5 space-y-4">
+            <div className="lg:col-span-5 space-y-4 overflow-y-auto max-h-[calc(100vh-12rem)] pr-1">
               {/* Savings Celebration Card */}
               {payload.discountTotal > 0 && (
                 <div
@@ -818,6 +874,61 @@ export const CustomerDisplay: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* ================= FANTASY CHECK-IN CARD PREVIEW SECTION ================= */}
+              {payload.customerName && (
+                <div
+                  className={`p-5 rounded-3xl border shadow-xl transition-all ${
+                    isLight
+                      ? 'bg-white border-slate-200 text-slate-900'
+                      : 'bg-slate-900/95 border-slate-800 text-white'
+                  }`}
+                >
+                  <div
+                    className={`flex items-center justify-between border-b pb-3 mb-3 ${
+                      isLight ? 'border-slate-100' : 'border-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                        F
+                      </div>
+                      <div>
+                        <h3 className={`font-bold text-sm ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                          Fantasy Check-in Card Preview
+                        </h3>
+                        <p className="text-[11px] text-slate-400">
+                          Customer: {payload.customerName} {payload.customerPhone ? `(${payload.customerPhone})` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-black text-blue-600 bg-blue-50 dark:bg-blue-950/60 dark:text-blue-300 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800">
+                        {payload.customerStamps ?? 0} / 10 Stamps
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsStampModalOpen(true)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                        title="Expand Full Card"
+                      >
+                        <Maximize2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <LoyaltyStampCard
+                    customerName={payload.customerName}
+                    customerPhone={payload.customerPhone}
+                    stamps={payload.customerStamps ?? 0}
+                    cyclesCompleted={payload.customerStampCycles ?? 0}
+                    stampsEarnedThisSale={payload.stampsEarnedThisSale ?? 0}
+                    config={payload.stampConfig}
+                    variant="card"
+                    showTermsInitially={false}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -892,54 +1003,163 @@ export const CustomerDisplay: React.FC = () => {
 
         {/* ================= STATE 4: COMPLETED / THANK YOU & GOOGLE REVIEW ================= */}
         {payload.state === 'completed' && (
-          <div className="w-full max-w-3xl mx-auto flex flex-col items-center justify-center text-center space-y-6 animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-5xl mx-auto flex flex-col items-center justify-center text-center space-y-6 animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[calc(100vh-12rem)] py-2 pr-1">
             {/* Green Checkmark */}
-            <div className="w-20 h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center text-emerald-500 shadow-xl shadow-emerald-500/20">
-              <CheckCircle2 className="w-12 h-12 stroke-[2.5]" />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center text-emerald-500 shadow-xl shadow-emerald-500/20 shrink-0">
+              <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 stroke-[2.5]" />
             </div>
 
             <div>
-              <h2 className={`text-3xl sm:text-4xl font-black tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
+              <h2 className={`text-2xl sm:text-4xl font-black tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
                 Thank You for Shopping with Us!
               </h2>
-              <p className={`text-sm mt-1 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+              <p className={`text-xs sm:text-sm mt-1 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
                 Your purchase has been completed. Cashier is printing your thermal receipt.
               </p>
-              {payload.invoiceNumber && (
-                <div className="mt-3 inline-block px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-xs font-mono font-bold text-indigo-400">
-                  Invoice: {payload.invoiceNumber}
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                {payload.invoiceNumber && (
+                  <span className="px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-xs font-mono font-bold text-indigo-400">
+                    Invoice: {payload.invoiceNumber}
+                  </span>
+                )}
+                {payload.stampsEarnedThisSale && payload.stampsEarnedThisSale > 0 ? (
+                  <span className="px-3.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-xs font-extrabold text-emerald-500 flex items-center gap-1.5 shadow-xs">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>+{payload.stampsEarnedThisSale} Check-in Stamp Earned on this Visit!</span>
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            {/* 2-Column Responsive Layout: Fantasy Check-in Card Preview UI + Google Review */}
+            <div className="w-full grid grid-cols-1 md:grid-cols-12 gap-6 items-start justify-center">
+              {/* Fantasy Check-in Card Preview Card */}
+              {payload.customerName && (
+                <div className={`${reviewQrDataUrl ? 'md:col-span-7' : 'md:col-span-12 max-w-lg mx-auto'} w-full text-left`}>
+                  <div
+                    className={`rounded-3xl border shadow-2xl p-5 space-y-3 transition-all ${
+                      isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-slate-900 border-slate-800 text-white'
+                    }`}
+                  >
+                    <div
+                      className={`flex items-center justify-between border-b pb-3 ${
+                        isLight ? 'border-slate-100' : 'border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
+                          F
+                        </div>
+                        <div>
+                          <h3 className={`font-bold text-sm ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                            Fantasy Check-in Card Preview
+                          </h3>
+                          <p className="text-[11px] text-slate-400">
+                            Customer: {payload.customerName} {payload.customerPhone ? `(${payload.customerPhone})` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-mono font-black text-blue-600 bg-blue-50 dark:bg-blue-950/60 dark:text-blue-300 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800">
+                        {payload.customerStamps ?? 0} / 10 Stamps
+                      </span>
+                    </div>
+
+                    <LoyaltyStampCard
+                      customerName={payload.customerName}
+                      customerPhone={payload.customerPhone}
+                      stamps={payload.customerStamps ?? 0}
+                      cyclesCompleted={payload.customerStampCycles ?? 0}
+                      stampsEarnedThisSale={payload.stampsEarnedThisSale ?? 0}
+                      config={payload.stampConfig}
+                      variant="card"
+                      showTermsInitially={false}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Google Review Card */}
+              {reviewQrDataUrl && (
+                <div className={`${payload.customerName ? 'md:col-span-5' : 'md:col-span-12 max-w-md mx-auto'} w-full`}>
+                  <div
+                    className={`p-6 rounded-3xl border flex flex-col items-center gap-4 shadow-2xl text-center ${
+                      isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-slate-800 text-white'
+                    }`}
+                  >
+                    <img
+                      src={reviewQrDataUrl}
+                      alt="Google Review QR"
+                      className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-white p-2 shrink-0 shadow-lg"
+                    />
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-center gap-1 text-amber-400">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star key={star} className="w-4 h-4 fill-current" />
+                        ))}
+                      </div>
+                      <h3 className="text-sm sm:text-base font-extrabold">Loved your shopping experience?</h3>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Scan with your phone camera to leave a quick 5-star review on Google!
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-
-            {/* Google Review Card */}
-            {reviewQrDataUrl && (
-              <div
-                className={`p-6 rounded-3xl border flex flex-col sm:flex-row items-center gap-6 shadow-2xl max-w-xl w-full text-center sm:text-left ${
-                  isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-slate-800 text-white'
-                }`}
-              >
-                <img
-                  src={reviewQrDataUrl}
-                  alt="Google Review QR"
-                  className="w-32 h-32 rounded-2xl bg-white p-2 shrink-0 shadow-lg"
-                />
-                <div className="space-y-2">
-                  <div className="flex items-center justify-center sm:justify-start gap-1 text-amber-400">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star key={star} className="w-4 h-4 fill-current" />
-                    ))}
-                  </div>
-                  <h3 className="text-base font-extrabold">Loved your shopping experience?</h3>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Scan this QR code with your phone camera to leave a quick 5-star review on Google!
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </main>
+
+      {/* ================= MODAL: FANTASY CHECK-IN CARD PREVIEW FULL MODAL ================= */}
+      {isStampModalOpen && payload.customerName && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden p-6 space-y-4 text-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-base shadow-xs">
+                  F
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    Fantasy Check-in Card Preview
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Customer: {payload.customerName} {payload.customerPhone ? `(${payload.customerPhone})` : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsStampModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <LoyaltyStampCard
+              customerName={payload.customerName}
+              customerPhone={payload.customerPhone}
+              stamps={payload.customerStamps ?? 0}
+              cyclesCompleted={payload.customerStampCycles ?? 0}
+              stampsEarnedThisSale={payload.stampsEarnedThisSale ?? 0}
+              config={payload.stampConfig}
+              variant="card"
+              showTermsInitially={false}
+            />
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsStampModalOpen(false)}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
+              >
+                Close Card
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ================= MARQUEE TICKER & FOOTER ================= */}
       <div
