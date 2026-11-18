@@ -1,7 +1,7 @@
 # Graph Report - Garment POS  (2026-11-18)
 
 ## Corpus Check
-- 91 files · ~205,853 words
+- 91 files · ~208,020 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: .example 1, (none) 1, .css 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1e47068c`
+- Built from commit: `514eb8f5`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -66,8 +66,8 @@
   vite.config.ts → src/server/printerBridge.js
 - `registerPrinterRoutes()` --calls--> `printRawToWindowsPrinter()`  [EXTRACTED]
   vite.config.ts → src/server/printerBridge.js
-- `CompanySettings()` --calls--> `asyncSyncCompany()`  [EXTRACTED]
-  src/components/companies/CompanySettings.tsx → src/services/supabase.ts
+- `AppContent()` --calls--> `CustomerDisplay()`  [EXTRACTED]
+  src/App.tsx → src/components/pos/CustomerDisplay.tsx
 
 ## Import Cycles
 - None detected.

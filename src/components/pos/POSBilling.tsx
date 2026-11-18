@@ -118,7 +118,12 @@ export const POSBilling: React.FC = () => {
     lookupGiftVoucher,
     redeemGiftVoucher,
     currentUser,
+    recordCreditPayment,
   } = useApp();
+
+  // Khata (Credit) Settlement on Current Bill
+  const [includePreviousKhata, setIncludePreviousKhata] = useState<boolean>(false);
+  const [isKhataDetailsOpen, setIsKhataDetailsOpen] = useState<boolean>(false);
 
   const [appliedGiftCode, setAppliedGiftCode] = useState<string | null>(null);
   const [isGiftVoucherModalOpen, setIsGiftVoucherModalOpen] = useState(false);
@@ -223,6 +228,8 @@ export const POSBilling: React.FC = () => {
     setStampsOverrideVal(1);
     setStampOverrideReason('');
     setMilestoneClaimed(false);
+    setIncludePreviousKhata(false);
+    setIsKhataDetailsOpen(false);
   }, [selectedCustomerId]);
 
   // Coupon & Credit Note inputs
@@ -659,8 +666,31 @@ export const POSBilling: React.FC = () => {
     promotions,
   ]);
 
+  // Customer Khata (Credit Due) computation
+  const customerUnpaidKhataSales = useMemo(() => {
+    if (!selectedCustomer) return [];
+    return sales
+      .filter(
+        (s) =>
+          s.customerId === selectedCustomer.id &&
+          ((s.creditAmount || 0) > 0 || s.paymentMode === 'Credit' || (s.splitBreakdown?.credit || 0) > 0) &&
+          (s.creditRemainingBalance === undefined ? (s.creditAmount || s.grandTotal) > 0 : s.creditRemainingBalance > 0)
+      )
+      .map((s) => ({
+        saleId: s.id,
+        invoiceNumber: s.invoiceNumber,
+        date: s.date,
+        amount: s.creditRemainingBalance !== undefined ? s.creditRemainingBalance : (s.creditAmount || s.grandTotal),
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [sales, selectedCustomer]);
+
+  const customerKhataBalance = selectedCustomer?.outstandingCredit || 0;
+  const effectiveKhataToAdd = includePreviousKhata && customerKhataBalance > 0 ? customerKhataBalance : 0;
+  const finalPayableTotal = cartSummary.grandTotal + effectiveKhataToAdd;
+
   const tenderedAmount = parseFloat(cashTendered) || 0;
-  const changeDue = Math.max(0, tenderedAmount - cartSummary.grandTotal);
+  const changeDue = Math.max(0, tenderedAmount - finalPayableTotal);
 
   const handleApplyCoupon = (e: React.FormEvent) => {
     e.preventDefault();
@@ -773,8 +803,8 @@ export const POSBilling: React.FC = () => {
   const splitCardVal = parseFloat(splitCard) || 0;
   const splitCreditVal = parseFloat(splitCredit) || 0;
   const splitAllocatedTotal = Math.round((splitCashVal + splitUpiVal + splitCardVal + splitCreditVal) * 100) / 100;
-  const splitRemaining = Math.max(0, Math.round((cartSummary.grandTotal - splitAllocatedTotal) * 100) / 100);
-  const splitChangeDue = Math.max(0, Math.round((splitAllocatedTotal - cartSummary.grandTotal) * 100) / 100);
+  const splitRemaining = Math.max(0, Math.round((finalPayableTotal - splitAllocatedTotal) * 100) / 100);
+  const splitChangeDue = Math.max(0, Math.round((splitAllocatedTotal - finalPayableTotal) * 100) / 100);
 
   const handleFillSplitRemaining = (tender: 'cash' | 'upi' | 'card' | 'credit') => {
     let otherSum = 0;
@@ -783,7 +813,7 @@ export const POSBilling: React.FC = () => {
     else if (tender === 'card') otherSum = splitCashVal + splitUpiVal + splitCreditVal;
     else if (tender === 'credit') otherSum = splitCashVal + splitUpiVal + splitCardVal;
 
-    const remainder = Math.max(0, Math.round((cartSummary.grandTotal - otherSum) * 100) / 100);
+    const remainder = Math.max(0, Math.round((finalPayableTotal - otherSum) * 100) / 100);
     if (tender === 'cash') setSplitCash(remainder > 0 ? remainder.toString() : '');
     else if (tender === 'upi') setSplitUpi(remainder > 0 ? remainder.toString() : '');
     else if (tender === 'card') setSplitCard(remainder > 0 ? remainder.toString() : '');
@@ -798,8 +828,8 @@ export const POSBilling: React.FC = () => {
       setSplitCredit('');
       return;
     }
-    const half = Math.floor(cartSummary.grandTotal / 2);
-    const rest = cartSummary.grandTotal - half;
+    const half = Math.floor(finalPayableTotal / 2);
+    const rest = finalPayableTotal - half;
 
     if (mode === '50-cash-upi') {
       setSplitCash(half.toString());
@@ -852,6 +882,8 @@ export const POSBilling: React.FC = () => {
         stampsEarnedThisSale: 0,
         stampConfig: loyaltyConfig?.stampCard,
         showStampCardModal: isStampModalOpen,
+        customerKhataBalance: customerKhataBalance,
+        previousKhataIncluded: 0,
         timestamp: Date.now(),
       });
       return;
@@ -870,7 +902,7 @@ export const POSBilling: React.FC = () => {
     const isUpiPayment =
       paymentMode === 'UPI' || (paymentMode === 'Split' && splitUpiVal > 0);
 
-    const upiPayAmount = paymentMode === 'Split' && splitUpiVal > 0 ? splitUpiVal : cartSummary.grandTotal;
+    const upiPayAmount = paymentMode === 'Split' && splitUpiVal > 0 ? splitUpiVal : finalPayableTotal;
     const effectiveUpiId = storeUpiId || 'retailstore@upi';
 
     const dynamicUpiUri =
@@ -903,7 +935,7 @@ export const POSBilling: React.FC = () => {
       subtotal: cartSummary.subtotal,
       discountTotal: totalDiscounts,
       taxTotal: cartSummary.taxes,
-      grandTotal: cartSummary.grandTotal,
+      grandTotal: finalPayableTotal,
       customerName: selectedCustomer ? selectedCustomer.name : undefined,
       customerPhone: selectedCustomer ? selectedCustomer.phone : undefined,
       customerLoyaltyPoints: selectedCustomer ? selectedCustomer.loyaltyPoints : undefined,
@@ -913,6 +945,9 @@ export const POSBilling: React.FC = () => {
       stampsEarnedThisSale: selectedCustomer ? effectiveEarnedStamps : 0,
       stampConfig: loyaltyConfig?.stampCard,
       showStampCardModal: isStampModalOpen,
+      customerKhataBalance: customerKhataBalance,
+      previousKhataIncluded: effectiveKhataToAdd,
+      settledKhataInvoices: includePreviousKhata && customerUnpaidKhataSales.length > 0 ? customerUnpaidKhataSales : undefined,
       paymentMode,
       upiUri: dynamicUpiUri,
       googleReviewUrl: activeCompany.googleReviewUrl || storeGoogleReviewUrl,
@@ -933,6 +968,11 @@ export const POSBilling: React.FC = () => {
     isStampOverrideActive,
     stampsOverrideVal,
     isStampModalOpen,
+    finalPayableTotal,
+    customerKhataBalance,
+    effectiveKhataToAdd,
+    customerUnpaidKhataSales,
+    includePreviousKhata,
   ]);
 
   const executeCheckout = (sigToUse?: string) => {
@@ -959,10 +999,15 @@ export const POSBilling: React.FC = () => {
           : undefined;
 
       const stampConfig = loyaltyConfig?.stampCard || DEFAULT_STAMP_CARD_CONFIG;
+      const khataSettlement = effectiveKhataToAdd > 0 && selectedCustomer ? {
+        previousKhataIncluded: effectiveKhataToAdd,
+        previousKhataInvoices: customerUnpaidKhataSales,
+      } : undefined;
+
       const createdSale = checkoutSale(
         paymentMode,
         paymentMode === 'Cash'
-          ? tenderedAmount || cartSummary.grandTotal
+          ? tenderedAmount || finalPayableTotal
           : paymentMode === 'Split' && splitCashVal > 0
             ? splitCashVal
             : undefined,
@@ -979,8 +1024,38 @@ export const POSBilling: React.FC = () => {
               overrideReason: stampOverrideReason.trim() || undefined,
               milestoneClaimed,
             }
-          : undefined
+          : undefined,
+        khataSettlement
       );
+
+      // Record Khata settlement payment if previous Khata was included
+      if (effectiveKhataToAdd > 0 && selectedCustomer) {
+        try {
+          recordCreditPayment({
+            customerId: selectedCustomer.id,
+            customerName: selectedCustomer.name,
+            customerPhone: selectedCustomer.phone,
+            companyId: activeCompany.id,
+            companyName: activeCompany.name,
+            amount: effectiveKhataToAdd,
+            paymentMode: (paymentMode === 'Split' ? (splitUpiVal > 0 ? 'UPI' : 'Cash') : (paymentMode === 'Credit' ? 'Cash' : paymentMode)) as any,
+            referenceNumber: `Settled in ${createdSale.invoiceNumber}`,
+            date: new Date().toISOString(),
+            collectedBy: currentUser?.fullName || currentUser?.username || 'Cashier',
+            notes: `Paid & fully cleared via POS Sale Invoice #${createdSale.invoiceNumber}`,
+            allocations: customerUnpaidKhataSales.map((s) => ({
+              saleId: s.saleId,
+              invoiceNumber: s.invoiceNumber,
+              amountAllocated: s.amount,
+              remainingOnInvoice: 0,
+            })),
+            customerPreviousBalance: customerKhataBalance,
+            customerNewBalance: 0,
+          });
+        } catch (e) {
+          console.error('Failed to record credit payment:', e);
+        }
+      }
 
       // Redeem applied gift card voucher if present
       if (cartSummary.appliedGiftVoucher && cartSummary.giftVoucherDiscountAmount > 0) {
@@ -1021,6 +1096,9 @@ export const POSBilling: React.FC = () => {
         stampsEarnedThisSale: createdSale.stampsEarnedThisSale,
         stampConfig: loyaltyConfig?.stampCard,
         showStampCardModal: false,
+        customerKhataBalance: 0,
+        previousKhataIncluded: effectiveKhataToAdd,
+        settledKhataInvoices: effectiveKhataToAdd > 0 ? customerUnpaidKhataSales : undefined,
         timestamp: Date.now(),
       });
 
@@ -1038,6 +1116,8 @@ export const POSBilling: React.FC = () => {
       setStampsOverrideVal(1);
       setStampOverrideReason('');
       setMilestoneClaimed(false);
+      setIncludePreviousKhata(false);
+      setIsKhataDetailsOpen(false);
     } catch (err: any) {
       alert(err.message || 'Error checking out sale');
     }
@@ -1068,21 +1148,21 @@ export const POSBilling: React.FC = () => {
     }
 
     if (paymentMode === 'Split') {
-      if (cartSummary.grandTotal > 0 && splitAllocatedTotal < cartSummary.grandTotal) {
+      if (finalPayableTotal > 0 && splitAllocatedTotal < finalPayableTotal) {
         alert(
-          `Please allocate the full bill total of ₹${cartSummary.grandTotal.toFixed(2)}. Unallocated remaining: ₹${splitRemaining.toFixed(2)}`
+          `Please allocate the full bill total of ₹${finalPayableTotal.toFixed(2)}. Unallocated remaining: ₹${splitRemaining.toFixed(2)}`
         );
         return;
       }
-      if (cartSummary.grandTotal > 0 && splitAllocatedTotal === 0) {
+      if (finalPayableTotal > 0 && splitAllocatedTotal === 0) {
         alert('Please enter split amounts across Cash, UPI, Card, or Credit.');
         return;
       }
     }
 
     // Check if customer signature is required:
-    // Required when customer is taking credit on this bill OR has previous outstanding debt balance
-    const hasPrevBalance = Boolean(selectedCustomer && (selectedCustomer.outstandingCredit || 0) > 0);
+    // Required when customer is taking credit on this bill OR has previous outstanding debt that is NOT being cleared in this bill
+    const hasPrevBalance = Boolean(selectedCustomer && !includePreviousKhata && (selectedCustomer.outstandingCredit || 0) > 0);
     const requiresSignature = (isCreditInvolved || hasPrevBalance) && Boolean(selectedCustomer);
 
     if (requiresSignature && !capturedSignature) {
@@ -3121,6 +3201,91 @@ export const POSBilling: React.FC = () => {
               )}
             </div>
 
+            {/* Previous Khata (Credit Due) Settlement Option */}
+            {selectedCustomer && customerKhataBalance > 0 && (
+              <div
+                className={`p-3 rounded-xl border transition-all ${
+                  includePreviousKhata
+                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-950 shadow-xs'
+                    : 'bg-slate-50 border-slate-200 text-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`p-1.5 rounded-lg shrink-0 ${includePreviousKhata ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-black uppercase tracking-wide">
+                          Previous Khata Due:
+                        </span>
+                        <span className="text-sm font-black font-mono text-rose-600">
+                          ₹{customerKhataBalance.toFixed(2)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {customerUnpaidKhataSales.length > 0
+                          ? `${customerUnpaidKhataSales.length} unpaid bill(s) pending on customer profile`
+                          : 'Outstanding credit balance on record'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer select-none shrink-0 bg-white px-2.5 py-1.5 rounded-lg border border-slate-300 shadow-2xs hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={includePreviousKhata}
+                      onChange={(e) => setIncludePreviousKhata(e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <span className="text-xs font-extrabold text-slate-900">
+                      Add to Current Bill
+                    </span>
+                  </label>
+                </div>
+
+                {includePreviousKhata && (
+                  <div className="mt-2.5 pt-2.5 border-t border-amber-200 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between text-amber-900 font-semibold text-[11px]">
+                      <span>Current Items Total:</span>
+                      <span className="font-mono">₹{cartSummary.grandTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-amber-900 font-bold text-[11px]">
+                      <span>+ Previous Khata Due Added:</span>
+                      <span className="font-mono text-amber-800">+₹{customerKhataBalance.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-emerald-800 font-black text-xs pt-1 border-t border-dashed border-amber-300">
+                      <span>Total Amount Payable (Clears All Due):</span>
+                      <span className="font-mono text-sm">₹{finalPayableTotal.toFixed(2)}</span>
+                    </div>
+
+                    {customerUnpaidKhataSales.length > 0 && (
+                      <div className="mt-1 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsKhataDetailsOpen(!isKhataDetailsOpen)}
+                          className="text-[10px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+                        >
+                          {isKhataDetailsOpen ? 'Hide Unpaid Invoices Breakdown ▲' : `View ${customerUnpaidKhataSales.length} Pending Bills Breakdown ▼`}
+                        </button>
+                        {isKhataDetailsOpen && (
+                          <div className="mt-1.5 space-y-1 bg-white p-2 rounded-lg border border-amber-200 text-[10px] font-mono shadow-2xs">
+                            {customerUnpaidKhataSales.map((inv, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-slate-700">
+                                <span>Bill #{inv.invoiceNumber} {inv.date ? `(${new Date(inv.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })})` : ''}</span>
+                                <span className="font-bold text-rose-600">₹{inv.amount.toFixed(2)} due</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Payment Mode Selector */}
             <div className="pt-2 border-t border-slate-100">
               <label className="block text-xs font-semibold text-slate-700 mb-1.5 font-sans">
@@ -3164,15 +3329,15 @@ export const POSBilling: React.FC = () => {
                       type="number"
                       value={cashTendered}
                       onChange={(e) => setCashTendered(e.target.value)}
-                      placeholder={cartSummary.grandTotal.toString()}
+                      placeholder={finalPayableTotal.toString()}
                       className="w-24 px-2 py-1 text-right font-mono font-bold text-xs border border-slate-200 rounded-md bg-white focus:outline-hidden"
                     />
                   </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-1.5">
-                  {[cartSummary.grandTotal, 500, 1000, 2000, 5000]
-                    .filter((v, i, a) => v >= cartSummary.grandTotal && a.indexOf(v) === i)
+                  {[finalPayableTotal, 500, 1000, 2000, 5000]
+                    .filter((v, i, a) => v >= finalPayableTotal && a.indexOf(v) === i)
                     .slice(0, 4)
                     .map((amount) => (
                       <button
@@ -3200,7 +3365,7 @@ export const POSBilling: React.FC = () => {
                 <UpiPaymentQr
                   upiId={storeUpiId}
                   payeeName={storeUpiName || activeCompany.name}
-                  amount={cartSummary.grandTotal}
+                  amount={finalPayableTotal}
                   transactionNote={`${activeCompany.name} Bill`}
                   size={140}
                   className="w-full"
@@ -3217,7 +3382,7 @@ export const POSBilling: React.FC = () => {
                     <span>Split Payment Distribution</span>
                   </div>
                   <span className="font-mono font-bold text-slate-800">
-                    Bill: ₹{cartSummary.grandTotal.toFixed(2)}
+                    Bill: ₹{finalPayableTotal.toFixed(2)}
                   </span>
                 </div>
 
@@ -3605,6 +3770,28 @@ export const POSBilling: React.FC = () => {
                 </div>
               )}
 
+            {/* Previous Khata Included Settlement Alert in Checkout Area */}
+            {includePreviousKhata && effectiveKhataToAdd > 0 && (
+              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-xs space-y-1">
+                <div className="flex justify-between font-medium text-slate-700">
+                  <span>Current Items Bill:</span>
+                  <span className="font-mono">₹{cartSummary.grandTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-amber-900">
+                  <span>+ Previous Khata Settled:</span>
+                  <span className="font-mono">+₹{effectiveKhataToAdd.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-black text-sm text-slate-900 border-t border-amber-200 pt-1">
+                  <span>Total Payable:</span>
+                  <span className="font-mono text-emerald-700">₹{finalPayableTotal.toFixed(2)}</span>
+                </div>
+                <div className="text-[10.5px] text-emerald-700 font-bold flex items-center gap-1 pt-0.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Clears customer's entire previous debt to ₹0.00!</span>
+                </div>
+              </div>
+            )}
+
             {/* Complete Sale Button OR Start Next Sale Button */}
             {lastCompletedSale ? (
               <div className="space-y-2">
@@ -3632,8 +3819,8 @@ export const POSBilling: React.FC = () => {
                 disabled={
                   cart.length === 0 ||
                   (paymentMode === 'Split' &&
-                    cartSummary.grandTotal > 0 &&
-                    splitAllocatedTotal < cartSummary.grandTotal) ||
+                    finalPayableTotal > 0 &&
+                    splitAllocatedTotal < finalPayableTotal) ||
                   ((paymentMode === 'Credit' || (paymentMode === 'Split' && splitCreditVal > 0)) && !selectedCustomer)
                 }
                 className={`w-full py-3.5 px-4 min-h-[48px] text-white font-extrabold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
@@ -3649,8 +3836,8 @@ export const POSBilling: React.FC = () => {
                     : paymentMode === 'Split' && splitRemaining > 0
                       ? `Allocate ₹${splitRemaining.toFixed(2)} to Complete`
                       : paymentMode === 'Credit'
-                        ? `Record Khata Sale (₹${cartSummary.grandTotal.toFixed(2)})`
-                        : `Complete & Print Receipt (₹${cartSummary.grandTotal.toFixed(2)})`}
+                        ? `Record Khata Sale (₹${finalPayableTotal.toFixed(2)})`
+                        : `Complete & Print Receipt (₹${finalPayableTotal.toFixed(2)})`}
                 </span>
               </button>
             )}

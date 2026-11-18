@@ -335,8 +335,27 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
                 </div>
               )}
 
+              {receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0 && (
+                <div className="space-y-1 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                  <div className="flex justify-between text-amber-900 font-extrabold text-xs">
+                    <span>+ Previous Khata Due Settled:</span>
+                    <span>+₹{receipt.previousKhataIncluded.toFixed(2)}</span>
+                  </div>
+                  {receipt.previousKhataInvoices && receipt.previousKhataInvoices.length > 0 && (
+                    <div className="text-[10px] pl-2 text-slate-600 font-mono space-y-0.5 pt-0.5">
+                      {receipt.previousKhataInvoices.map((inv, idx) => (
+                        <div key={idx} className="flex justify-between">
+                          <span>• Bill #{inv.invoiceNumber} {inv.date ? `(${new Date(inv.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })})` : ''}</span>
+                          <span>₹{inv.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
-                <span>Net Total Paid:</span>
+                <span>{receipt.previousKhataIncluded ? 'Total Paid (Bill + Khata):' : 'Net Total Paid:'}</span>
                 <span>₹{receipt.grandTotal.toFixed(2)}</span>
               </div>
             </div>
@@ -393,6 +412,12 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
                         <span className="font-bold text-slate-700">₹{prevBal.toFixed(2)}</span>
                       </div>
                     )}
+                    {Boolean(receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0) && (
+                      <div className="col-span-2 p-1.5 rounded-lg bg-emerald-50 border border-emerald-200">
+                        <div className="text-[10px] text-emerald-800 font-bold">Khata Settled in Bill: ₹{receipt.previousKhataIncluded!.toFixed(2)}</div>
+                        <div className="text-[11px] text-emerald-700 font-black">Remaining Due: ₹0.00 (All Dues Cleared ✓)</div>
+                      </div>
+                    )}
                     {thisCredit > 0 && (
                       <div>
                         <span className="text-amber-700 block text-[10px]">This Bill Credit:</span>
@@ -400,8 +425,10 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
                       </div>
                     )}
                     <div className="col-span-2 pt-1 border-t border-slate-200 flex justify-between font-bold text-slate-900">
-                      <span>Net Outstanding Debt:</span>
-                      <span className="text-indigo-900">₹{totalOutstanding.toFixed(2)}</span>
+                      <span>{receipt.previousKhataIncluded ? 'Remaining Khata Debt:' : 'Net Outstanding Debt:'}</span>
+                      <span className={receipt.previousKhataIncluded ? 'text-emerald-700 font-black' : 'text-indigo-900'}>
+                        {receipt.previousKhataIncluded ? '₹0.00' : `₹${totalOutstanding.toFixed(2)}`}
+                      </span>
                     </div>
                   </div>
 

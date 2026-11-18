@@ -506,12 +506,11 @@ ${receipt.items.map((i) => `* ${i.qty}x ${i.name} [Size: ${i.size}, ${i.color}] 
 --------------------------------
 *Subtotal:* Rs. ${receipt.subtotal.toFixed(2)}
 *Total Items:* ${totalItemsCount} pcs
-${receipt.itemDiscountsTotal > 0 ? `*Discount:* -Rs. ${receipt.itemDiscountsTotal.toFixed(2)}\n` : ''}${Boolean(receipt.promoDiscountAmount && receipt.promoDiscountAmount > 0) ? `*Offer/Promo (${receipt.promoTitleApplied || 'Special Deal'}):* -Rs. ${receipt.promoDiscountAmount!.toFixed(2)}\n` : ''}${receipt.loyaltyDiscountAmount > 0 ? `*Loyalty Redeemed:* -Rs. ${receipt.loyaltyDiscountAmount.toFixed(2)}\n` : ''}${Boolean(receipt.couponDiscountAmount && receipt.couponDiscountAmount > 0) ? `*Coupon:* -Rs. ${receipt.couponDiscountAmount!.toFixed(2)}\n` : ''}${Boolean(receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) ? `*Credit Note:* -Rs. ${receipt.creditNoteDiscountAmount!.toFixed(2)}\n` : ''}*GST:* Included in Price
-*NET PAID:* Rs. ${receipt.grandTotal.toFixed(2)} (${paymentModeLabel})
+${receipt.itemDiscountsTotal > 0 ? `*Discount:* -Rs. ${receipt.itemDiscountsTotal.toFixed(2)}\n` : ''}${Boolean(receipt.promoDiscountAmount && receipt.promoDiscountAmount > 0) ? `*Offer/Promo (${receipt.promoTitleApplied || 'Special Deal'}):* -Rs. ${receipt.promoDiscountAmount!.toFixed(2)}\n` : ''}${receipt.loyaltyDiscountAmount > 0 ? `*Loyalty Redeemed:* -Rs. ${receipt.loyaltyDiscountAmount.toFixed(2)}\n` : ''}${Boolean(receipt.couponDiscountAmount && receipt.couponDiscountAmount > 0) ? `*Coupon:* -Rs. ${receipt.couponDiscountAmount!.toFixed(2)}\n` : ''}${Boolean(receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) ? `*Credit Note:* -Rs. ${receipt.creditNoteDiscountAmount!.toFixed(2)}\n` : ''}${receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0 ? `*Previous Khata Settled:* +Rs. ${receipt.previousKhataIncluded.toFixed(2)}${receipt.previousKhataInvoices && receipt.previousKhataInvoices.length > 0 ? `\n(Settled Bills: ${receipt.previousKhataInvoices.map(i => `#${i.invoiceNumber}`).join(', ')})` : ''}\n` : ''}*GST:* Included in Price
+*${receipt.previousKhataIncluded ? 'TOTAL PAID (BILL + KHATA)' : 'NET PAID'}:* Rs. ${receipt.grandTotal.toFixed(2)} (${paymentModeLabel})
 --------------------------------
 ${showKhataMemo ? `*KHATA / UDHAAR ACKNOWLEDGMENT*
-${prevBal > 0 ? `*Previous Khata:* Rs. ${prevBal.toFixed(2)}\n` : ''}${thisCredit > 0 ? `*This Bill Credit:* Rs. ${thisCredit.toFixed(2)}\n` : ''}*Net Outstanding Debt:* Rs. ${totalOutstanding.toFixed(2)}
-${receipt.creditDueDate ? `*Promised Due Date:* ${receipt.creditDueDate}\n` : ''}"I acknowledge the balance above and agree to clear the outstanding debt."
+${receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0 ? `*Previous Khata Settled:* Rs. ${receipt.previousKhataIncluded.toFixed(2)}\n*Remaining Khata Due:* Rs. 0.00 (ALL DUES FULLY CLEARED ✓)\n` : `${prevBal > 0 ? `*Previous Khata:* Rs. ${prevBal.toFixed(2)}\n` : ''}${thisCredit > 0 ? `*This Bill Credit:* Rs. ${thisCredit.toFixed(2)}\n` : ''}*Net Outstanding Debt:* Rs. ${totalOutstanding.toFixed(2)}\n`}${receipt.creditDueDate ? `*Promised Due Date:* ${receipt.creditDueDate}\n` : ''}"I acknowledge the balance above and agree to clear the outstanding debt."
 ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${receipt.customerName}\n` : `*Customer Signature:* __________________ (${receipt.customerName})\n`}--------------------------------\n` : ''}${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n--------------------------------\n' : ''}*Return Policy:* ${receipt.companyReturnPolicy}
 *Thank you for shopping with us!*
 *Visit Again · ${receipt.companyName || 'Store'}*
@@ -913,6 +912,26 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                   </div>
                 )}
 
+                {/* Previous Khata (Credit Due) Settled in Current Bill */}
+                {Boolean(receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0) && (
+                  <div className="py-1 border-t border-dashed border-neutral-300">
+                    <div className="receipt-row font-bold text-amber-900">
+                      <span>+ PREV KHATA SETTLED:</span>
+                      <span className="font-mono">+₹{receipt.previousKhataIncluded!.toFixed(2)}</span>
+                    </div>
+                    {receipt.previousKhataInvoices && receipt.previousKhataInvoices.length > 0 && (
+                      <div className="text-[7.5px] pl-1.5 text-neutral-600 font-mono space-y-0.5 pt-0.5">
+                        {receipt.previousKhataInvoices.map((inv, idx) => (
+                          <div key={idx} className="flex justify-between">
+                            <span>• Bill #{inv.invoiceNumber} {inv.date ? `(${new Date(inv.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })})` : ''}</span>
+                            <span>₹{inv.amount.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* GST Notice (GST is included in price; no separate tax breakdown amount printed) */}
                 <div className="receipt-row text-[9px] font-bold text-black py-0.5">
                   <span>GST:</span>
@@ -935,9 +954,9 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                 >
                   <span
                     className="net-label"
-                    style={{ fontSize: '13px', fontWeight: 900, letterSpacing: '0.4px', textTransform: 'uppercase' }}
+                    style={{ fontSize: receipt.previousKhataIncluded ? '10.5px' : '13px', fontWeight: 900, letterSpacing: '0.4px', textTransform: 'uppercase' }}
                   >
-                    NET PAYABLE:
+                    {receipt.previousKhataIncluded ? 'TOTAL PAID (BILL+KHATA):' : 'NET PAYABLE:'}
                   </span>
                   <span
                     className="net-amount font-mono"
@@ -1021,6 +1040,13 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                         </div>
                       )}
 
+                      {Boolean(receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0) && (
+                        <div className="receipt-row font-bold text-emerald-800 bg-emerald-50/60 px-0.5 rounded">
+                          <span>KHATA SETTLED IN BILL:</span>
+                          <span className="font-mono">₹{receipt.previousKhataIncluded!.toFixed(2)} [PAID]</span>
+                        </div>
+                      )}
+
                       {thisCredit > 0 && (
                         <div className="receipt-row font-bold text-neutral-900">
                           <span>THIS BILL CREDIT:</span>
@@ -1029,8 +1055,8 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                       )}
 
                       <div className="receipt-row font-extrabold text-black text-[8.5px] pt-0.5 border-t border-dotted border-neutral-400">
-                        <span>NET OUTSTANDING:</span>
-                        <span className="font-mono">₹{totalOutstanding.toFixed(2)}</span>
+                        <span>{receipt.previousKhataIncluded ? 'REMAINING KHATA DUE:' : 'NET OUTSTANDING:'}</span>
+                        <span className="font-mono">{receipt.previousKhataIncluded ? '₹0.00 (ALL DUES CLEARED ✓)' : `₹${totalOutstanding.toFixed(2)}`}</span>
                       </div>
 
                       {receipt.creditDueDate && (

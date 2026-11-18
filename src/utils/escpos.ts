@@ -525,6 +525,15 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
   if (receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) {
     builder.twoColumnRow('Credit Note Used:', `-Rs. ${receipt.creditNoteDiscountAmount.toFixed(2)}`);
   }
+  // Previous Khata (Credit Due) Added to Current Bill
+  if (receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0) {
+    builder.twoColumnRow('+ Prev Khata Settled:', `Rs. ${receipt.previousKhataIncluded.toFixed(2)}`);
+    if (receipt.previousKhataInvoices && receipt.previousKhataInvoices.length > 0) {
+      receipt.previousKhataInvoices.forEach((inv) => {
+        builder.line(`  * Bill #${inv.invoiceNumber}: Rs. ${inv.amount.toFixed(0)}`);
+      });
+    }
+  }
   // GST Notice (Never print tax breakdown amounts on consumer receipts)
   builder.twoColumnRow('GST:', 'Included in Price');
 
@@ -532,7 +541,7 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
   builder.doubleSeparator();
   builder
     .bold(true)
-    .twoColumnRow('NET PAYABLE:', `Rs. ${receipt.grandTotal.toFixed(2)}`, true)
+    .twoColumnRow(receipt.previousKhataIncluded ? 'TOTAL PAID (BILL+KHATA):' : 'NET PAYABLE:', `Rs. ${receipt.grandTotal.toFixed(2)}`, true)
     .twoColumnRow('Paid via:', receipt.paymentMode, true)
     .bold(false);
 
@@ -578,10 +587,16 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
     if (prevBal > 0) {
       builder.twoColumnRow('Previous Khata:', `Rs. ${prevBal.toFixed(2)}`);
     }
+    if (receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0) {
+      builder.twoColumnRow('Khata Settled in Bill:', `Rs. ${receipt.previousKhataIncluded.toFixed(2)}`);
+      builder.bold(true).twoColumnRow('REMAINING KHATA DUE:', 'Rs. 0.00 (CLEARED)', true).bold(false);
+    }
     if (thisCredit > 0) {
       builder.twoColumnRow('This Bill Credit:', `Rs. ${thisCredit.toFixed(2)}`, true);
     }
-    builder.bold(true).twoColumnRow('TOTAL OUTSTANDING:', `Rs. ${totalOutstanding.toFixed(2)}`, true).bold(false);
+    if (!receipt.previousKhataIncluded) {
+      builder.bold(true).twoColumnRow('TOTAL OUTSTANDING:', `Rs. ${totalOutstanding.toFixed(2)}`, true).bold(false);
+    }
     if (receipt.creditDueDate) {
       builder.twoColumnRow('Promised Due Date:', receipt.creditDueDate, true);
     }

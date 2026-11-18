@@ -204,7 +204,16 @@ interface AppContextType {
     creditDueDate?: string,
     creditNotes?: string,
     customerSignature?: string,
-    stampOptions?: StampCheckoutOptions
+    stampOptions?: StampCheckoutOptions,
+    khataSettlement?: {
+      previousKhataIncluded: number;
+      previousKhataInvoices?: Array<{
+        saleId?: string;
+        invoiceNumber: string;
+        date?: string;
+        amount: number;
+      }>;
+    }
   ) => SaleTransaction;
 
   // Sales History & Receipts
@@ -2580,7 +2589,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     creditDueDate?: string,
     creditNotes?: string,
     customerSignature?: string,
-    stampOptions?: StampCheckoutOptions
+    stampOptions?: StampCheckoutOptions,
+    khataSettlement?: {
+      previousKhataIncluded: number;
+      previousKhataInvoices?: Array<{
+        saleId?: string;
+        invoiceNumber: string;
+        date?: string;
+        amount: number;
+      }>;
+    }
   ): SaleTransaction => {
     if (cart.length === 0) throw new Error('Cart is empty');
 
@@ -2790,7 +2808,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       creditStatus,
       creditNotes,
       customerPreviousBalance: selectedCustomer?.outstandingCredit || 0,
-      customerNewBalance: (selectedCustomer?.outstandingCredit || 0) + (creditAmount || 0),
+      customerNewBalance:
+        khataSettlement && khataSettlement.previousKhataIncluded > 0
+          ? Math.max(0, (selectedCustomer?.outstandingCredit || 0) - khataSettlement.previousKhataIncluded + (creditAmount || 0))
+          : (selectedCustomer?.outstandingCredit || 0) + (creditAmount || 0),
       customerSignature,
       customerSignedAt: customerSignature ? new Date().toISOString() : undefined,
       notes,
@@ -2806,6 +2827,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       stampMilestoneReached: stampMilestoneReached !== 'none' ? stampMilestoneReached : undefined,
       stampMilestoneClaimed: stampMilestoneClaimed ? true : undefined,
       stampOverrideReason,
+      // Khata settlement details
+      previousKhataIncluded: khataSettlement?.previousKhataIncluded,
+      previousKhataInvoices: khataSettlement?.previousKhataInvoices,
     };
 
     // 1. Decrement inventory stock
@@ -2839,8 +2863,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (cust.id === selectedCustomer.id) {
             const netPoints = Math.max(0, cust.loyaltyPoints - redeemedPoints + pointsEarned);
             const creditAmt = creditAmount || 0;
-            const newOutstanding = (cust.outstandingCredit || 0) + creditAmt;
-            const oldestDate = cust.oldestCreditDate || (creditAmt > 0 ? transaction.date : undefined);
+            const settledAmt = khataSettlement?.previousKhataIncluded || 0;
+            const newOutstanding = Math.max(0, (cust.outstandingCredit || 0) - settledAmt) + creditAmt;
+            const oldestDate = newOutstanding > 0 ? (cust.oldestCreditDate || (creditAmt > 0 ? transaction.date : undefined)) : undefined;
             const newTotalSpend = cust.totalSpend + finalGrandTotal;
             const newTier = getCustomerTier(newTotalSpend).tier;
 

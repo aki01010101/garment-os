@@ -552,7 +552,7 @@ export const CustomerDisplay: React.FC = () => {
       </header>
 
       {/* ================= MAIN SCREEN BODY ================= */}
-      <main className="flex-1 overflow-hidden p-4 sm:p-6 lg:p-8 flex flex-col justify-center relative">
+      <main className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4 flex flex-col justify-start relative">
         {/* ================= STATE 1: IDLE / MULTIMEDIA SLIDESHOW & OFFERS ================= */}
         {payload.state === 'idle' && (
           <div className="w-full max-w-7xl mx-auto h-full flex flex-col justify-between py-2 animate-in fade-in duration-300">
@@ -746,112 +746,319 @@ export const CustomerDisplay: React.FC = () => {
 
         {/* ================= STATE 2: CART / SCANNING APPAREL ================= */}
         {payload.state === 'cart' && (
-          <div className="h-full w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-in fade-in duration-200">
-            {/* Left 7 Cols: Live Item List */}
+          <div className="h-full w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 items-stretch min-h-0 overflow-hidden animate-in fade-in duration-200">
+            {/* Left 7 Cols: Live Item List + Bottom Khata Balance */}
             <div
-              className={`lg:col-span-7 rounded-3xl border p-6 flex flex-col h-[calc(100vh-14rem)] shadow-xl backdrop-blur-xs transition-colors ${
+              className={`lg:col-span-7 rounded-3xl border p-3.5 sm:p-4 flex flex-col h-full min-h-0 shadow-xl backdrop-blur-xs transition-colors overflow-hidden ${
                 isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-slate-900/90 border-slate-800 text-slate-100'
               }`}
             >
-              <div className={`flex items-center justify-between pb-4 border-b ${isLight ? 'border-slate-100' : 'border-slate-800'}`}>
-                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
+              {/* Header Bar */}
+              <div className={`flex items-center justify-between pb-2.5 border-b shrink-0 ${isLight ? 'border-slate-100' : 'border-slate-800'}`}>
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-bold uppercase tracking-wider">
                   <ShoppingBag className="w-4 h-4 text-indigo-500" />
                   <span>Garments Scanned ({totalItemPieces} pcs)</span>
                 </div>
-                <span className={`text-xs font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                <span className={`text-[11px] sm:text-xs font-mono font-bold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
                   {payload.items.length} unique items
                 </span>
               </div>
 
-              {/* Scanned Items Scrollable Table */}
-              <div className="flex-1 overflow-y-auto space-y-3 py-4 pr-1">
-                {payload.items.map((item, idx) => (
-                  <div
-                    key={`${item.id}-${idx}`}
-                    className={`p-3.5 rounded-2xl border flex items-center justify-between gap-4 transition-all ${
-                      isLight
-                        ? 'bg-slate-50 border-slate-200'
-                        : 'bg-slate-800/60 border-slate-700/60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-extrabold flex items-center justify-center shrink-0 text-sm shadow-xs">
-                        {idx + 1}
+              {/* Scanned Items: Auto-Adjusting Density Container (ZERO Scrollbar) */}
+              <div className="flex-1 min-h-0 overflow-hidden py-2 flex flex-col justify-start">
+                {payload.items.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 p-4">
+                    <ShoppingBag className="w-10 h-10 text-slate-300 dark:text-slate-700 mb-2 animate-bounce" />
+                    <p className="text-xs font-semibold">Ready to scan garments...</p>
+                  </div>
+                ) : payload.items.length >= 10 ? (
+                  /* 10+ Items: Dual-Column Compact Micro-Grid */
+                  <div className="grid grid-cols-2 gap-1.5 h-full overflow-hidden content-start">
+                    {payload.items.map((item, idx) => (
+                      <div
+                        key={`${item.id}-${idx}`}
+                        className={`py-1.5 px-2 rounded-xl border flex items-center justify-between gap-1.5 transition-all ${
+                          isLight
+                            ? 'bg-slate-50/90 border-slate-200/80 hover:bg-slate-100'
+                            : 'bg-slate-800/60 border-slate-700/60 hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="w-5 h-5 rounded-md bg-indigo-600 text-white font-black flex items-center justify-center shrink-0 text-[10px] shadow-2xs">
+                            {idx + 1}
+                          </div>
+                          <div className="min-w-0">
+                            <div className={`text-[11px] font-bold truncate leading-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                              {item.name}
+                            </div>
+                            <div className="text-[9.5px] text-slate-400 font-medium truncate">
+                              {item.size ? `Sz ${item.size}` : ''} {item.color ? `• ${item.color}` : ''}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className={`text-xs font-black font-mono leading-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                            ₹{item.total.toFixed(0)}
+                          </div>
+                          <div className={`text-[9px] font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {item.qty > 1 ? `${item.qty} × ₹${item.price.toFixed(0)}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : payload.items.length >= 7 ? (
+                  /* 7-9 Items: Compact Single-Column Slim Rows */
+                  <div className="space-y-1.5 h-full overflow-hidden flex flex-col justify-start">
+                    {payload.items.map((item, idx) => (
+                      <div
+                        key={`${item.id}-${idx}`}
+                        className={`py-1.5 px-3 rounded-xl border flex items-center justify-between gap-2 transition-all ${
+                          isLight
+                            ? 'bg-slate-50/90 border-slate-200/80'
+                            : 'bg-slate-800/60 border-slate-700/60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-extrabold flex items-center justify-center shrink-0 text-[11px] shadow-2xs">
+                            {idx + 1}
+                          </div>
+                          <div className="min-w-0">
+                            <div className={`text-xs font-extrabold truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                              {item.name}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                              {item.size && <span className="font-mono font-semibold">Size: {item.size}</span>}
+                              {item.color && <span>• {item.color}</span>}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className={`text-xs font-black font-mono ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                            ₹{item.total.toFixed(2)}
+                          </div>
+                          <div className={`text-[10px] font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {item.qty} × ₹{item.price.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : payload.items.length >= 4 ? (
+                  /* 4-6 Items: Normal Medium Rows */
+                  <div className="space-y-2 h-full overflow-hidden flex flex-col justify-start">
+                    {payload.items.map((item, idx) => (
+                      <div
+                        key={`${item.id}-${idx}`}
+                        className={`p-2.5 rounded-2xl border flex items-center justify-between gap-3 transition-all ${
+                          isLight
+                            ? 'bg-slate-50 border-slate-200'
+                            : 'bg-slate-800/60 border-slate-700/60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white font-extrabold flex items-center justify-center shrink-0 text-xs shadow-xs">
+                            {idx + 1}
+                          </div>
+                          <div className="min-w-0">
+                            <div className={`text-sm font-extrabold truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                              {item.name}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5 text-xs font-medium">
+                              {item.size && (
+                                <span className={`px-1.5 py-0.2 rounded font-mono font-bold text-[10px] ${
+                                  isLight ? 'bg-slate-200 text-slate-800' : 'bg-slate-700 text-slate-200'
+                                }`}>
+                                  Size: {item.size}
+                                </span>
+                              )}
+                              {item.color && (
+                                <span className={`px-1.5 py-0.2 rounded text-[10px] ${
+                                  isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-700 text-slate-300'
+                                }`}>
+                                  {item.color}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className={`text-sm font-black font-mono ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                            ₹{item.total.toFixed(2)}
+                          </div>
+                          <div className={`text-xs font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {item.qty} × ₹{item.price.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* 1-3 Items: Spacious Rows */
+                  <div className="space-y-2.5 h-full overflow-hidden flex flex-col justify-start">
+                    {payload.items.map((item, idx) => (
+                      <div
+                        key={`${item.id}-${idx}`}
+                        className={`p-3.5 rounded-2xl border flex items-center justify-between gap-4 transition-all ${
+                          isLight
+                            ? 'bg-slate-50 border-slate-200'
+                            : 'bg-slate-800/60 border-slate-700/60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-black flex items-center justify-center shrink-0 text-sm shadow-xs">
+                            {idx + 1}
+                          </div>
+                          <div className="min-w-0">
+                            <div className={`text-base font-extrabold truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                              {item.name}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5 text-xs font-medium">
+                              {item.size && (
+                                <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-[11px] ${
+                                  isLight ? 'bg-slate-200 text-slate-800' : 'bg-slate-700 text-slate-200'
+                                }`}>
+                                  Size: {item.size}
+                                </span>
+                              )}
+                              {item.color && (
+                                <span className={`px-2 py-0.5 rounded-md text-[11px] ${
+                                  isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-700 text-slate-300'
+                                }`}>
+                                  {item.color}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className={`text-base font-black font-mono ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                            ₹{item.total.toFixed(2)}
+                          </div>
+                          <div className={`text-xs font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {item.qty} × ₹{item.price.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ================= KHATA BALANCE BAR AT BOTTOM OF LIST ================= */}
+              <div className="shrink-0 mt-auto pt-2 border-t border-slate-200/80 dark:border-slate-800">
+                {payload.previousKhataIncluded && payload.previousKhataIncluded > 0 ? (
+                  <div className="p-2 sm:p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/40 text-amber-950 dark:text-amber-100 flex items-center justify-between gap-2.5 shadow-2xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0 shadow-2xs">
+                        <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </div>
                       <div className="min-w-0">
-                        <div className={`text-base font-extrabold truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                          {item.name}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                            Previous Khata Due:
+                          </span>
+                          <span className="text-xs sm:text-sm font-black font-mono text-amber-950 dark:text-white">
+                            ₹{payload.previousKhataIncluded.toFixed(2)}
+                          </span>
+                          <span className="px-1.5 sm:px-2 py-0.2 rounded-full bg-emerald-500 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider">
+                            ✓ Added to Current Bill
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-xs font-medium">
-                          {item.size && (
-                            <span
-                              className={`px-2 py-0.5 rounded-md font-mono font-bold text-[11px] ${
-                                isLight ? 'bg-slate-200 text-slate-800' : 'bg-slate-700 text-slate-200'
-                              }`}
-                            >
-                              Size: {item.size}
-                            </span>
-                          )}
-                          {item.color && (
-                            <span
-                              className={`px-2 py-0.5 rounded-md text-[11px] ${
-                                isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-700 text-slate-300'
-                              }`}
-                            >
-                              {item.color}
-                            </span>
-                          )}
-                        </div>
+                        <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {payload.settledKhataInvoices && payload.settledKhataInvoices.length > 0
+                            ? `Settling: ${payload.settledKhataInvoices.map((i) => `#${i.invoiceNumber}`).join(', ')} • Clear all debt!`
+                            : 'Pay current bill total to clear all pending customer dues'}
+                        </p>
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className={`text-base font-black font-mono ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                        ₹{item.total.toFixed(2)}
-                      </div>
-                      <div className={`text-xs font-mono ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                        {item.qty} × ₹{item.price.toFixed(2)}
-                      </div>
+                      <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-500 block leading-tight">Due After Bill</span>
+                      <span className="text-xs sm:text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 leading-tight">₹0.00 (Cleared)</span>
                     </div>
                   </div>
-                ))}
+                ) : payload.customerKhataBalance !== undefined && payload.customerKhataBalance > 0 ? (
+                  <div className="p-2 sm:p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-950 dark:text-rose-100 flex items-center justify-between gap-2.5 shadow-2xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold shrink-0 shadow-2xs">
+                        <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                            Khata Balance:
+                          </span>
+                          <span className="text-xs sm:text-sm font-black font-mono text-rose-700 dark:text-rose-300">
+                            ₹{payload.customerKhataBalance.toFixed(2)} Due
+                          </span>
+                        </div>
+                        <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          Customer has unpaid credit. Ask counter staff to add it to this bill.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-[9px] sm:text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300">
+                        Pending Due
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`p-2 rounded-2xl border flex items-center justify-between gap-2 text-xs font-semibold ${
+                    isLight ? 'bg-slate-50 border-slate-200 text-slate-600' : 'bg-slate-800/40 border-slate-800 text-slate-400'
+                  }`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
+                      <span className="truncate">Customer Khata Status:</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold truncate">
+                        {payload.customerName ? '₹0.00 Outstanding • All Dues Cleared' : 'Walk-in Shopper • No Debt'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400 shrink-0">Clean Ledger</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Right 5 Cols: Bill Payable & LIVE DYNAMIC PAYMENT QR */}
-            <div className="lg:col-span-5 space-y-4 overflow-y-auto max-h-[calc(100vh-12rem)] pr-1">
-              {/* Savings Celebration Card */}
+            {/* Right 5 Cols: Bill Payable, UPI QR & Fantasy Stamp Card Preview (ZERO Scrollbar) */}
+            <div className="lg:col-span-5 flex flex-col h-full min-h-0 justify-between gap-2.5 overflow-hidden">
+              {/* Savings Celebration Banner (if applicable) */}
               {payload.discountTotal > 0 && (
                 <div
-                  className={`p-4 rounded-2xl border flex items-center gap-3 shadow-md ${
+                  className={`p-2 sm:p-2.5 rounded-2xl border flex items-center justify-between gap-2 shrink-0 shadow-xs transition-all ${
                     isLight
                       ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
                       : 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
                   }`}
                 >
-                  <div className="p-2 rounded-xl bg-emerald-500 text-white">
-                    <Sparkles className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-wider text-emerald-600">
-                      Exclusive Savings
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded-lg bg-emerald-500 text-white shrink-0">
+                      <Sparkles className="w-3.5 h-3.5" />
                     </div>
-                    <div className="text-sm font-extrabold">
+                    <span className="text-xs font-extrabold">
                       You are saving ₹{payload.discountTotal.toFixed(2)} on this purchase!
-                    </div>
+                    </span>
                   </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 shrink-0">
+                    VIP Offer
+                  </span>
                 </div>
               )}
 
               {/* Bill Details Box */}
               <div
-                className={`p-6 rounded-3xl border space-y-4 shadow-xl ${
+                className={`p-3.5 sm:p-4 rounded-3xl border shadow-lg space-y-2 shrink-0 ${
                   isLight ? 'bg-white border-slate-200' : 'bg-slate-900/90 border-slate-800'
                 }`}
               >
-                <div className={`space-y-2 text-sm pb-4 border-b ${isLight ? 'border-slate-100 text-slate-600' : 'border-slate-800 text-slate-300'}`}>
+                <div className={`space-y-1.5 text-xs pb-2 border-b ${isLight ? 'border-slate-100 text-slate-600' : 'border-slate-800 text-slate-300'}`}>
                   <div className="flex items-center justify-between">
-                    <span>Subtotal ({totalItemPieces} items)</span>
+                    <span>Items Subtotal ({totalItemPieces} items)</span>
                     <span className="font-mono font-semibold">₹{payload.subtotal.toFixed(2)}</span>
                   </div>
 
@@ -862,19 +1069,26 @@ export const CustomerDisplay: React.FC = () => {
                     </div>
                   )}
 
-                  <div className={`flex items-center justify-between text-xs ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>
-                    <span>GST (Tax Rate)</span>
+                  {payload.previousKhataIncluded && payload.previousKhataIncluded > 0 && (
+                    <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 font-extrabold bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
+                      <span>+ Previous Khata Due (Settlement)</span>
+                      <span className="font-mono">+₹{payload.previousKhataIncluded.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  <div className={`flex items-center justify-between text-[11px] ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <span>GST (Indian Garment Tax)</span>
                     <span>Included in MRP</span>
                   </div>
                 </div>
 
                 {/* Net Payable Highlight */}
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-500 block">
-                    Total Amount Payable
+                <div className="flex items-baseline justify-between pt-0.5">
+                  <span className="text-xs font-black uppercase tracking-wider text-indigo-500 block">
+                    {payload.previousKhataIncluded && payload.previousKhataIncluded > 0 ? 'Total Payable (Bill + Khata)' : 'Total Amount Payable'}
                   </span>
                   <div
-                    className={`text-4xl sm:text-5xl font-black font-mono tracking-tight mt-1 ${
+                    className={`text-3xl sm:text-4xl font-black font-mono tracking-tight leading-none ${
                       isLight ? 'text-slate-950' : 'text-white'
                     }`}
                   >
@@ -886,32 +1100,32 @@ export const CustomerDisplay: React.FC = () => {
               {/* ================= DYNAMIC QR CODE FOR IMMEDIATE PAYMENT ================= */}
               {upiQrDataUrl && (
                 <div
-                  className={`p-5 rounded-3xl border flex items-center gap-5 shadow-xl transition-all ${
+                  className={`p-2.5 sm:p-3 rounded-2xl border flex items-center gap-3 shadow-md shrink-0 transition-all ${
                     isLight
                       ? 'bg-emerald-50/80 border-emerald-300 text-slate-900'
                       : 'bg-slate-900 border-emerald-500/50 text-white'
                   }`}
                 >
-                  <div className="p-2 rounded-2xl bg-white shadow-md shrink-0">
+                  <div className="p-1 rounded-xl bg-white shadow-2xs shrink-0">
                     <img
                       src={upiQrDataUrl}
                       alt="Dynamic UPI QR Code"
-                      className="w-28 h-28 object-contain"
+                      className="w-18 h-18 sm:w-20 sm:h-20 object-contain"
                     />
                   </div>
 
-                  <div className="space-y-1.5 min-w-0">
-                    <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-600 uppercase tracking-wide">
-                      <Smartphone className="w-4 h-4" />
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-1 text-[11px] font-black text-emerald-600 uppercase tracking-wide">
+                      <Smartphone className="w-3.5 h-3.5" />
                       <span>Instant Dynamic UPI Pay</span>
                     </div>
-                    <div className="text-2xl font-black font-mono text-emerald-600">
+                    <div className="text-xl sm:text-2xl font-black font-mono text-emerald-600 leading-tight">
                       ₹{payload.grandTotal.toFixed(2)}
                     </div>
-                    <p className={`text-[11px] leading-relaxed ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-                      Scan with PhonePe, Google Pay, Paytm, or BHIM to pay instantly.
+                    <p className={`text-[10px] leading-tight ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                      Scan with PhonePe, Google Pay, Paytm, or BHIM.
                     </p>
-                    <div className="flex items-center gap-2 pt-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <div className="flex items-center gap-1.5 pt-0.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                       <span>GPay</span> • <span>PhonePe</span> • <span>Paytm</span>
                     </div>
                   </div>
@@ -921,55 +1135,57 @@ export const CustomerDisplay: React.FC = () => {
               {/* ================= FANTASY CHECK-IN CARD PREVIEW SECTION ================= */}
               {payload.customerName && (
                 <div
-                  className={`p-5 rounded-3xl border shadow-xl transition-all ${
+                  className={`p-3 rounded-2xl border shadow-lg flex-1 min-h-0 flex flex-col justify-between overflow-hidden transition-all ${
                     isLight
                       ? 'bg-white border-slate-200 text-slate-900'
                       : 'bg-slate-900/95 border-slate-800 text-white'
                   }`}
                 >
                   <div
-                    className={`flex items-center justify-between border-b pb-3 mb-3 ${
+                    className={`flex items-center justify-between border-b pb-2 mb-1.5 shrink-0 ${
                       isLight ? 'border-slate-100' : 'border-slate-800'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
                         F
                       </div>
                       <div>
-                        <h3 className={`font-bold text-sm ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                          Fantasy Check-in Card Preview
+                        <h3 className={`font-bold text-xs ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                          Fantasy Check-in Card
                         </h3>
-                        <p className="text-[11px] text-slate-400">
+                        <p className="text-[10px] text-slate-400 leading-none">
                           Customer: {payload.customerName} {payload.customerPhone ? `(${payload.customerPhone})` : ''}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-black text-blue-600 bg-blue-50 dark:bg-blue-950/60 dark:text-blue-300 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] sm:text-[11px] font-mono font-black text-blue-600 bg-blue-50 dark:bg-blue-950/60 dark:text-blue-300 px-1.5 py-0.2 rounded border border-blue-200 dark:border-blue-800">
                         {payload.customerStamps ?? 0} / 10 Stamps
                       </span>
                       <button
                         type="button"
                         onClick={() => setIsStampModalOpen(true)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                        className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                         title="Expand Full Card"
                       >
-                        <Maximize2 className="w-4 h-4" />
+                        <Maximize2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
-                  <LoyaltyStampCard
-                    customerName={payload.customerName}
-                    customerPhone={payload.customerPhone}
-                    stamps={payload.customerStamps ?? 0}
-                    cyclesCompleted={payload.customerStampCycles ?? 0}
-                    stampsEarnedThisSale={payload.stampsEarnedThisSale ?? 0}
-                    config={payload.stampConfig}
-                    variant="card"
-                    showTermsInitially={false}
-                  />
+                  <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
+                    <LoyaltyStampCard
+                      customerName={payload.customerName}
+                      customerPhone={payload.customerPhone}
+                      stamps={payload.customerStamps ?? 0}
+                      cyclesCompleted={payload.customerStampCycles ?? 0}
+                      stampsEarnedThisSale={payload.stampsEarnedThisSale ?? 0}
+                      config={payload.stampConfig}
+                      variant="compact"
+                      showTermsInitially={false}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -1065,6 +1281,12 @@ export const CustomerDisplay: React.FC = () => {
                     Invoice: {payload.invoiceNumber}
                   </span>
                 )}
+                {payload.previousKhataIncluded && payload.previousKhataIncluded > 0 ? (
+                  <span className="px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-xs font-bold text-emerald-500 flex items-center gap-1.5 shadow-2xs">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Previous Khata Settled: ₹{payload.previousKhataIncluded.toFixed(2)} (All Dues Cleared)</span>
+                  </span>
+                ) : null}
                 {payload.stampsEarnedThisSale && payload.stampsEarnedThisSale > 0 ? (
                   <span className="px-3.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-xs font-extrabold text-emerald-500 flex items-center gap-1.5 shadow-xs">
                     <Sparkles className="w-3.5 h-3.5 text-amber-400" />

@@ -522,6 +522,14 @@ export interface SaleTransaction {
   stampMilestoneReached?: 'none' | 'small_gift' | 'shirt_top';
   stampMilestoneClaimed?: boolean;
   stampOverrideReason?: string;
+  // Khata (Credit) Settlement on Current Bill
+  previousKhataIncluded?: number;
+  previousKhataInvoices?: Array<{
+    saleId?: string;
+    invoiceNumber: string;
+    date?: string;
+    amount: number;
+  }>;
 }
 
 export interface CustomerCreditPaymentAllocation {
@@ -1006,6 +1014,15 @@ export interface CustomerDisplayPayload {
   stampsEarnedThisSale?: number;
   stampConfig?: LoyaltyStampCardConfig;
   showStampCardModal?: boolean;
+  // Customer Khata Status & Settlement
+  customerKhataBalance?: number;
+  previousKhataIncluded?: number;
+  settledKhataInvoices?: Array<{
+    saleId?: string;
+    invoiceNumber: string;
+    date?: string;
+    amount: number;
+  }>;
   paymentMode?: string;
   upiUri?: string;
   googleReviewUrl?: string;
