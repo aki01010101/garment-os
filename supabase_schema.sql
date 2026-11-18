@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS customers (
   phone TEXT NOT NULL UNIQUE,
   email TEXT,
   loyalty_points NUMERIC(12,2) DEFAULT 0,
+  loyalty_stamps INT DEFAULT 0,
+  stamp_card_cycles_completed INT DEFAULT 0,
   total_spend NUMERIC(12,2) DEFAULT 0,
   total_visits INT DEFAULT 0,
   created_at TEXT,
@@ -77,6 +79,8 @@ CREATE TABLE IF NOT EXISTS customers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers (phone);
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS loyalty_stamps INT DEFAULT 0;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS stamp_card_cycles_completed INT DEFAULT 0;
 
 -- 4. SALES TRANSACTIONS & INVOICES
 -- Used on: POS Billing, Returns & Credit, Reports & Taxes, CRM Purchase History

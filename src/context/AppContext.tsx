@@ -44,6 +44,9 @@ import {
   GiftVoucher,
   GiftVoucherRedemption,
   getCustomerTier,
+  StampCheckoutOptions,
+  CustomerStampLog,
+  LoyaltyStampCardConfig,
 } from '../types';
 import {
   INITIAL_COMPANIES,
@@ -54,6 +57,7 @@ import {
   INITIAL_PAYMENTS,
   INITIAL_SALES,
   DEFAULT_LOYALTY_CONFIG,
+  DEFAULT_STAMP_CARD_CONFIG,
   INITIAL_COUPONS,
   INITIAL_PROMOTIONS,
   INITIAL_CREDIT_NOTES,
@@ -157,6 +161,14 @@ interface AppContextType {
   addCustomer: (customer: Omit<Customer, 'id' | 'loyaltyPoints' | 'totalSpend' | 'totalVisits' | 'createdAt'>) => Customer;
   updateCustomer: (customer: Customer) => void;
   adjustLoyaltyPoints: (customerId: string, pointsDelta: number, reason?: string) => void;
+  updateCustomerStamps: (
+    customerId: string,
+    stampsDeltaOrValue: number,
+    isAbsolute?: boolean,
+    reason?: CustomerStampLog['reason'],
+    notes?: string,
+    milestoneClaimed?: boolean
+  ) => void;
 
   // POS Cart & Checkout
   cart: CartItem[];
@@ -191,7 +203,8 @@ interface AppContextType {
     taxInclusive?: boolean,
     creditDueDate?: string,
     creditNotes?: string,
-    customerSignature?: string
+    customerSignature?: string,
+    stampOptions?: StampCheckoutOptions
   ) => SaleTransaction;
 
   // Sales History & Receipts
@@ -475,7 +488,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [vendorPayments, setVendorPayments] = useState<VendorPaymentRecord[]>(() => safeLoad(STORAGE_KEYS.PAYMENTS, INITIAL_PAYMENTS));
   const [sales, setSales] = useState<SaleTransaction[]>(() => safeLoad(STORAGE_KEYS.SALES, INITIAL_SALES));
   const [customers, setCustomers] = useState<Customer[]>(() => safeLoad(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS));
-  const [loyaltyConfig, setLoyaltyConfig] = useState<LoyaltyConfig>(() => safeLoad(STORAGE_KEYS.LOYALTY, DEFAULT_LOYALTY_CONFIG));
+  const [loyaltyConfig, setLoyaltyConfig] = useState<LoyaltyConfig>(() => {
+    const loaded = safeLoad(STORAGE_KEYS.LOYALTY, DEFAULT_LOYALTY_CONFIG);
+    return {
+      ...DEFAULT_LOYALTY_CONFIG,
+      ...loaded,
+      stampCard: {
+        ...DEFAULT_STAMP_CARD_CONFIG,
+        ...(loaded?.stampCard || {}),
+      },
+    };
+  });
   const [alterations, setAlterations] = useState<AlterationRecord[]>(() => safeLoad(STORAGE_KEYS.ALTERATIONS, INITIAL_ALTERATIONS));
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>(() => safeLoad(STORAGE_KEYS.CREDIT_NOTES, INITIAL_CREDIT_NOTES));
   const [creditPayments, setCreditPayments] = useState<CustomerCreditPayment[]>(() =>
@@ -2206,9 +2229,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((c) => {
         if (c.id === customerId) {
           const newPoints = Math.max(0, c.loyaltyPoints + pointsDelta);
-          return { ...c, loyaltyPoints: newPoints };
+          const updated = { ...c, loyaltyPoints: newPoints };
+          if (isSupabaseAutoSync) asyncSyncCustomer(updated);
+          return updated;
         }
         return c;
+      })
+    );
+  };
+
+  const updateCustomerStamps = (
+    customerId: string,
+    stampsDeltaOrValue: number,
+    isAbsolute = false,
+    reason: CustomerStampLog['reason'] = 'manual_override',
+    notes?: string,
+    milestoneClaimed = false
+  ) => {
+    const stampConfig = loyaltyConfig.stampCard || DEFAULT_STAMP_CARD_CONFIG;
+    const maxStamps = stampConfig.totalStamps || 10;
+
+    setCustomers((prev) =>
+      prev.map((c) => {
+        if (c.id !== customerId) return c;
+        const currentStamps = c.loyaltyStamps ?? 0;
+        let newBalance = isAbsolute
+          ? Math.max(0, stampsDeltaOrValue)
+          : Math.max(0, currentStamps + stampsDeltaOrValue);
+        const actualDelta = isAbsolute ? newBalance - currentStamps : stampsDeltaOrValue;
+
+        let cyclesCompleted = c.stampCardCyclesCompleted ?? 0;
+
+        if (newBalance >= maxStamps && milestoneClaimed) {
+          const cyclesToAdd = Math.floor(newBalance / maxStamps);
+          cyclesCompleted += cyclesToAdd;
+          newBalance = newBalance % maxStamps;
+        }
+
+        let rewardAvailable: 'none' | 'small_gift' | 'shirt_top' = 'none';
+        if (newBalance >= maxStamps) {
+          rewardAvailable = 'shirt_top';
+        } else if (newBalance >= 5) {
+          rewardAvailable = 'small_gift';
+        }
+
+        const logEntry: CustomerStampLog = {
+          id: `stamplog_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          date: new Date().toISOString(),
+          stampsDelta: actualDelta,
+          newBalance,
+          reason,
+          notes,
+          createdBy: currentUser?.fullName || currentUser?.username || 'Staff',
+        };
+
+        const updatedCust: Customer = {
+          ...c,
+          loyaltyStamps: newBalance,
+          stampCardCyclesCompleted: cyclesCompleted,
+          lifetimeStamps: (c.lifetimeStamps ?? currentStamps) + (actualDelta > 0 ? actualDelta : 0),
+          lastStampDate: new Date().toISOString(),
+          stampRewardAvailable: rewardAvailable,
+          stampHistory: [logEntry, ...(c.stampHistory || [])],
+        };
+
+        if (isSupabaseAutoSync) asyncSyncCustomer(updatedCust);
+        return updatedCust;
       })
     );
   };
@@ -2493,7 +2579,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     taxInclusive?: boolean,
     creditDueDate?: string,
     creditNotes?: string,
-    customerSignature?: string
+    customerSignature?: string,
+    stampOptions?: StampCheckoutOptions
   ): SaleTransaction => {
     if (cart.length === 0) throw new Error('Cart is empty');
 
@@ -2626,6 +2713,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resolvedDueDate = creditDueDate || new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0];
     }
 
+    // Loyalty Check-in Stamp Card calculations
+    const stampConfig = loyaltyConfig.stampCard || DEFAULT_STAMP_CARD_CONFIG;
+    let stampsEarnedThisSale = 0;
+    let stampsBalanceAfterSale: number | undefined = undefined;
+    let stampCardCycle: number | undefined = undefined;
+    let stampMilestoneReached: 'none' | 'small_gift' | 'shirt_top' = 'none';
+    let stampMilestoneClaimed: boolean = Boolean(stampOptions?.milestoneClaimed);
+    const stampOverrideReason: string | undefined = stampOptions?.overrideReason;
+
+    if (selectedCustomer && stampConfig.enabled) {
+      const minAmount = stampConfig.minPurchaseAmount || 1000;
+      const qualifiesBySpend = finalGrandTotal >= minAmount;
+      const autoStamps = qualifiesBySpend ? 1 : 0;
+      const referralStamps = stampOptions?.friendReferralBonus ? (stampConfig.friendReferralBonus || 1) : 0;
+
+      if (stampOptions?.stampsEarnedOverride !== undefined) {
+        stampsEarnedThisSale = stampOptions.stampsEarnedOverride;
+      } else {
+        stampsEarnedThisSale = autoStamps + referralStamps;
+      }
+
+      const currentStamps = selectedCustomer.loyaltyStamps ?? 0;
+      let calculatedBalance = Math.max(0, currentStamps + stampsEarnedThisSale);
+      let currentCycle = selectedCustomer.stampCardCyclesCompleted ?? 0;
+      const maxStamps = stampConfig.totalStamps || 10;
+
+      if (calculatedBalance >= maxStamps) {
+        stampMilestoneReached = 'shirt_top';
+      } else if (calculatedBalance >= 5) {
+        stampMilestoneReached = 'small_gift';
+      }
+
+      if (calculatedBalance >= maxStamps && stampMilestoneClaimed) {
+        currentCycle += Math.floor(calculatedBalance / maxStamps);
+        calculatedBalance = calculatedBalance % maxStamps;
+      }
+
+      stampsBalanceAfterSale = calculatedBalance;
+      stampCardCycle = currentCycle;
+    }
+
     const transaction: SaleTransaction = {
       id: `sale_${Date.now()}`,
       invoiceNumber,
@@ -2671,6 +2799,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       googleReviewUrl: company.googleReviewUrl || storeGoogleReviewUrl,
       cashierName: company.type === 'billed' ? 'Billing Clerk (Reg 1)' : 'Cashier (Counter 2)',
       salesAssociate: selectedAssociate,
+      // Loyalty Check-in Stamp Card
+      stampsEarnedThisSale: stampsEarnedThisSale > 0 ? stampsEarnedThisSale : undefined,
+      stampsBalanceAfterSale: selectedCustomer ? stampsBalanceAfterSale : undefined,
+      stampCardCycle: selectedCustomer ? stampCardCycle : undefined,
+      stampMilestoneReached: stampMilestoneReached !== 'none' ? stampMilestoneReached : undefined,
+      stampMilestoneClaimed: stampMilestoneClaimed ? true : undefined,
+      stampOverrideReason,
     };
 
     // 1. Decrement inventory stock
@@ -2708,7 +2843,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const oldestDate = cust.oldestCreditDate || (creditAmt > 0 ? transaction.date : undefined);
             const newTotalSpend = cust.totalSpend + finalGrandTotal;
             const newTier = getCustomerTier(newTotalSpend).tier;
-            return {
+
+            // Stamp Card updates
+            let updatedStamps = cust.loyaltyStamps ?? 0;
+            let updatedCycles = cust.stampCardCyclesCompleted ?? 0;
+            let updatedLifetimeStamps = cust.lifetimeStamps ?? updatedStamps;
+            let updatedStampHistory = cust.stampHistory ? [...cust.stampHistory] : [];
+            let updatedRewardAvail = cust.stampRewardAvailable || 'none';
+
+            if (stampConfig.enabled && (stampsEarnedThisSale !== 0 || stampMilestoneClaimed)) {
+              updatedStamps = stampsBalanceAfterSale ?? updatedStamps;
+              updatedCycles = stampCardCycle ?? updatedCycles;
+              if (stampsEarnedThisSale > 0) {
+                updatedLifetimeStamps += stampsEarnedThisSale;
+              }
+
+              let logReason: CustomerStampLog['reason'] = 'purchase';
+              if (stampOptions?.stampsEarnedOverride !== undefined) {
+                logReason = 'manual_override';
+              } else if (stampOptions?.friendReferralBonus) {
+                logReason = 'friend_referral';
+              } else if (stampMilestoneClaimed) {
+                logReason = 'milestone_reward';
+              }
+
+              const stampLog: CustomerStampLog = {
+                id: `stamplog_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                date: new Date().toISOString(),
+                stampsDelta: stampsEarnedThisSale,
+                newBalance: updatedStamps,
+                reason: logReason,
+                saleId: transaction.id,
+                invoiceNumber,
+                notes:
+                  stampOverrideReason ||
+                  (stampOptions?.friendReferralBonus
+                    ? 'Friend referral bonus (+1 stamp)'
+                    : `Purchase of ₹${finalGrandTotal}`),
+                createdBy: currentUser?.fullName || currentUser?.username || 'Billing Staff',
+              };
+
+              updatedStampHistory = [stampLog, ...updatedStampHistory];
+
+              if (updatedStamps >= (stampConfig.totalStamps || 10)) {
+                updatedRewardAvail = 'shirt_top';
+              } else if (updatedStamps >= 5) {
+                updatedRewardAvail = 'small_gift';
+              } else {
+                updatedRewardAvail = 'none';
+              }
+            }
+
+            const updatedCustomerObj: Customer = {
               ...cust,
               loyaltyPoints: netPoints,
               totalSpend: newTotalSpend,
@@ -2719,7 +2905,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               outstandingCredit: newOutstanding,
               oldestCreditDate: oldestDate,
               creditStatus: newOutstanding > 0 ? (cust.creditStatus || 'good') : 'good',
+              loyaltyStamps: updatedStamps,
+              stampCardCyclesCompleted: updatedCycles,
+              lifetimeStamps: updatedLifetimeStamps,
+              lastStampDate: stampsEarnedThisSale > 0 ? new Date().toISOString() : cust.lastStampDate,
+              stampRewardAvailable: updatedRewardAvail,
+              stampHistory: updatedStampHistory,
             };
+
+            if (isSupabaseAutoSync) asyncSyncCustomer(updatedCustomerObj);
+            return updatedCustomerObj;
           }
           return cust;
         })
@@ -3265,6 +3460,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addCustomer,
         updateCustomer,
         adjustLoyaltyPoints,
+        updateCustomerStamps,
         cart,
         selectedCustomerId,
         selectedCustomer,

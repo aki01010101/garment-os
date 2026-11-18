@@ -47,7 +47,9 @@ import {
   Tv,
   Ruler,
   Gift,
+  Award,
 } from 'lucide-react';
+import { LoyaltyStampCard } from '../loyalty/LoyaltyStampCard';
 import { CameraBarcodeScannerModal } from '../common/CameraBarcodeScannerModal';
 import { CustomerPurchasesModal } from '../crm/CustomerPurchasesModal';
 import { CustomerProfileModal } from '../crm/CustomerProfileModal';
@@ -61,7 +63,7 @@ import { DigitalReceiptModal } from './DigitalReceiptModal';
 import { StoreCreditNotesModal } from './StoreCreditNotesModal';
 import { SignaturePadModal } from '../common/SignaturePadModal';
 import { CustomItemModal, CustomItemPayload } from './CustomItemModal';
-import { INITIAL_COUPONS } from '../../data/seedData';
+import { INITIAL_COUPONS, DEFAULT_STAMP_CARD_CONFIG } from '../../data/seedData';
 
 export const POSBilling: React.FC = () => {
   const {
@@ -205,10 +207,22 @@ export const POSBilling: React.FC = () => {
     setTaxInclusiveOverride(null);
   }, [activeCompanyId]);
 
-  // Reset captured signature if customer changes
+  // Reset captured signature & stamp card inputs if customer changes
+  const [friendReferralBonus, setFriendReferralBonus] = useState(false);
+  const [isStampOverrideActive, setIsStampOverrideActive] = useState(false);
+  const [stampsOverrideVal, setStampsOverrideVal] = useState<number>(1);
+  const [stampOverrideReason, setStampOverrideReason] = useState('');
+  const [milestoneClaimed, setMilestoneClaimed] = useState(false);
+  const [isStampModalOpen, setIsStampModalOpen] = useState(false);
+
   useEffect(() => {
     setCapturedSignature(null);
     setPendingCheckoutAfterSign(false);
+    setFriendReferralBonus(false);
+    setIsStampOverrideActive(false);
+    setStampsOverrideVal(1);
+    setStampOverrideReason('');
+    setMilestoneClaimed(false);
   }, [selectedCustomerId]);
 
   // Coupon & Credit Note inputs
@@ -912,6 +926,7 @@ export const POSBilling: React.FC = () => {
           }
           : undefined;
 
+      const stampConfig = loyaltyConfig?.stampCard || DEFAULT_STAMP_CARD_CONFIG;
       const createdSale = checkoutSale(
         paymentMode,
         paymentMode === 'Cash'
@@ -924,7 +939,15 @@ export const POSBilling: React.FC = () => {
         isTaxInclusive,
         resolvedDueDate,
         creditNotesInput.trim() || undefined,
-        sigToUse !== undefined ? sigToUse : (capturedSignature || undefined)
+        sigToUse !== undefined ? sigToUse : (capturedSignature || undefined),
+        selectedCustomer && stampConfig.enabled
+          ? {
+              stampsEarnedOverride: isStampOverrideActive ? stampsOverrideVal : undefined,
+              friendReferralBonus,
+              overrideReason: stampOverrideReason.trim() || undefined,
+              milestoneClaimed,
+            }
+          : undefined
       );
 
       // Redeem applied gift card voucher if present
@@ -970,6 +993,11 @@ export const POSBilling: React.FC = () => {
       setCreditNotesInput('');
       setCapturedSignature(null);
       setPendingCheckoutAfterSign(false);
+      setFriendReferralBonus(false);
+      setIsStampOverrideActive(false);
+      setStampsOverrideVal(1);
+      setStampOverrideReason('');
+      setMilestoneClaimed(false);
     } catch (err: any) {
       alert(err.message || 'Error checking out sale');
     }
@@ -1292,6 +1320,241 @@ export const POSBilling: React.FC = () => {
                         (₹{selectedCustomer.loyaltyPoints * loyaltyConfig.pointRedemptionValue} value)
                       </span>
                     </div>
+
+                    {/* Loyalty Check-in Stamp Card Widget */}
+                    {Boolean(loyaltyConfig?.stampCard?.enabled !== false) && (() => {
+                      const stampCfg = loyaltyConfig.stampCard || DEFAULT_STAMP_CARD_CONFIG;
+                      const minSpend = stampCfg.minPurchaseAmount || 1000;
+                      const qualifiesByBill = cartSummary.grandTotal >= minSpend;
+                      const autoEarned = qualifiesByBill ? 1 : 0;
+                      const refEarned = friendReferralBonus ? (stampCfg.friendReferralBonus || 1) : 0;
+                      const effectiveEarned = isStampOverrideActive ? stampsOverrideVal : (autoEarned + refEarned);
+                      const currentStamps = selectedCustomer.loyaltyStamps ?? 0;
+                      const newBal = Math.max(0, currentStamps + effectiveEarned);
+                      const reaches5 = newBal >= 5;
+                      const reaches10 = newBal >= 10;
+                      const cycles = selectedCustomer.stampCardCyclesCompleted ?? 0;
+
+                      return (
+                        <div className="mt-2.5 pt-2.5 border-t border-indigo-200/60 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 font-bold text-blue-900 text-xs">
+                              <Award className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Fantasy Check-in Card</span>
+                              {cycles > 0 && (
+                                <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded-full font-bold">
+                                  Cycle #{cycles + 1}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-black text-blue-800">
+                                {currentStamps} / 10 Stamps
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setIsStampModalOpen(true)}
+                                className="text-[10px] text-blue-600 hover:text-blue-800 underline font-semibold cursor-pointer"
+                              >
+                                View Card
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 10 Stamp Slots Grid */}
+                          <div className="bg-white p-2 rounded-lg border border-blue-100 shadow-2xs">
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              {[1, 2, 3, 4, 5].map((n) => {
+                                const isStamped = n <= currentStamps;
+                                const isWillEarn = !isStamped && n <= newBal;
+                                return (
+                                  <div
+                                    key={n}
+                                    className={`flex flex-col items-center justify-center rounded-full text-center select-none ${
+                                      isStamped
+                                        ? 'bg-blue-600 text-white font-bold ring-1 ring-blue-400'
+                                        : isWillEarn
+                                        ? 'bg-emerald-100 text-emerald-800 border-2 border-emerald-500 font-bold animate-pulse'
+                                        : n === 5
+                                        ? 'bg-amber-50 border border-dashed border-amber-400 text-amber-900 font-bold'
+                                        : 'bg-slate-50 border border-slate-200 text-slate-400'
+                                    }`}
+                                    style={{ width: '28px', height: '28px' }}
+                                    title={n === 5 ? '5th Visit: Free Small Gift' : `Stamp #${n}`}
+                                  >
+                                    {isStamped ? (
+                                      <Check className="w-3 h-3 stroke-[3]" />
+                                    ) : isWillEarn ? (
+                                      <span className="text-[9px] font-black">+1</span>
+                                    ) : n === 5 ? (
+                                      <Gift className="w-3 h-3 text-amber-600" />
+                                    ) : (
+                                      <span className="text-[10px] font-mono">{n}</span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="flex items-center justify-between gap-1">
+                              {[6, 7, 8, 9, 10].map((n) => {
+                                const isStamped = n <= currentStamps;
+                                const isWillEarn = !isStamped && n <= newBal;
+                                return (
+                                  <div
+                                    key={n}
+                                    className={`flex flex-col items-center justify-center rounded-full text-center select-none ${
+                                      isStamped
+                                        ? 'bg-blue-600 text-white font-bold ring-1 ring-blue-400'
+                                        : isWillEarn
+                                        ? 'bg-emerald-100 text-emerald-800 border-2 border-emerald-500 font-bold animate-pulse'
+                                        : n === 10
+                                        ? 'bg-blue-50 border border-dashed border-blue-500 text-blue-900 font-bold'
+                                        : 'bg-slate-50 border border-slate-200 text-slate-400'
+                                    }`}
+                                    style={{ width: '28px', height: '28px' }}
+                                    title={n === 10 ? '10th Visit: Free Shirt / Top' : `Stamp #${n}`}
+                                  >
+                                    {isStamped ? (
+                                      <Check className="w-3 h-3 stroke-[3]" />
+                                    ) : isWillEarn ? (
+                                      <span className="text-[9px] font-black">+1</span>
+                                    ) : n === 10 ? (
+                                      <Sparkles className="w-3 h-3 text-blue-600" />
+                                    ) : (
+                                      <span className="text-[10px] font-mono">{n}</span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Live Qualification Callout & Staff Controls */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                            {qualifiesByBill ? (
+                              <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span>+1 Stamp Qualified (Bill ≥ ₹{minSpend.toLocaleString('en-IN')})</span>
+                              </span>
+                            ) : (
+                              <span className="text-slate-500 text-[10.5px]">
+                                Add <strong className="text-blue-700">₹{(minSpend - cartSummary.grandTotal).toFixed(0)}</strong> more to earn +1 Stamp
+                              </span>
+                            )}
+
+                            <div className="flex items-center gap-1.5">
+                              {/* Friend Referral Bonus Toggle */}
+                              <label
+                                className={`flex items-center gap-1 cursor-pointer select-none text-[10.5px] font-bold px-2 py-0.5 rounded border transition-colors ${
+                                  friendReferralBonus
+                                    ? 'bg-purple-600 text-white border-purple-600'
+                                    : 'bg-purple-50 text-purple-800 hover:bg-purple-100 border-purple-200'
+                                }`}
+                                title="Customer brought a friend who spent ₹1000+ (+1 stamp)"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={friendReferralBonus}
+                                  onChange={(e) => setFriendReferralBonus(e.target.checked)}
+                                  className="sr-only"
+                                />
+                                <span>+1 Friend Referral</span>
+                              </label>
+
+                              {/* Manual Override Button */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsStampOverrideActive(!isStampOverrideActive);
+                                  if (!isStampOverrideActive) setStampsOverrideVal(effectiveEarned);
+                                }}
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded border cursor-pointer transition-colors ${
+                                  isStampOverrideActive
+                                    ? 'bg-amber-500 text-slate-950 border-amber-600'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                              >
+                                {isStampOverrideActive ? 'Override Active' : 'Override...'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Salesperson Override Controls Drawer */}
+                          {isStampOverrideActive && (
+                            <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs space-y-1.5 animate-in fade-in duration-150">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-amber-950 text-[11px]">Staff Stamp Override:</span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setStampsOverrideVal(Math.max(0, stampsOverrideVal - 1))}
+                                    className="w-5 h-5 rounded bg-white border border-amber-300 font-bold flex items-center justify-center text-xs hover:bg-amber-100 cursor-pointer"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="w-8 text-center font-mono font-black text-amber-950">{stampsOverrideVal}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setStampsOverrideVal(stampsOverrideVal + 1)}
+                                    className="w-5 h-5 rounded bg-white border border-amber-300 font-bold flex items-center justify-center text-xs hover:bg-amber-100 cursor-pointer"
+                                  >
+                                    +
+                                  </button>
+                                  <span className="text-[10px] text-amber-800 ml-1">stamps this bill</span>
+                                </div>
+                              </div>
+                              <input
+                                type="text"
+                                value={stampOverrideReason}
+                                onChange={(e) => setStampOverrideReason(e.target.value)}
+                                placeholder="Reason for manual override (e.g. Physical card stamped, Referral, Manager permission)..."
+                                className="w-full text-[11px] px-2 py-1 bg-white border border-amber-200 rounded focus:outline-hidden"
+                              />
+                            </div>
+                          )}
+
+                          {/* Milestone Reward Alerts */}
+                          {reaches10 && (
+                            <div className="p-2 bg-emerald-50 border border-emerald-300 rounded-lg text-xs space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-emerald-950 flex items-center gap-1">
+                                  <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                  <span>10th Visit Complete! Free Shirt/Top (₹400-₹500)</span>
+                                </span>
+                                <label className="flex items-center gap-1 cursor-pointer font-bold text-emerald-900 bg-white px-2 py-0.5 rounded border border-emerald-300">
+                                  <input
+                                    type="checkbox"
+                                    checked={milestoneClaimed}
+                                    onChange={(e) => setMilestoneClaimed(e.target.checked)}
+                                    className="w-3.5 h-3.5 text-emerald-600 rounded"
+                                  />
+                                  <span>Claim Gift Today</span>
+                                </label>
+                              </div>
+                            </div>
+                          )}
+                          {!reaches10 && reaches5 && (
+                            <div className="p-2 bg-amber-50 border border-amber-300 rounded-lg text-xs space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-amber-950 flex items-center gap-1">
+                                  <Gift className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>5th Visit Reached! Small Gift (₹200-₹300)</span>
+                                </span>
+                                <label className="flex items-center gap-1 cursor-pointer font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-300">
+                                  <input
+                                    type="checkbox"
+                                    checked={milestoneClaimed}
+                                    onChange={(e) => setMilestoneClaimed(e.target.checked)}
+                                    className="w-3.5 h-3.5 text-amber-600 rounded"
+                                  />
+                                  <span>Claim Gift Today</span>
+                                </label>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {customerCreditNotes.length > 0 && (
                       <div className="mt-2.5 pt-2.5 border-t border-indigo-200/60 flex flex-wrap items-center gap-2">
@@ -4006,6 +4269,54 @@ export const POSBilling: React.FC = () => {
         actionDescription={managerOverrideConfig.actionDescription}
         onSuccess={managerOverrideConfig.onSuccess}
       />
+
+      {/* 16. LOYALTY STAMP CARD FULL MODAL */}
+      {isStampModalOpen && selectedCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+                  F
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Fantasy Check-in Card Preview</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Customer: {selectedCustomer.name} ({selectedCustomer.phone})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsStampModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <LoyaltyStampCard
+              customerName={selectedCustomer.name}
+              customerPhone={selectedCustomer.phone}
+              stamps={selectedCustomer.loyaltyStamps ?? 0}
+              cyclesCompleted={selectedCustomer.stampCardCyclesCompleted ?? 0}
+              config={loyaltyConfig?.stampCard}
+              variant="card"
+              showTermsInitially={false}
+            />
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsStampModalOpen(false)}
+                className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                Close Card
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -390,6 +390,13 @@ export function mapProductFromDb(row: any): Product {
 
 // 3. CUSTOMERS (CRM, Loyalty)
 export function mapCustomerToDb(c: Customer, userId?: string) {
+  const profileWithStamps = {
+    ...(c.profile || {}),
+    loyaltyStamps: c.loyaltyStamps ?? c.profile?.loyaltyStamps ?? 0,
+    stampCardCyclesCompleted: c.stampCardCyclesCompleted ?? c.profile?.stampCardCyclesCompleted ?? 0,
+    stampHistory: c.stampHistory ?? c.profile?.stampHistory ?? [],
+  };
+
   return {
     id: c.id,
     name: c.name,
@@ -402,19 +409,23 @@ export function mapCustomerToDb(c: Customer, userId?: string) {
     last_purchase_date: c.lastPurchaseDate || null,
     notes: c.notes || null,
     is_vip: c.isVip || false,
-    profile: c.profile || {},
+    profile: profileWithStamps,
     updated_at: new Date().toISOString(),
     ...(userId ? { user_id: userId } : {}),
   };
 }
 
 export function mapCustomerFromDb(row: any): Customer {
+  const prof = row.profile || {};
   return {
     id: row.id,
     name: row.name,
     phone: row.phone,
     email: row.email || undefined,
     loyaltyPoints: Number(row.loyalty_points) || 0,
+    loyaltyStamps: Number(row.loyalty_stamps ?? prof.loyaltyStamps) || 0,
+    stampCardCyclesCompleted: Number(row.stamp_card_cycles_completed ?? prof.stampCardCyclesCompleted) || 0,
+    stampHistory: prof.stampHistory || undefined,
     totalSpend: Number(row.total_spend) || 0,
     totalVisits: Number(row.total_visits) || 0,
     createdAt: row.created_at || new Date().toISOString(),

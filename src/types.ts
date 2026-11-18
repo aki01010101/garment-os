@@ -323,6 +323,9 @@ export interface CustomerProfile {
   specialInstructions?: string;
   familyMembers?: FamilyMember[];
   measurementProfiles?: GarmentMeasurementProfile[];
+  loyaltyStamps?: number;
+  stampCardCyclesCompleted?: number;
+  stampHistory?: CustomerStampLog[];
 }
 
 export interface Customer {
@@ -343,6 +346,43 @@ export interface Customer {
   outstandingCredit?: number;
   creditStatus?: 'good' | 'overdue' | 'blocked';
   oldestCreditDate?: string;
+  // Fantasy Loyalty Check-in Stamp Card
+  loyaltyStamps?: number; // Current active stamps in cycle (0 to 10)
+  stampCardCyclesCompleted?: number; // Number of full 10-stamp cards completed
+  lifetimeStamps?: number; // Total lifetime stamps earned
+  lastStampDate?: string;
+  stampRewardAvailable?: 'none' | 'small_gift' | 'shirt_top';
+  stampHistory?: CustomerStampLog[];
+}
+
+export interface CustomerStampLog {
+  id: string;
+  date: string; // ISO
+  stampsDelta: number; // e.g. +1, -1, +2
+  newBalance: number; // e.g. 4
+  reason: 'purchase' | 'friend_referral' | 'manual_override' | 'cycle_reset' | 'milestone_reward';
+  saleId?: string;
+  invoiceNumber?: string;
+  notes?: string;
+  createdBy?: string;
+}
+
+export interface LoyaltyStampCardConfig {
+  enabled: boolean;
+  minPurchaseAmount: number; // Minimum purchase to earn 1 stamp (default: 1000)
+  totalStamps: number; // Total stamps per card (default: 10)
+  milestone5GiftText: string; // e.g. "Small Gift (₹200 - ₹300 item free)"
+  milestone10GiftText: string; // e.g. "Free Shirt / Top (₹400 - ₹500 item free)"
+  friendReferralBonus: number; // Stamps awarded when customer brings a friend who spends >= minPurchaseAmount (default: 1)
+  printOnReceipt: boolean; // Whether to print stamp card on thermal and digital receipts (default: true)
+  termsAndConditions: string[];
+}
+
+export interface StampCheckoutOptions {
+  stampsEarnedOverride?: number; // Manual salesperson/admin override of stamps earned
+  friendReferralBonus?: boolean; // Customer brought a friend who shopped >= minPurchaseAmount (+1 stamp)
+  overrideReason?: string; // Reason for manual override or referral notes
+  milestoneClaimed?: boolean; // Whether milestone reward (free gift at 5 or shirt/top at 10) was claimed on this checkout
 }
 
 export type CustomerVipTier = 'Regular' | 'Silver' | 'Gold' | 'Platinum';
@@ -469,6 +509,13 @@ export interface SaleTransaction {
   taxInclusive?: boolean;
   isCompositionScheme?: boolean;
   googleReviewUrl?: string;
+  // Loyalty Check-in Stamp Card
+  stampsEarnedThisSale?: number;
+  stampsBalanceAfterSale?: number;
+  stampCardCycle?: number;
+  stampMilestoneReached?: 'none' | 'small_gift' | 'shirt_top';
+  stampMilestoneClaimed?: boolean;
+  stampOverrideReason?: string;
 }
 
 export interface CustomerCreditPaymentAllocation {
@@ -763,6 +810,7 @@ export interface LoyaltyConfig {
   pointRedemptionValue: number;
   minimumPointsToRedeem: number;
   vipMonthlyThreshold?: number; // Minimum monthly spend to achieve VIP Client status (default ₹5,000)
+  stampCard?: LoyaltyStampCardConfig;
 }
 
 export type UserRole = 'admin' | 'store_manager' | 'sales_cashier';

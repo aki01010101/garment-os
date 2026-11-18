@@ -413,6 +413,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     phone: '9812349001',
     email: 'vikram.malhotra@gmail.com',
     loyaltyPoints: 180,
+    loyaltyStamps: 4,
+    stampCardCyclesCompleted: 0,
     totalSpend: 18200,
     totalVisits: 6,
     createdAt: '2026-03-12',
@@ -458,6 +460,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     phone: '9896012345',
     email: 'pooja.sharma.retail@yahoo.com',
     loyaltyPoints: 340,
+    loyaltyStamps: 7,
+    stampCardCyclesCompleted: 1,
     totalSpend: 34500,
     totalVisits: 9,
     createdAt: '2026-01-18',
@@ -474,6 +478,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     phone: '9416209876',
     email: 'anil.verma77@gmail.com',
     loyaltyPoints: 65,
+    loyaltyStamps: 5,
+    stampCardCyclesCompleted: 0,
     totalSpend: 6890,
     totalVisits: 3,
     createdAt: '2026-05-04',
@@ -489,6 +495,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     phone: '9780054321',
     email: 'simran.dhillon@outlook.com',
     loyaltyPoints: 520,
+    loyaltyStamps: 9,
+    stampCardCyclesCompleted: 2,
     totalSpend: 54900,
     totalVisits: 14,
     createdAt: '2025-11-20',
@@ -1385,11 +1393,29 @@ export const INITIAL_SALES: SaleTransaction[] = [
   },
 ];
 
+export const DEFAULT_STAMP_CARD_CONFIG: import('../types').LoyaltyStampCardConfig = {
+  enabled: true,
+  minPurchaseAmount: 1000,
+  totalStamps: 10,
+  milestone5GiftText: 'Small Gift (₹200 - ₹300 item free)',
+  milestone10GiftText: 'Free Shirt / Top (₹400 - ₹500 item free)',
+  friendReferralBonus: 1,
+  printOnReceipt: true,
+  termsAndConditions: [
+    'Stamp Validity: Minimum Purchase of ₹1000',
+    'Bring a friend & get a stamp if they shop above ₹1000',
+    'Card must be presented at time of purchase to receive points',
+    'Get a small gift on completing 5th purchase and Shirt/Top on completing 10th purchase',
+    'For inquiries or concerns please call +91-9416109928',
+  ],
+};
+
 export const DEFAULT_LOYALTY_CONFIG: LoyaltyConfig = {
   pointsPerHundredSpent: 1, // 1 point per ₹100
   pointRedemptionValue: 1,  // 1 point = ₹1
   minimumPointsToRedeem: 50,
   vipMonthlyThreshold: 5000, // VIP tier threshold: ₹5,000 monthly spend
+  stampCard: DEFAULT_STAMP_CARD_CONFIG,
 };
 
 

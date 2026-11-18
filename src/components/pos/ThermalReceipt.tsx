@@ -3,6 +3,7 @@ import { SaleTransaction, QR_SIZE_PIXELS } from '../../types';
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
 import { GoogleReviewQr } from '../common/GoogleReviewQr';
+import { LoyaltyStampCard } from '../loyalty/LoyaltyStampCard';
 import { useApp } from '../../context/AppContext';
 import { printThermalReceiptHtml } from '../../utils/printReceipt';
 import {
@@ -47,6 +48,7 @@ import {
   ExternalLink,
   Loader2,
   FileSignature,
+  Award,
   PenTool,
 } from 'lucide-react';
 import { SignaturePadModal } from '../common/SignaturePadModal';
@@ -88,6 +90,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     enableReceiptReviewQr,
     enableEReceiptQr,
     activeCompany,
+    loyaltyConfig,
   } = useApp();
 
   const effectiveReviewUrl =
@@ -100,6 +103,9 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   const [includeUpiQr, setIncludeUpiQr] = useState<boolean>(true);
   const [includeReviewQr, setIncludeReviewQr] = useState<boolean>(() => {
     return enableReceiptReviewQr !== false;
+  });
+  const [includeStampCard, setIncludeStampCard] = useState<boolean>(() => {
+    return loyaltyConfig?.stampCard?.printOnReceipt !== false;
   });
   const [isBoldThermal, setIsBoldThermal] = useState<boolean>(() => {
     try {
@@ -355,6 +361,8 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         reviewPromptText: googleReviewPromptText,
         isCompositionGst,
         includeCustomerSignature: includeSignatureLine,
+        includeStampCard,
+        stampConfig: loyaltyConfig?.stampCard,
       });
 
       const res = await printViaWebBluetooth(payload, (status) => setBluetoothStatus(status));
@@ -387,6 +395,8 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         reviewPromptText: googleReviewPromptText,
         isCompositionGst,
         includeCustomerSignature: includeSignatureLine,
+        includeStampCard,
+        stampConfig: loyaltyConfig?.stampCard,
       });
 
       const res = await printViaWebUsb(payload, (status) => setBluetoothStatus(status));
@@ -417,6 +427,8 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
       reviewPromptText: googleReviewPromptText,
       isCompositionGst,
       includeCustomerSignature: includeSignatureLine,
+      includeStampCard,
+      stampConfig: loyaltyConfig?.stampCard,
     });
     const res = printViaRawBT(payload);
     if (res.success) {
@@ -664,6 +676,21 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                 >
                   <FileSignature className="w-3.5 h-3.5 shrink-0" />
                   <span>{includeSignatureLine ? 'Signature: ON' : 'Signature: OFF'}</span>
+                </button>
+
+                {/* 8. Loyalty Stamp Card Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIncludeStampCard(!includeStampCard)}
+                  title="Toggle 10-visit Fantasy check-in stamp card grid on receipt"
+                  className={`h-8 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                    includeStampCard
+                      ? 'bg-blue-600 text-white border-blue-600 font-extrabold shadow-xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5 shrink-0" />
+                  <span>{includeStampCard ? 'Stamp Card: ON' : 'Stamp Card: OFF'}</span>
                 </button>
               </div>
 
@@ -1143,6 +1170,24 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                   </div>
                 </>
               )}
+
+              {/* Fantasy Loyalty Check-in Stamp Card on Receipt */}
+              {includeStampCard &&
+                (receipt.stampsBalanceAfterSale !== undefined ||
+                  (receipt.stampsEarnedThisSale && receipt.stampsEarnedThisSale > 0)) && (
+                  <>
+                    <hr />
+                    <LoyaltyStampCard
+                      customerName={receipt.customerName}
+                      customerPhone={receipt.customerPhone}
+                      stamps={receipt.stampsBalanceAfterSale ?? 0}
+                      cyclesCompleted={receipt.stampCardCycle ?? 0}
+                      stampsEarnedThisSale={receipt.stampsEarnedThisSale ?? 0}
+                      config={loyaltyConfig?.stampCard}
+                      variant="thermal"
+                    />
+                  </>
+                )}
 
               <hr />
 

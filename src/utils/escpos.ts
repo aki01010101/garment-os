@@ -34,6 +34,8 @@ export interface EscPosOptions {
   kickDrawer?: boolean;
   isCompositionGst?: boolean;
   includeCustomerSignature?: boolean;
+  includeStampCard?: boolean;
+  stampConfig?: import('../types').LoyaltyStampCardConfig;
 }
 
 // Common Bluetooth GATT Services for ESC/POS Thermal Printers (Everycom, TVS, Epson, MPT-II, POS-58, Xprinter, Rongta, Goojprt)
@@ -654,7 +656,64 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
       .bold(false);
   }
 
-  // 6b. DYNAMIC UPI PAYMENT QR CODE
+  // 6b. FANTASY LOYALTY CHECK-IN STAMP CARD
+  if (
+    options.includeStampCard !== false &&
+    (receipt.stampsBalanceAfterSale !== undefined || (receipt.stampsEarnedThisSale && receipt.stampsEarnedThisSale > 0))
+  ) {
+    const bal = receipt.stampsBalanceAfterSale ?? 0;
+    const earned = receipt.stampsEarnedThisSale ?? 0;
+    const cycle = receipt.stampCardCycle ?? 0;
+
+    builder.separator('-');
+    builder
+      .align('center')
+      .bold(true)
+      .line('FANTASY CHECK-IN CARD (10 VISITS)')
+      .bold(false)
+      .line('Earn Points With Every Visit');
+
+    if (receipt.customerName && receipt.customerName !== 'Walk-in Retail Shopper') {
+      builder.line(`Customer: ${receipt.customerName}`);
+    }
+
+    if (earned > 0) {
+      builder.bold(true).line(`+${earned} STAMP EARNED ON THIS BILL!`).bold(false);
+    }
+    builder.line(`Total Stamps: ${bal} / 10 ${cycle > 0 ? `(Cycle #${cycle + 1})` : ''}`);
+
+    // 2 Rows of 5 Stamp slots (Width = ~22 chars, fits 58mm/80mm)
+    const r1 = [1, 2, 3, 4, 5].map((n) => (n <= bal ? '[X]' : n === 5 ? '[GIFT]' : '[ ]')).join(' ');
+    const r2 = [6, 7, 8, 9, 10].map((n) => (n <= bal ? '[X]' : n === 10 ? '[TOP]' : '[ ]')).join(' ');
+
+    builder.feed(1);
+    builder.bold(true).line(r1).line(r2).bold(false);
+    builder.feed(1);
+
+    if (bal >= 10 || receipt.stampMilestoneReached === 'shirt_top') {
+      builder
+        .bold(true)
+        .line('*** 10th VISIT REWARD UNLOCKED! ***')
+        .line('Free Shirt / Top (Rs.400 - Rs.500)')
+        .bold(false);
+    } else if (bal >= 5 || receipt.stampMilestoneReached === 'small_gift') {
+      builder
+        .bold(true)
+        .line('*** 5th VISIT REWARD UNLOCKED! ***')
+        .line('Small Gift (Rs.200 - Rs.300 item)')
+        .bold(false);
+    } else {
+      const needed = 5 - (bal % 5 || 0);
+      builder.line(`Next Reward: 5th Visit (${needed} visit${needed > 1 ? 's' : ''} to go)`);
+    }
+
+    builder
+      .line('• Min bill Rs. 1000 per stamp')
+      .line('• Bring a friend & get +1 stamp!')
+      .line('• Fantasy Family Fashion | 9416109928');
+  }
+
+  // 6c. DYNAMIC UPI PAYMENT QR CODE
   const upiId = (options.storeUpiId || '').trim();
   const shouldPrintUpi = options.includeUpiQr !== false && Boolean(upiId);
 

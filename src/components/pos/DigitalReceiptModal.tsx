@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import QRCode from 'qrcode';
 import { SaleTransaction } from '../../types';
+import { LoyaltyStampCard } from '../loyalty/LoyaltyStampCard';
+import { useApp } from '../../context/AppContext';
 import {
   QrCode,
   X,
@@ -29,6 +31,7 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
   receipt,
   googleReviewUrl,
 }) => {
+  const { loyaltyConfig } = useApp();
   const [copied, setCopied] = useState(false);
 
   // Digital receipt URL or shareable link
@@ -76,11 +79,18 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
     (receipt.creditNoteDiscountAmount || 0);
 
   const handleShareWhatsApp = () => {
+    const stampText =
+      receipt.stampsBalanceAfterSale !== undefined
+        ? `\n\n🎫 *Fantasy Check-in Stamp Card:* ${receipt.stampsBalanceAfterSale}/10 Stamps${
+            receipt.stampsEarnedThisSale ? ` (+${receipt.stampsEarnedThisSale} earned today! 🎉)` : ''
+          }\n🎁 5th Visit: Free Small Gift (₹200-₹300)\n🎉 10th Visit: Free Shirt / Top (₹400-₹500)`
+        : '';
+
     const text = `*Digital E-Receipt - ${receipt.companyName}*\nInvoice: ${receipt.invoiceNumber}\nDate: ${new Date(
       receipt.date
     ).toLocaleDateString('en-IN')}\nTotal Paid: ₹${receipt.grandTotal.toFixed(
       2
-    )}\n\nView Full Digital Bill & Warranty:\n${digitalReceiptUrl}\n\nLoved your shopping experience? Rate us 5 stars on Google: ${googleReviewUrl}`;
+    )}${stampText}\n\nView Full Digital Bill & Warranty:\n${digitalReceiptUrl}\n\nLoved your shopping experience? Rate us 5 stars on Google: ${googleReviewUrl}`;
 
     const cleanPhone = receipt.customerPhone ? receipt.customerPhone.replace(/[\s\-\+]/g, '').slice(-10) : '';
     const waUrl = cleanPhone.length === 10
@@ -388,6 +398,22 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
                 </div>
               );
             })()}
+
+            {/* Fantasy Loyalty Check-in Stamp Card on Digital Receipt */}
+            {(receipt.stampsBalanceAfterSale !== undefined ||
+              (receipt.stampsEarnedThisSale && receipt.stampsEarnedThisSale > 0)) && (
+              <div className="pt-2">
+                <LoyaltyStampCard
+                  customerName={receipt.customerName}
+                  customerPhone={receipt.customerPhone}
+                  stamps={receipt.stampsBalanceAfterSale ?? 0}
+                  cyclesCompleted={receipt.stampCardCycle ?? 0}
+                  stampsEarnedThisSale={receipt.stampsEarnedThisSale ?? 0}
+                  config={loyaltyConfig?.stampCard}
+                  variant="card"
+                />
+              </div>
+            )}
           </div>
         </div>
 

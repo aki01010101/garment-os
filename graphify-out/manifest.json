@@ -114,21 +114,21 @@
     "semantic_hash": ""
   },
   "src/components/crm/CustomerCRM.tsx": {
-    "mtime": 1794396411.3455617,
-    "seen": 1794401017.7260916,
-    "ast_hash": "625ddedd29ad851da08748dd8a009ea5",
+    "mtime": 1795021636.3591757,
+    "seen": 1795021772.5368447,
+    "ast_hash": "788182bd0c1a0da3a372e523d0095efc",
     "semantic_hash": ""
   },
   "src/components/crm/CustomerProfileModal.tsx": {
-    "mtime": 1794309870.479526,
-    "seen": 1794401017.7260964,
-    "ast_hash": "4c368de9bf201a0f16d5e8c0aba95060",
+    "mtime": 1795021647.4238646,
+    "seen": 1795021772.5369794,
+    "ast_hash": "ce79f4bef92b48a98c620c482e2c0bf0",
     "semantic_hash": ""
   },
   "src/components/crm/CustomerPurchasesModal.tsx": {
-    "mtime": 1794299022.9675505,
-    "seen": 1794304573.6435301,
-    "ast_hash": "0fbcd6e2630179050148884fde2947a9",
+    "mtime": 1795021711.850243,
+    "seen": 1795021772.5369823,
+    "ast_hash": "fc4ae425cfd9a97dad4dc37e85b373c0",
     "semantic_hash": ""
   },
   "src/components/crm/RFMCampaignsManager.tsx": {
@@ -210,15 +210,15 @@
     "semantic_hash": ""
   },
   "src/components/pos/DigitalReceiptModal.tsx": {
-    "mtime": 1794304449.5608926,
-    "seen": 1794304573.6461291,
-    "ast_hash": "aebe90de06132b962f04af00e67ff070",
+    "mtime": 1795021405.2530725,
+    "seen": 1795021772.5394566,
+    "ast_hash": "f7e428e112925b0eb579732eb556829f",
     "semantic_hash": ""
   },
   "src/components/pos/POSBilling.tsx": {
-    "mtime": 1794643855.4776518,
-    "seen": 1794652056.4167507,
-    "ast_hash": "bba6174a064b0861e83f0ee37e549ec6",
+    "mtime": 1795021505.1297326,
+    "seen": 1795021772.5395875,
+    "ast_hash": "eed70503f9ac2c58e1b89ea11fbb0172",
     "semantic_hash": ""
   },
   "src/components/pos/StoreCreditNotesModal.tsx": {
@@ -228,9 +228,9 @@
     "semantic_hash": ""
   },
   "src/components/pos/ThermalReceipt.tsx": {
-    "mtime": 1794401063.6774404,
-    "seen": 1794403021.065191,
-    "ast_hash": "c6f665f847f927275a80ee0a71ba29b8",
+    "mtime": 1795021372.7629955,
+    "seen": 1795021772.5397186,
+    "ast_hash": "7ee9041b86a7de1092addd6a737d6bb6",
     "semantic_hash": ""
   },
   "src/components/printer/PrinterGuideModal.tsx": {
@@ -294,8 +294,8 @@
     "semantic_hash": ""
   },
   "src/components/tags/PriceTagGenerator.tsx": {
-    "mtime": 1794829541.533476,
-    "seen": 1794829570.012178,
+    "mtime": 1794839348.3387036,
+    "seen": 1795021772.5411658,
     "ast_hash": "d2080f7a24d9bc316b9c94d978dd5f33",
     "semantic_hash": ""
   },
@@ -306,15 +306,15 @@
     "semantic_hash": ""
   },
   "src/context/AppContext.tsx": {
-    "mtime": 1794652398.0602238,
-    "seen": 1794741090.1142964,
-    "ast_hash": "f4b425ec884cae1dafbe2968999c7b69",
+    "mtime": 1795021231.8927364,
+    "seen": 1795021772.5414426,
+    "ast_hash": "7e8a3ff8297ae79fbb8efe81eb074677",
     "semantic_hash": ""
   },
   "src/data/seedData.ts": {
-    "mtime": 1794294367.2806482,
-    "seen": 1794298521.7564592,
-    "ast_hash": "a87f1e36839d0ccfd60ea1fe35493b12",
+    "mtime": 1795020958.527858,
+    "seen": 1795021772.5414455,
+    "ast_hash": "98d6482213834c441513745a8972c138",
     "semantic_hash": ""
   },
   "src/main.tsx": {
@@ -330,15 +330,15 @@
     "semantic_hash": ""
   },
   "src/services/supabase.ts": {
-    "mtime": 1794645788.06847,
-    "seen": 1794652056.4201002,
-    "ast_hash": "1866e00d33e08f350b33313277fee095",
+    "mtime": 1795020978.9556746,
+    "seen": 1795021772.5417104,
+    "ast_hash": "aa1952dfb722c969a4da4c45dd56741d",
     "semantic_hash": ""
   },
   "src/types.ts": {
-    "mtime": 1794644851.9607236,
-    "seen": 1794652056.4201038,
-    "ast_hash": "43f22cb6e0c4a25d047f39b0eba7427c",
+    "mtime": 1795021279.159904,
+    "seen": 1795021772.541713,
+    "ast_hash": "3b34490bc18958dc2c5c5c674ce53d91",
     "semantic_hash": ""
   },
   "src/utils/audio.ts": {
@@ -366,9 +366,9 @@
     "semantic_hash": ""
   },
   "src/utils/escpos.ts": {
-    "mtime": 1794829452.4237711,
-    "seen": 1794829570.0150754,
-    "ast_hash": "0309caef63a23b8c68ae5d2ae500cb1a",
+    "mtime": 1795021307.1690826,
+    "seen": 1795021772.5426435,
+    "ast_hash": "67158984f41a67895c10796fc3abe4dc",
     "semantic_hash": ""
   },
   "src/utils/printReceipt.ts": {
@@ -543,6 +543,12 @@
     "mtime": 1794643854.1413336,
     "seen": 1794652056.4221475,
     "ast_hash": "e366416f4de3fa3a42def6fce0081417",
+    "semantic_hash": ""
+  },
+  "src/components/loyalty/LoyaltyStampCard.tsx": {
+    "mtime": 1795021264.8142824,
+    "seen": 1795021772.5389316,
+    "ast_hash": "02aecf0f187cbf0a51881c67034391a8",
     "semantic_hash": ""
   },
   "package-lock.json": {

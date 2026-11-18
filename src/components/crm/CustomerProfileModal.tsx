@@ -811,7 +811,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                                   )}
                                 </div>
                                 <div className="text-[11px] text-slate-500 font-mono">
-                                  +91 {target.phone} · ₹{target.totalSpend.toLocaleString('en-IN')} spend · {target.loyaltyPoints} pts
+                                  +91 {target.phone} · ₹{target.totalSpend.toLocaleString('en-IN')} spend · {target.loyaltyPoints} pts · {target.loyaltyStamps || 0}/10 stamps
                                 </div>
                               </div>
                               <button

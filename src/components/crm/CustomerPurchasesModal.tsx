@@ -25,6 +25,7 @@ import {
   Scissors,
   ExternalLink,
   Edit,
+  Award,
 } from 'lucide-react';
 import { EditSaleModal } from '../sales/EditSaleModal';
 
@@ -165,10 +166,10 @@ export const CustomerPurchasesModal: React.FC<CustomerPurchasesModalProps> = ({
 
         {/* Spend & VIP Tier Strip */}
         <div className="p-4 bg-slate-50 border-b border-slate-200">
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {/* Monthly Spend & VIP Status */}
             <div
-              className={`p-3 rounded-xl border col-span-2 sm:col-span-2 ${
+              className={`p-3 rounded-xl border col-span-2 sm:col-span-3 lg:col-span-2 ${
                 metrics.isVip
                   ? 'bg-amber-50/80 border-amber-300 text-amber-950'
                   : 'bg-white border-slate-200 text-slate-900'
@@ -246,6 +247,22 @@ export const CustomerPurchasesModal: React.FC<CustomerPurchasesModalProps> = ({
               </div>
               <div className="text-[10px] text-slate-400 mt-0.5">
                 ₹{customer.loyaltyPoints * loyaltyConfig.pointRedemptionValue} bill credit
+              </div>
+            </div>
+
+            {/* Check-in Stamp Card */}
+            <div className="p-3 bg-white rounded-xl border border-slate-200">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+                <span>Check-in Stamps</span>
+                <Award className="w-3 h-3 text-blue-600" />
+              </div>
+              <div className="text-base font-bold font-mono text-blue-700 mt-1">
+                {customer.loyaltyStamps ?? 0} / 10
+              </div>
+              <div className="text-[10px] text-slate-400 mt-0.5">
+                {(customer.stampCardCyclesCompleted ?? 0) > 0
+                  ? `Cycle #${(customer.stampCardCyclesCompleted ?? 0) + 1}`
+                  : 'Min ₹1,000 / stamp'}
               </div>
             </div>
           </div>
