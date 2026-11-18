@@ -23,6 +23,7 @@ import {
   UserCheck,
   Scissors,
   Ticket,
+  ShieldCheck,
   Keyboard,
   Camera,
   Crown,
@@ -124,6 +125,12 @@ export const POSBilling: React.FC = () => {
   // Khata (Credit) Settlement on Current Bill
   const [includePreviousKhata, setIncludePreviousKhata] = useState<boolean>(false);
   const [isKhataDetailsOpen, setIsKhataDetailsOpen] = useState<boolean>(false);
+
+  // Operator Khata Payment & Balance Verification Modal
+  const [isKhataConfirmModalOpen, setIsKhataConfirmModalOpen] = useState<boolean>(false);
+  const [khataConfirmMode, setKhataConfirmMode] = useState<'full' | 'items_only' | 'custom'>('full');
+  const [customKhataPaymentAmount, setCustomKhataPaymentAmount] = useState<string>('');
+  const [operatorConfirmedCheckbox, setOperatorConfirmedCheckbox] = useState<boolean>(true);
 
   const [appliedGiftCode, setAppliedGiftCode] = useState<string | null>(null);
   const [isGiftVoucherModalOpen, setIsGiftVoucherModalOpen] = useState(false);
@@ -975,7 +982,7 @@ export const POSBilling: React.FC = () => {
     includePreviousKhata,
   ]);
 
-  const executeCheckout = (sigToUse?: string) => {
+  const executeCheckout = (sigToUse?: string, khataAmountOverride?: number) => {
     try {
       const isCreditInvolved = paymentMode === 'Credit' || (paymentMode === 'Split' && splitCreditVal > 0);
       let resolvedDueDate: string | undefined = undefined;
@@ -999,15 +1006,18 @@ export const POSBilling: React.FC = () => {
           : undefined;
 
       const stampConfig = loyaltyConfig?.stampCard || DEFAULT_STAMP_CARD_CONFIG;
-      const khataSettlement = effectiveKhataToAdd > 0 && selectedCustomer ? {
-        previousKhataIncluded: effectiveKhataToAdd,
+      const settledKhataAmt = khataAmountOverride !== undefined ? khataAmountOverride : effectiveKhataToAdd;
+      const khataSettlement = settledKhataAmt > 0 && selectedCustomer ? {
+        previousKhataIncluded: settledKhataAmt,
         previousKhataInvoices: customerUnpaidKhataSales,
       } : undefined;
+
+      const currentPayable = cartSummary.grandTotal + settledKhataAmt;
 
       const createdSale = checkoutSale(
         paymentMode,
         paymentMode === 'Cash'
-          ? tenderedAmount || finalPayableTotal
+          ? tenderedAmount || currentPayable
           : paymentMode === 'Split' && splitCashVal > 0
             ? splitCashVal
             : undefined,
@@ -1029,28 +1039,35 @@ export const POSBilling: React.FC = () => {
       );
 
       // Record Khata settlement payment if previous Khata was included
-      if (effectiveKhataToAdd > 0 && selectedCustomer) {
+      if (settledKhataAmt > 0 && selectedCustomer) {
         try {
+          let remainingToAllocate = settledKhataAmt;
+          const allocations = customerUnpaidKhataSales.map((s) => {
+            const allocated = Math.min(s.amount, remainingToAllocate);
+            remainingToAllocate = Math.max(0, remainingToAllocate - allocated);
+            return {
+              saleId: s.saleId,
+              invoiceNumber: s.invoiceNumber,
+              amountAllocated: allocated,
+              remainingOnInvoice: Math.max(0, s.amount - allocated),
+            };
+          });
+
           recordCreditPayment({
             customerId: selectedCustomer.id,
             customerName: selectedCustomer.name,
             customerPhone: selectedCustomer.phone,
             companyId: activeCompany.id,
             companyName: activeCompany.name,
-            amount: effectiveKhataToAdd,
+            amount: settledKhataAmt,
             paymentMode: (paymentMode === 'Split' ? (splitUpiVal > 0 ? 'UPI' : 'Cash') : (paymentMode === 'Credit' ? 'Cash' : paymentMode)) as any,
             referenceNumber: `Settled in ${createdSale.invoiceNumber}`,
             date: new Date().toISOString(),
             collectedBy: currentUser?.fullName || currentUser?.username || 'Cashier',
-            notes: `Paid & fully cleared via POS Sale Invoice #${createdSale.invoiceNumber}`,
-            allocations: customerUnpaidKhataSales.map((s) => ({
-              saleId: s.saleId,
-              invoiceNumber: s.invoiceNumber,
-              amountAllocated: s.amount,
-              remainingOnInvoice: 0,
-            })),
+            notes: `Paid & verified via POS Sale Invoice #${createdSale.invoiceNumber}`,
+            allocations,
             customerPreviousBalance: customerKhataBalance,
-            customerNewBalance: 0,
+            customerNewBalance: Math.max(0, customerKhataBalance - settledKhataAmt),
           });
         } catch (e) {
           console.error('Failed to record credit payment:', e);
@@ -1096,9 +1113,9 @@ export const POSBilling: React.FC = () => {
         stampsEarnedThisSale: createdSale.stampsEarnedThisSale,
         stampConfig: loyaltyConfig?.stampCard,
         showStampCardModal: false,
-        customerKhataBalance: 0,
-        previousKhataIncluded: effectiveKhataToAdd,
-        settledKhataInvoices: effectiveKhataToAdd > 0 ? customerUnpaidKhataSales : undefined,
+        customerKhataBalance: Math.max(0, customerKhataBalance - settledKhataAmt),
+        previousKhataIncluded: settledKhataAmt,
+        settledKhataInvoices: settledKhataAmt > 0 ? customerUnpaidKhataSales : undefined,
         timestamp: Date.now(),
       });
 
@@ -1121,6 +1138,31 @@ export const POSBilling: React.FC = () => {
     } catch (err: any) {
       alert(err.message || 'Error checking out sale');
     }
+  };
+
+  const handleConfirmKhataPaymentAndCheckout = () => {
+    let khataAmtToSettle = effectiveKhataToAdd;
+    if (khataConfirmMode === 'items_only') {
+      khataAmtToSettle = 0;
+      setIncludePreviousKhata(false);
+    } else if (khataConfirmMode === 'custom') {
+      const parsed = parseFloat(customKhataPaymentAmount) || 0;
+      khataAmtToSettle = Math.min(customerKhataBalance, Math.max(0, parsed));
+    }
+
+    setIsKhataConfirmModalOpen(false);
+
+    const isCreditInvolved = paymentMode === 'Credit' || (paymentMode === 'Split' && splitCreditVal > 0);
+    const hasRemainingBalance = (customerKhataBalance - khataAmtToSettle) > 0;
+    const requiresSignature = (isCreditInvolved || hasRemainingBalance) && Boolean(selectedCustomer);
+
+    if (requiresSignature && !capturedSignature) {
+      setPendingCheckoutAfterSign(true);
+      setIsSignatureModalOpen(true);
+      return;
+    }
+
+    executeCheckout(capturedSignature || undefined, khataAmtToSettle);
   };
 
   const handleCheckout = () => {
@@ -1158,6 +1200,16 @@ export const POSBilling: React.FC = () => {
         alert('Please enter split amounts across Cash, UPI, Card, or Credit.');
         return;
       }
+    }
+
+    // Double check if khata balance was paid:
+    // When previous Khata is included, open operator confirmation modal before proceeding
+    if (includePreviousKhata && effectiveKhataToAdd > 0 && selectedCustomer) {
+      setKhataConfirmMode('full');
+      setCustomKhataPaymentAmount(effectiveKhataToAdd.toString());
+      setOperatorConfirmedCheckbox(true);
+      setIsKhataConfirmModalOpen(true);
+      return;
     }
 
     // Check if customer signature is required:
@@ -1285,52 +1337,100 @@ export const POSBilling: React.FC = () => {
 
       {/* 1.5. COMPLETED SALE BANNER & START NEXT SALE ACTION */}
       {lastCompletedSale && (
-        <div className="bg-emerald-50 border-2 border-emerald-500/40 rounded-xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-              <CheckCircle2 className="w-6 h-6" />
+        <div className="bg-emerald-50 border-2 border-emerald-500/40 rounded-xl p-4 shadow-sm space-y-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-slate-900 text-base">
+                    Sale Completed: {lastCompletedSale.invoiceNumber}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white shadow-2xs">
+                    {lastCompletedSale.paymentMode}
+                  </span>
+                  {Boolean(lastCompletedSale.previousKhataIncluded && lastCompletedSale.previousKhataIncluded > 0) && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-600 text-white shadow-2xs">
+                      Khata Settled: ₹{(lastCompletedSale.previousKhataIncluded || 0).toFixed(2)}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Paid: <span className="font-extrabold text-slate-900 font-mono text-sm">₹{lastCompletedSale.grandTotal.toFixed(2)}</span> • Customer: <span className="font-semibold text-slate-800">{lastCompletedSale.customerName}</span> ({lastCompletedSale.items.reduce((s, i) => s + i.qty, 0)} items)
+                </p>
+              </div>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-black text-slate-900 text-base">
-                  Sale Completed: {lastCompletedSale.invoiceNumber}
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white shadow-2xs">
-                  {lastCompletedSale.paymentMode}
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => setIsDigitalReceiptModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                title="Show Digital E-Receipt and QR Code on screen"
+              >
+                <QrCode className="w-4 h-4 text-indigo-600" />
+                <span>Digital E-Receipt QR</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveReceipt(lastCompletedSale);
+                  setIsReceiptModalOpen(true);
+                }}
+                className="px-3.5 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              >
+                <Printer className="w-4 h-4 text-slate-600" />
+                <span>Reprint Receipt</span>
+              </button>
+              <button
+                onClick={startNextSale}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-600/20"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Start Next Sale</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Post-Sale Khata Balance & Payment Confirmation Bar */}
+          {Boolean(lastCompletedSale.previousKhataIncluded && lastCompletedSale.previousKhataIncluded > 0) && (
+            <div className="pt-2.5 border-t border-emerald-300/80">
+              <div className="flex items-center justify-between pb-2">
+                <div className="text-xs font-black text-emerald-950 uppercase tracking-wide flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Operator Khata Confirmation: Verified & Settled</span>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                  Confirmed by Operator ✓
                 </span>
               </div>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Paid: <span className="font-extrabold text-slate-900 font-mono text-sm">₹{lastCompletedSale.grandTotal.toFixed(2)}</span> • Customer: <span className="font-semibold text-slate-800">{lastCompletedSale.customerName}</span> ({lastCompletedSale.items.reduce((s, i) => s + i.qty, 0)} items)
-              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="bg-white/90 p-2.5 rounded-xl border border-emerald-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">Prev Khata Due</span>
+                  <span className="font-mono font-bold text-slate-800 text-sm mt-0.5 block">
+                    ₹{(lastCompletedSale.customerPreviousBalance || lastCompletedSale.previousKhataIncluded || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="bg-white/90 p-2.5 rounded-xl border border-emerald-200">
+                  <span className="text-[10px] uppercase font-bold text-emerald-700 block">Khata Settled</span>
+                  <span className="font-mono font-bold text-emerald-800 text-sm mt-0.5 block">
+                    ₹{(lastCompletedSale.previousKhataIncluded || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="bg-white/90 p-2.5 rounded-xl border border-emerald-200">
+                  <span className="text-[10px] uppercase font-bold text-indigo-700 block">Customer Paid</span>
+                  <span className="font-mono font-black text-indigo-950 text-sm mt-0.5 block">
+                    ₹{lastCompletedSale.grandTotal.toFixed(2)}
+                  </span>
+                </div>
+                <div className="bg-white/90 p-2.5 rounded-xl border border-emerald-200">
+                  <span className="text-[10px] uppercase font-bold text-emerald-700 block">Remaining Due</span>
+                  <span className="font-mono font-extrabold text-emerald-700 text-sm mt-0.5 block">
+                    ₹0.00 (Cleared ✓)
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => setIsDigitalReceiptModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-              title="Show Digital E-Receipt and QR Code on screen"
-            >
-              <QrCode className="w-4 h-4 text-indigo-600" />
-              <span>Digital E-Receipt QR</span>
-            </button>
-            <button
-              onClick={() => {
-                setActiveReceipt(lastCompletedSale);
-                setIsReceiptModalOpen(true);
-              }}
-              className="px-3.5 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-            >
-              <Printer className="w-4 h-4 text-slate-600" />
-              <span>Reprint Receipt</span>
-            </button>
-            <button
-              onClick={startNextSale}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-600/20"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Start Next Sale</span>
-            </button>
-          </div>
+          )}
         </div>
       )}
 
@@ -4441,6 +4541,235 @@ export const POSBilling: React.FC = () => {
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Operator Khata Balance & Customer Payment Confirmation Modal */}
+      {isKhataConfirmModalOpen && selectedCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs no-print">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-amber-500/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm sm:text-base">
+                    Confirm Khata Balance & Payment
+                  </h3>
+                  <p className="text-[11px] text-slate-600">
+                    Operator Double-Check: Confirm whether customer paid previous Khata
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsKhataConfirmModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Customer Snapshot */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Customer</div>
+                  <div className="font-extrabold text-slate-900 text-sm">{selectedCustomer.name}</div>
+                  <div className="text-xs text-slate-600 font-mono">{selectedCustomer.phone}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[11px] text-amber-700 font-bold uppercase tracking-wider">Previous Khata Due</div>
+                  <div className="text-base font-black font-mono text-amber-900">₹{customerKhataBalance.toFixed(2)}</div>
+                </div>
+              </div>
+
+              {/* Bill & Khata Breakdown */}
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
+                <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200/80">
+                  <div className="text-[10px] uppercase font-bold text-indigo-700">Today's Purchases</div>
+                  <div className="text-base font-extrabold font-mono text-indigo-950 mt-0.5">
+                    ₹{cartSummary.grandTotal.toFixed(2)}
+                  </div>
+                  <div className="text-[11px] text-indigo-700 mt-0.5">
+                    {cart.reduce((s, i) => s + i.quantity, 0)} items in cart
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80">
+                  <div className="text-[10px] uppercase font-bold text-amber-800">Previous Khata Balance</div>
+                  <div className="text-base font-extrabold font-mono text-amber-950 mt-0.5">
+                    +₹{customerKhataBalance.toFixed(2)}
+                  </div>
+                  <div className="text-[11px] text-amber-700 mt-0.5 truncate">
+                    {customerUnpaidKhataSales.length} unpaid bill(s)
+                  </div>
+                </div>
+              </div>
+
+              {/* Operator Verification Question & Options */}
+              <div className="space-y-2">
+                <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Did the customer pay the previous Khata balance today?</span>
+                </div>
+
+                <div className="space-y-2">
+                  {/* Option 1: Full Payment */}
+                  <label
+                    onClick={() => setKhataConfirmMode('full')}
+                    className={`block p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                      khataConfirmMode === 'full'
+                        ? 'border-emerald-500 bg-emerald-50/60 shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="khataConfirmOption"
+                          checked={khataConfirmMode === 'full'}
+                          onChange={() => setKhataConfirmMode('full')}
+                          className="w-4 h-4 text-emerald-600 accent-emerald-600"
+                        />
+                        <span className="font-extrabold text-xs text-slate-900">
+                          Yes, Full Payment Received (₹{(cartSummary.grandTotal + customerKhataBalance).toFixed(2)})
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                        Recommended
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 pl-6 mt-1">
+                      Customer pays for today's bill (₹{cartSummary.grandTotal.toFixed(2)}) + settles all previous Khata (₹{customerKhataBalance.toFixed(2)}).
+                      <strong className="text-emerald-800 block mt-0.5">New Khata Balance: ₹0.00 (All dues cleared ✓)</strong>
+                    </p>
+                  </label>
+
+                  {/* Option 2: Items Only */}
+                  <label
+                    onClick={() => setKhataConfirmMode('items_only')}
+                    className={`block p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                      khataConfirmMode === 'items_only'
+                        ? 'border-indigo-500 bg-indigo-50/60 shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="khataConfirmOption"
+                        checked={khataConfirmMode === 'items_only'}
+                        onChange={() => setKhataConfirmMode('items_only')}
+                        className="w-4 h-4 text-indigo-600 accent-indigo-600"
+                      />
+                      <span className="font-extrabold text-xs text-slate-900">
+                        No, Customer Paid Today's Items Only (₹{cartSummary.grandTotal.toFixed(2)})
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 pl-6 mt-1">
+                      Customer only paid for today's garments. Previous Khata was NOT paid.
+                      <strong className="text-amber-800 block mt-0.5">
+                        Previous Khata of ₹{customerKhataBalance.toFixed(2)} remains active and due.
+                      </strong>
+                    </p>
+                  </label>
+
+                  {/* Option 3: Custom / Partial Payment */}
+                  <label
+                    onClick={() => setKhataConfirmMode('custom')}
+                    className={`block p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                      khataConfirmMode === 'custom'
+                        ? 'border-amber-500 bg-amber-50/60 shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="khataConfirmOption"
+                        checked={khataConfirmMode === 'custom'}
+                        onChange={() => setKhataConfirmMode('custom')}
+                        className="w-4 h-4 text-amber-600 accent-amber-600"
+                      />
+                      <span className="font-extrabold text-xs text-slate-900">
+                        Partial Khata Payment Received
+                      </span>
+                    </div>
+                    {khataConfirmMode === 'custom' && (
+                      <div className="pl-6 mt-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-700 font-semibold">Amount Paid for Khata: ₹</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max={customerKhataBalance}
+                            value={customKhataPaymentAmount}
+                            onChange={(e) => setCustomKhataPaymentAmount(e.target.value)}
+                            placeholder="Enter amount"
+                            className="w-32 px-2.5 py-1 text-xs border border-amber-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <p className="text-[11px] text-slate-600">
+                          Total customer pays: ₹{(cartSummary.grandTotal + (parseFloat(customKhataPaymentAmount) || 0)).toFixed(2)} • Remaining Khata: ₹{Math.max(0, customerKhataBalance - (parseFloat(customKhataPaymentAmount) || 0)).toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+                  </label>
+                </div>
+              </div>
+
+              {/* Operator Verification Confirmation Checkbox */}
+              <div className="pt-2 border-t border-slate-200">
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={operatorConfirmedCheckbox}
+                    onChange={(e) => setOperatorConfirmedCheckbox(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded accent-emerald-600"
+                  />
+                  <span>
+                    I confirm that I (Cashier: {currentUser?.fullName || currentUser?.username || 'Operator'}) have verified and collected this payment.
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setIsKhataConfirmModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Back to Bill
+              </button>
+
+              <button
+                type="button"
+                disabled={!operatorConfirmedCheckbox}
+                onClick={handleConfirmKhataPaymentAndCheckout}
+                className={`px-5 py-2.5 rounded-xl text-white text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer shadow-md ${
+                  operatorConfirmedCheckbox
+                    ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-emerald-600/20'
+                    : 'bg-slate-400 cursor-not-allowed opacity-60'
+                }`}
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>
+                  Confirm & Complete Sale (₹
+                  {khataConfirmMode === 'full'
+                    ? (cartSummary.grandTotal + customerKhataBalance).toFixed(2)
+                    : khataConfirmMode === 'items_only'
+                      ? cartSummary.grandTotal.toFixed(2)
+                      : (cartSummary.grandTotal + (parseFloat(customKhataPaymentAmount) || 0)).toFixed(2)}
+                  )
+                </span>
+              </button>
             </div>
           </div>
         </div>

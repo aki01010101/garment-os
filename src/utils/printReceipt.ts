@@ -88,15 +88,29 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
           font-weight: 900 !important;
           -webkit-text-stroke: 0.4px #000000;
         }
+        .receipt-net-payable {
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: center !important;
+          padding: 2.5px 0 !important;
+          margin: 2px 0 !important;
+          width: 100% !important;
+          flex-wrap: nowrap !important;
+        }
         .receipt-net-payable .net-label {
-          font-size: 13.5px !important;
+          font-size: 11px !important;
           font-weight: 900 !important;
-          -webkit-text-stroke: 0.5px #000000;
+          -webkit-text-stroke: 0.35px #000000;
+          white-space: nowrap !important;
+          flex-shrink: 0 !important;
         }
         .receipt-net-payable .net-amount {
-          font-size: 18.5px !important;
+          font-size: 15.5px !important;
           font-weight: 900 !important;
-          -webkit-text-stroke: 0.7px #000000;
+          -webkit-text-stroke: 0.6px #000000;
+          white-space: nowrap !important;
+          flex-shrink: 0 !important;
+          text-align: right !important;
         }
         .receipt-tender-header {
           font-size: 11.5px !important;
@@ -196,23 +210,29 @@ export function printThermalReceiptHtml(receiptHtml: string, isBold?: boolean | 
             .receipt-net-payable {
               display: flex !important;
               justify-content: space-between !important;
-              align-items: baseline !important;
+              align-items: center !important;
               padding: 2.5px 0 !important;
               margin: 2px 0 !important;
               width: 100% !important;
+              flex-wrap: nowrap !important;
             }
             .receipt-net-payable .net-label {
-              font-size: 13px !important;
+              font-size: 11px !important;
               font-weight: 900 !important;
-              letter-spacing: 0.4px !important;
+              letter-spacing: 0.2px !important;
               color: #000000 !important;
               text-transform: uppercase !important;
+              white-space: nowrap !important;
+              flex-shrink: 0 !important;
             }
             .receipt-net-payable .net-amount {
-              font-size: 17.5px !important;
+              font-size: 15.5px !important;
               font-weight: 900 !important;
               letter-spacing: -0.3px !important;
               color: #000000 !important;
+              white-space: nowrap !important;
+              flex-shrink: 0 !important;
+              text-align: right !important;
             }
             .receipt-tender-block {
               margin: 3px 0 !important;

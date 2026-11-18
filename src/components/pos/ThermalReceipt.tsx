@@ -30,6 +30,7 @@ import {
   Star,
   HelpCircle,
   CheckCircle,
+  CheckCircle2,
   Copy,
   Check,
   Share2,
@@ -232,6 +233,21 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
   const hasAlterations = receipt.items.some((i) => i.alteration?.needed);
   const totalItemsCount = receipt.items.reduce((sum, item) => sum + item.qty, 0);
+
+  const itemsNetTotal = Math.max(
+    0,
+    receipt.subtotal -
+      receipt.itemDiscountsTotal -
+      (receipt.loyaltyDiscountAmount || 0) -
+      (receipt.couponDiscountAmount || 0) -
+      (receipt.promoDiscountAmount || 0) -
+      (receipt.creditNoteDiscountAmount || 0)
+  );
+  const prevKhata = receipt.previousKhataIncluded || 0;
+  const totalPaidAmount =
+    prevKhata > 0 && receipt.grandTotal < itemsNetTotal + prevKhata - 0.5
+      ? itemsNetTotal + prevKhata
+      : receipt.grandTotal;
 
   const handleSaveSignature = (sigDataUrl: string) => {
     if (!receipt) return;
@@ -946,23 +962,37 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'baseline',
-                    padding: '2.5px 0',
+                    alignItems: 'center',
+                    padding: '3px 0',
                     margin: '2px 0',
                     width: '100%',
+                    flexWrap: 'nowrap',
                   }}
                 >
                   <span
                     className="net-label"
-                    style={{ fontSize: receipt.previousKhataIncluded ? '10.5px' : '13px', fontWeight: 900, letterSpacing: '0.4px', textTransform: 'uppercase' }}
+                    style={{
+                      fontSize: receipt.previousKhataIncluded ? '10px' : '12px',
+                      fontWeight: 900,
+                      letterSpacing: '0.2px',
+                      textTransform: 'uppercase',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
                   >
-                    {receipt.previousKhataIncluded ? 'TOTAL PAID (BILL+KHATA):' : 'NET PAYABLE:'}
+                    {receipt.previousKhataIncluded ? 'TOTAL (BILL+KHATA):' : 'NET PAYABLE:'}
                   </span>
                   <span
-                    className="net-amount font-mono"
-                    style={{ fontSize: '17.5px', fontWeight: 900, letterSpacing: '-0.3px' }}
+                    className="net-amount font-mono text-right"
+                    style={{
+                      fontSize: receipt.previousKhataIncluded ? '15px' : '17px',
+                      fontWeight: 900,
+                      letterSpacing: '-0.3px',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
                   >
-                    ₹{receipt.grandTotal.toFixed(2)}
+                    ₹{totalPaidAmount.toFixed(2)}
                   </span>
                 </div>
 
@@ -1328,14 +1358,65 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
           {/* RIGHT COLUMN: Action Buttons & Transaction Summary */}
           <div className="flex-1 bg-white p-6 flex flex-col justify-between overflow-y-auto space-y-5">
             <div className="space-y-4">
+              {/* Operator Khata Verification Card */}
+              {Boolean(receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0) && (
+                <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-500/40 shadow-xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-emerald-950 uppercase tracking-wide">
+                          Khata Balance Paid & Verified by Operator
+                        </div>
+                        <div className="text-[11px] text-emerald-800">
+                          Customer <span className="font-bold">{receipt.customerName}</span> settled previous Khata in this transaction.
+                        </div>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-extrabold rounded-lg uppercase tracking-wider shadow-2xs">
+                      Confirmed ✓
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-emerald-200 text-xs">
+                    <div className="bg-white/90 p-2 rounded-xl border border-emerald-200/60">
+                      <div className="text-[10px] text-slate-500 font-semibold uppercase">Previous Due</div>
+                      <div className="font-mono font-bold text-slate-800 text-xs mt-0.5">
+                        ₹{(receipt.customerPreviousBalance || receipt.previousKhataIncluded || 0).toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="bg-white/90 p-2 rounded-xl border border-emerald-200/60">
+                      <div className="text-[10px] text-emerald-700 font-semibold uppercase">Khata Settled</div>
+                      <div className="font-mono font-bold text-emerald-800 text-xs mt-0.5">
+                        ₹{(receipt.previousKhataIncluded || 0).toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="bg-white/90 p-2 rounded-xl border border-emerald-200/60">
+                      <div className="text-[10px] text-indigo-700 font-semibold uppercase">Total Customer Paid</div>
+                      <div className="font-mono font-black text-indigo-950 text-sm mt-0.5">
+                        ₹{totalPaidAmount.toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="bg-white/90 p-2 rounded-xl border border-emerald-200/60">
+                      <div className="text-[10px] text-emerald-700 font-semibold uppercase">New Balance</div>
+                      <div className="font-mono font-extrabold text-emerald-700 text-xs mt-0.5">
+                        ₹0.00 (Cleared ✓)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Quick Transaction Overview Cards */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">
-                    Net Paid Amount
+                    {receipt.previousKhataIncluded ? 'Total Paid (Bill + Khata)' : 'Net Paid Amount'}
                   </span>
                   <div className="text-xl font-extrabold font-mono text-emerald-950 mt-0.5">
-                    ₹{receipt.grandTotal.toFixed(2)}
+                    ₹{totalPaidAmount.toFixed(2)}
                   </div>
                   <span className="text-[11px] font-bold text-emerald-700 block">
                     Mode: {receipt.paymentMode}

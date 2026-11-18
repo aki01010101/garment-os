@@ -2688,7 +2688,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const promoDiscountAmount = promoResult.discountAmount;
     const promoTitleApplied = promoResult.appliedRule?.title;
 
-    const finalGrandTotal = Math.max(
+    const itemsGrandTotal = Math.max(
       0,
       Math.round(
         subtotal -
@@ -2701,11 +2701,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     );
 
+    const settledKhataAmount = khataSettlement?.previousKhataIncluded || 0;
+    const finalGrandTotal = itemsGrandTotal + settledKhataAmount;
+
     const tierMultiplier = selectedCustomer
       ? getCustomerTier(selectedCustomer.totalSpend).multiplier
       : 1.0;
     const pointsEarned = Math.floor(
-      (finalGrandTotal / 100) * loyaltyConfig.pointsPerHundredSpent * tierMultiplier
+      (itemsGrandTotal / 100) * loyaltyConfig.pointsPerHundredSpent * tierMultiplier
     );
 
     const changeDue =
@@ -2742,7 +2745,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (selectedCustomer && stampConfig.enabled) {
       const minAmount = stampConfig.minPurchaseAmount || 1000;
-      const qualifiesBySpend = finalGrandTotal >= minAmount;
+      const qualifiesBySpend = itemsGrandTotal >= minAmount;
       const autoStamps = qualifiesBySpend ? 1 : 0;
       const referralStamps = stampOptions?.friendReferralBonus ? (stampConfig.friendReferralBonus || 1) : 0;
 
@@ -2866,7 +2869,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const settledAmt = khataSettlement?.previousKhataIncluded || 0;
             const newOutstanding = Math.max(0, (cust.outstandingCredit || 0) - settledAmt) + creditAmt;
             const oldestDate = newOutstanding > 0 ? (cust.oldestCreditDate || (creditAmt > 0 ? transaction.date : undefined)) : undefined;
-            const newTotalSpend = cust.totalSpend + finalGrandTotal;
+            const newTotalSpend = cust.totalSpend + itemsGrandTotal;
             const newTier = getCustomerTier(newTotalSpend).tier;
 
             // Stamp Card updates
@@ -2904,7 +2907,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   stampOverrideReason ||
                   (stampOptions?.friendReferralBonus
                     ? 'Friend referral bonus (+1 stamp)'
-                    : `Purchase of ₹${finalGrandTotal}`),
+                    : `Purchase of ₹${itemsGrandTotal}`),
                 createdBy: currentUser?.fullName || currentUser?.username || 'Billing Staff',
               };
 
@@ -3002,11 +3005,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         if (selectedCustomer) {
           const creditAmt = creditAmount || 0;
-          const newOutstanding = (selectedCustomer.outstandingCredit || 0) + creditAmt;
+          const newOutstanding = Math.max(0, (selectedCustomer.outstandingCredit || 0) - settledKhataAmount) + creditAmt;
           asyncSyncCustomer({
             ...selectedCustomer,
             loyaltyPoints: Math.max(0, selectedCustomer.loyaltyPoints - redeemedPoints + pointsEarned),
-            totalSpend: selectedCustomer.totalSpend + finalGrandTotal,
+            totalSpend: selectedCustomer.totalSpend + itemsGrandTotal,
             totalVisits: selectedCustomer.totalVisits + 1,
             lastPurchaseDate: new Date().toISOString().split('T')[0],
             outstandingCredit: newOutstanding,

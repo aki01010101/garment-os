@@ -89,6 +89,21 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
     (receipt.couponDiscountAmount || 0) +
     (receipt.creditNoteDiscountAmount || 0);
 
+  const itemsNetTotal = Math.max(
+    0,
+    receipt.subtotal -
+      receipt.itemDiscountsTotal -
+      (receipt.loyaltyDiscountAmount || 0) -
+      (receipt.couponDiscountAmount || 0) -
+      (receipt.promoDiscountAmount || 0) -
+      (receipt.creditNoteDiscountAmount || 0)
+  );
+  const prevKhata = receipt.previousKhataIncluded || 0;
+  const displayTotalPaid =
+    prevKhata > 0 && receipt.grandTotal < itemsNetTotal + prevKhata - 0.5
+      ? itemsNetTotal + prevKhata
+      : receipt.grandTotal;
+
   const handleShareWhatsApp = () => {
     const stampText =
       receipt.stampsBalanceAfterSale !== undefined
@@ -97,11 +112,16 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
           }\n🎁 5th Visit: Free Small Gift (₹200-₹300)\n🎉 10th Visit: Free Shirt / Top (₹400-₹500)`
         : '';
 
+    const khataSettledText =
+      receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0
+        ? ` (Items: ₹${itemsNetTotal.toFixed(2)} + Prev Khata Settled: ₹${receipt.previousKhataIncluded.toFixed(2)})`
+        : '';
+
     const text = `*Digital E-Receipt - ${receipt.companyName}*\nInvoice: ${receipt.invoiceNumber}\nDate: ${new Date(
       receipt.date
-    ).toLocaleDateString('en-IN')}\nTotal Paid: ₹${receipt.grandTotal.toFixed(
+    ).toLocaleDateString('en-IN')}\nTotal Paid: ₹${displayTotalPaid.toFixed(
       2
-    )}${stampText}\n\nView Full Digital Bill & Warranty:\n${digitalReceiptUrl}\n\nLoved your shopping experience? Rate us 5 stars on Google: ${googleReviewUrl}`;
+    )}${khataSettledText}${stampText}\n\nView Full Digital Bill & Warranty:\n${digitalReceiptUrl}\n\nLoved your shopping experience? Rate us 5 stars on Google: ${googleReviewUrl}`;
 
     const cleanPhone = receipt.customerPhone ? receipt.customerPhone.replace(/[\s\-\+]/g, '').slice(-10) : '';
     const waUrl = cleanPhone.length === 10
@@ -242,6 +262,35 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
               </div>
             </div>
 
+            {/* Operator Khata Verification Banner */}
+            {Boolean(receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0) && (
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-300 space-y-1.5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-emerald-950">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Khata Paid & Confirmed by Operator</span>
+                  </div>
+                  <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md uppercase">
+                    All Dues Cleared ✓
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-[11px] pt-1 border-t border-emerald-200/60 font-mono">
+                  <div>
+                    <span className="text-slate-500 text-[9px] block">Today's Items</span>
+                    <span className="font-bold text-slate-800">₹{itemsNetTotal.toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-emerald-700 text-[9px] block">Khata Settled</span>
+                    <span className="font-bold text-emerald-800">₹{(receipt.previousKhataIncluded || 0).toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-indigo-700 text-[9px] block">Total Paid</span>
+                    <span className="font-black text-indigo-950">₹{displayTotalPaid.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Customer Meta */}
             <div className="flex justify-between text-[11px] text-slate-600">
               <span>
@@ -356,7 +405,7 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
 
               <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
                 <span>{receipt.previousKhataIncluded ? 'Total Paid (Bill + Khata):' : 'Net Total Paid:'}</span>
-                <span>₹{receipt.grandTotal.toFixed(2)}</span>
+                <span>₹{displayTotalPaid.toFixed(2)}</span>
               </div>
             </div>
 

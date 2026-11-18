@@ -168,10 +168,13 @@ export class EscPosBuilder {
     const spaceNeeded = this.columns - cleanLeft.length - cleanRight.length;
 
     if (bold) this.bold(true);
-    if (spaceNeeded > 0) {
+    if (spaceNeeded >= 0) {
       this.line(cleanLeft + ' '.repeat(spaceNeeded) + cleanRight);
     } else {
-      this.line(cleanLeft + ' ' + cleanRight);
+      // Exceeds column width: put left on first line and right aligned on second line to prevent wrapping numbers
+      this.line(cleanLeft);
+      const rightPad = Math.max(0, this.columns - cleanRight.length);
+      this.line(' '.repeat(rightPad) + cleanRight);
     }
     if (bold) this.bold(false);
     return this;
@@ -538,10 +541,25 @@ export function formatSaleToEscPos(receipt: SaleTransaction, options: EscPosOpti
   builder.twoColumnRow('GST:', 'Included in Price');
 
   // 5. NET PAYABLE (HIGHLIGHTED)
+  const itemsNetTotal = Math.max(
+    0,
+    receipt.subtotal -
+      receipt.itemDiscountsTotal -
+      (receipt.loyaltyDiscountAmount || 0) -
+      (receipt.couponDiscountAmount || 0) -
+      (receipt.promoDiscountAmount || 0) -
+      (receipt.creditNoteDiscountAmount || 0)
+  );
+  const prevKhata = receipt.previousKhataIncluded || 0;
+  const totalPaid =
+    prevKhata > 0 && receipt.grandTotal < itemsNetTotal + prevKhata - 0.5
+      ? itemsNetTotal + prevKhata
+      : receipt.grandTotal;
+
   builder.doubleSeparator();
   builder
     .bold(true)
-    .twoColumnRow(receipt.previousKhataIncluded ? 'TOTAL PAID (BILL+KHATA):' : 'NET PAYABLE:', `Rs. ${receipt.grandTotal.toFixed(2)}`, true)
+    .twoColumnRow(receipt.previousKhataIncluded ? 'TOTAL (BILL+KHATA):' : 'NET PAYABLE:', `Rs. ${totalPaid.toFixed(2)}`, true)
     .twoColumnRow('Paid via:', receipt.paymentMode, true)
     .bold(false);
 

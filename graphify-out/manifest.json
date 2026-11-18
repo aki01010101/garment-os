@@ -210,15 +210,15 @@
     "semantic_hash": ""
   },
   "src/components/pos/DigitalReceiptModal.tsx": {
-    "mtime": 1795026461.3519278,
-    "seen": 1795026497.841892,
-    "ast_hash": "c49f1375897ba3b353933411de500b2c",
+    "mtime": 1795027799.5404956,
+    "seen": 1795027898.333326,
+    "ast_hash": "16db91d1cb2a80a24950771298c3fca5",
     "semantic_hash": ""
   },
   "src/components/pos/POSBilling.tsx": {
-    "mtime": 1795026400.7010758,
-    "seen": 1795026497.8420691,
-    "ast_hash": "46b96050c81669b762ecdc8469432be5",
+    "mtime": 1795027810.3708441,
+    "seen": 1795027898.3336346,
+    "ast_hash": "68ae6376ac97b55d73c522e2bf406b6e",
     "semantic_hash": ""
   },
   "src/components/pos/StoreCreditNotesModal.tsx": {
@@ -228,9 +228,9 @@
     "semantic_hash": ""
   },
   "src/components/pos/ThermalReceipt.tsx": {
-    "mtime": 1795026442.985765,
-    "seen": 1795026497.8423846,
-    "ast_hash": "00ab1a5f2bf53072357417553fede2b3",
+    "mtime": 1795027819.3609624,
+    "seen": 1795027898.3348038,
+    "ast_hash": "3578fd083e0a72abcfe1aedff9802ab2",
     "semantic_hash": ""
   },
   "src/components/printer/PrinterGuideModal.tsx": {
@@ -306,9 +306,9 @@
     "semantic_hash": ""
   },
   "src/context/AppContext.tsx": {
-    "mtime": 1795026080.6386926,
-    "seen": 1795026497.8455434,
-    "ast_hash": "590f607b41c13690a90fe9cb97c65f4f",
+    "mtime": 1795027264.9099472,
+    "seen": 1795027898.3376424,
+    "ast_hash": "a9f4633d21d209715bea141d2be886c7",
     "semantic_hash": ""
   },
   "src/data/seedData.ts": {
@@ -366,15 +366,15 @@
     "semantic_hash": ""
   },
   "src/utils/escpos.ts": {
-    "mtime": 1795026414.2999554,
-    "seen": 1795026497.8486297,
-    "ast_hash": "3c604180d9db431bd0793e5fb560612a",
+    "mtime": 1795027583.2459025,
+    "seen": 1795027898.3397968,
+    "ast_hash": "bfc3d4dfbd569a5b4a361e7e8aba01c3",
     "semantic_hash": ""
   },
   "src/utils/printReceipt.ts": {
-    "mtime": 1794828734.625183,
-    "seen": 1794829124.2160232,
-    "ast_hash": "f109329736f5e63202736117697a3832",
+    "mtime": 1795027566.7108903,
+    "seen": 1795027898.339973,
+    "ast_hash": "26ed1c34b71a7ed643036396871eb34e",
     "semantic_hash": ""
   },
   "src/utils/upi.ts": {
@@ -480,8 +480,8 @@
     "semantic_hash": ""
   },
   "src/components/pos/CustomerDisplay.tsx": {
-    "mtime": 1795026168.052063,
-    "seen": 1795026497.841713,
+    "mtime": 1795026909.9114304,
+    "seen": 1795027898.333179,
     "ast_hash": "77eea847d8723f94bf58faaa38d8f70e",
     "semantic_hash": ""
   },
