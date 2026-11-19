@@ -149,10 +149,9 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
     }
   }, [customer, initialTab, initialMemberToEdit, isOpen]);
 
-  if (!isOpen || !customer) return null;
-
   // Other customers available for linking (exclude current customer and already linked members)
   const availableCrmCustomers = useMemo(() => {
+    if (!isOpen || !customer) return [];
     const q = linkSearchQuery.toLowerCase().trim();
     return customers.filter((c) => {
       if (c.id === customer.id) return false;
@@ -167,7 +166,9 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
         (c.email && c.email.toLowerCase().includes(q))
       );
     });
-  }, [customers, customer.id, familyMembersList, editingFamilyId, linkSearchQuery]);
+  }, [isOpen, customers, customer?.id, familyMembersList, editingFamilyId, linkSearchQuery]);
+
+  if (!isOpen || !customer) return null;
 
   const handleSelectExistingCustomer = (targetId: string) => {
     setSelectedExistingCustomerId(targetId);

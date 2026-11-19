@@ -107,8 +107,6 @@ export const ZReportPreviewModal: React.FC<ZReportPreviewModalProps> = ({
     });
   };
 
-  if (!isOpen) return null;
-
   const now = new Date();
   const printTimestamp = now.toLocaleDateString('en-IN', {
     day: '2-digit',
@@ -123,7 +121,7 @@ export const ZReportPreviewModal: React.FC<ZReportPreviewModalProps> = ({
   const actualCounted =
     countedCash !== undefined
       ? countedCash
-      : dayRegister.closingCashCounted !== undefined
+      : dayRegister?.closingCashCounted !== undefined
       ? dayRegister.closingCashCounted
       : undefined;
 
@@ -133,6 +131,69 @@ export const ZReportPreviewModal: React.FC<ZReportPreviewModalProps> = ({
       : actualCounted !== undefined
       ? actualCounted - expectedCashInDrawer
       : undefined;
+
+  // Executive Daily Briefing Metrics
+  const executiveMetrics = useMemo(() => {
+    if (!isOpen || !dayRegister) {
+      return {
+        todayCreditAmount: 0,
+        todayCreditCount: 0,
+        todayRecoveredAmount: 0,
+        todayRecoveredCount: 0,
+        topItem: 'No items sold today',
+        topItemCount: 0,
+        pendingAlterations: 0,
+        lowStockAlerts: 0,
+      };
+    }
+
+    const todaySales = sales.filter((s) => (s.date || '').startsWith(dayRegister.date));
+    const todayCreditAmount = todaySales.reduce((acc, s) => {
+      if (s.paymentMode === 'Credit') return acc + s.grandTotal;
+      if (s.paymentMode === 'Split' && s.splitBreakdown?.credit) return acc + s.splitBreakdown.credit;
+      return acc;
+    }, 0);
+    const todayCreditCount = todaySales.filter(
+      (s) => s.paymentMode === 'Credit' || (s.paymentMode === 'Split' && s.splitBreakdown?.credit)
+    ).length;
+
+    const todayRecoveredAmount = creditPayments
+      .filter((cp) => (cp.date || '').startsWith(dayRegister.date))
+      .reduce((acc, cp) => acc + cp.amount, 0);
+    const todayRecoveredCount = creditPayments.filter((cp) => (cp.date || '').startsWith(dayRegister.date)).length;
+
+    // Top item sold today
+    const itemCounts: Record<string, number> = {};
+    todaySales.forEach((s) => {
+      s.items.forEach((item) => {
+        itemCounts[item.name] = (itemCounts[item.name] || 0) + item.qty;
+      });
+    });
+    let topItem = 'No items sold today';
+    let topItemCount = 0;
+    Object.entries(itemCounts).forEach(([name, count]) => {
+      if (count > topItemCount) {
+        topItem = name;
+        topItemCount = count;
+      }
+    });
+
+    const pendingAlterations = alterations.filter(
+      (a) => a.status === 'Pending' || a.status === 'In Progress'
+    ).length;
+    const lowStockAlerts = products.filter((p) => p.stock <= p.minStockAlert).length;
+
+    return {
+      todayCreditAmount,
+      todayCreditCount,
+      todayRecoveredAmount,
+      todayRecoveredCount,
+      topItem,
+      topItemCount,
+      pendingAlterations,
+      lowStockAlerts,
+    };
+  }, [isOpen, sales, creditPayments, alterations, products, dayRegister?.date]);
 
   const handlePrint = async () => {
     if (printMethod === 'browser') {
@@ -191,56 +252,6 @@ export const ZReportPreviewModal: React.FC<ZReportPreviewModalProps> = ({
     }
   };
 
-  // Executive Daily Briefing Metrics
-  const executiveMetrics = useMemo(() => {
-    const todaySales = sales.filter((s) => (s.date || '').startsWith(dayRegister.date));
-    const todayCreditAmount = todaySales.reduce((acc, s) => {
-      if (s.paymentMode === 'Credit') return acc + s.grandTotal;
-      if (s.paymentMode === 'Split' && s.splitBreakdown?.credit) return acc + s.splitBreakdown.credit;
-      return acc;
-    }, 0);
-    const todayCreditCount = todaySales.filter(
-      (s) => s.paymentMode === 'Credit' || (s.paymentMode === 'Split' && s.splitBreakdown?.credit)
-    ).length;
-
-    const todayRecoveredAmount = creditPayments
-      .filter((cp) => (cp.date || '').startsWith(dayRegister.date))
-      .reduce((acc, cp) => acc + cp.amount, 0);
-    const todayRecoveredCount = creditPayments.filter((cp) => (cp.date || '').startsWith(dayRegister.date)).length;
-
-    // Top item sold today
-    const itemCounts: Record<string, number> = {};
-    todaySales.forEach((s) => {
-      s.items.forEach((item) => {
-        itemCounts[item.name] = (itemCounts[item.name] || 0) + item.qty;
-      });
-    });
-    let topItem = 'No items sold today';
-    let topItemCount = 0;
-    Object.entries(itemCounts).forEach(([name, count]) => {
-      if (count > topItemCount) {
-        topItem = name;
-        topItemCount = count;
-      }
-    });
-
-    const pendingAlterations = alterations.filter(
-      (a) => a.status === 'Pending' || a.status === 'In Progress'
-    ).length;
-    const lowStockAlerts = products.filter((p) => p.stock <= p.minStockAlert).length;
-
-    return {
-      todayCreditAmount,
-      todayCreditCount,
-      todayRecoveredAmount,
-      todayRecoveredCount,
-      topItem,
-      topItemCount,
-      pendingAlterations,
-      lowStockAlerts,
-    };
-  }, [sales, creditPayments, alterations, products, dayRegister.date]);
-
   const generateReportText = () => {
     return `
 📊 *${activeCompany.name.toUpperCase()} - DAILY CLOSING BRIEFING*
@@ -279,6 +290,8 @@ Closed by: ${currentUser?.fullName || currentUser?.username || 'Cashier'} at ${p
       setTimeout(() => setCopied(false), 2000);
     });
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto no-print">
