@@ -444,20 +444,25 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-5 overflow-y-auto no-print">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto no-print">
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-[98vw] 2xl:max-w-[1600px] max-h-[96vh] sm:max-h-[93vh] flex flex-col border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-900 text-white flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-900 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-md">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-md shrink-0">
               <User className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
                 <span>Build Customer Profile: {customer.name}</span>
+                {customer.phone && customer.phone !== 'N/A' && (
+                  <span className="text-xs font-normal text-slate-300 font-mono">
+                    ({customer.phone})
+                  </span>
+                )}
               </h3>
               <p className="text-xs text-slate-300">
                 All fields are optional. Fill whichever sizing, measurements, or family links the customer shares.
@@ -473,82 +478,82 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
         </div>
 
         {/* Section Navigation Tabs */}
-        <div className="flex items-center gap-1 p-2 bg-slate-100 border-b border-slate-200 overflow-x-auto text-xs font-semibold">
+        <div className="flex items-center gap-1.5 p-2 bg-slate-100 border-b border-slate-200 overflow-x-auto text-xs font-semibold shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('family')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
               activeTab === 'family'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
-            <Users className="w-3.5 h-3.5 text-pink-600" />
+            <Users className="w-4 h-4 text-pink-600" />
             <span>Family Members ({familyMembersList.length})</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('sizes')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
               activeTab === 'sizes'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
-            <Ruler className="w-3.5 h-3.5 text-indigo-600" />
+            <Ruler className="w-4 h-4 text-indigo-600" />
             <span>Garment Sizes & Fit</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('measurements')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
               activeTab === 'measurements'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <Sparkles className="w-4 h-4 text-amber-500" />
             <span>Body Measurements</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('occasions')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
               activeTab === 'occasions'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
-            <Calendar className="w-3.5 h-3.5 text-rose-500" />
+            <Calendar className="w-4 h-4 text-rose-500" />
             <span>Occasions & Dates</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('address')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
               activeTab === 'address'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
-            <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+            <MapPin className="w-4 h-4 text-emerald-600" />
             <span>Address & GST</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('style')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
               activeTab === 'style'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
-            <Palette className="w-3.5 h-3.5 text-purple-600" />
+            <Palette className="w-4 h-4 text-purple-600" />
             <span>Style & Notes</span>
           </button>
         </div>
@@ -578,7 +583,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                     <span className="text-[10px] text-slate-400 font-normal">Click edit to update or delete</span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {familyMembersList.map((member) => {
                       const linkedCrmCust = member.linkedCustomerId
                         ? customers.find((c) => c.id === member.linkedCustomerId)
@@ -897,7 +902,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                 )}
 
                 {/* Fields Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
                       Relationship <span className="text-rose-500">*</span>
@@ -905,7 +910,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                     <select
                       value={familyForm.relation}
                       onChange={(e) => handleRelationChange(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium cursor-pointer"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-medium cursor-pointer"
                     >
                       {RELATION_OPTIONS.map((r) => (
                         <option key={r} value={r}>
@@ -925,7 +930,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                       value={familyForm.name}
                       onChange={(e) => setFamilyForm({ ...familyForm, name: e.target.value })}
                       placeholder="e.g. Priya Malhotra"
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-medium"
                     />
                   </div>
 
@@ -938,7 +943,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                       value={familyForm.phone}
                       onChange={(e) => setFamilyForm({ ...familyForm, phone: e.target.value })}
                       placeholder="e.g. 9812345678"
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-mono"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono"
                     />
                   </div>
 
@@ -950,11 +955,11 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                       type="date"
                       value={familyForm.birthday}
                       onChange={(e) => setFamilyForm({ ...familyForm, birthday: e.target.value })}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg cursor-pointer"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg cursor-pointer"
                     />
                   </div>
 
-                  <div>
+                  <div className="lg:col-span-2">
                     <div className="flex items-center justify-between mb-1">
                       <label className="block font-semibold text-slate-700">
                         Shirt / Top Size <span className="text-slate-400 font-normal">(Optional)</span>
@@ -965,15 +970,15 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                       value={familyForm.preferredShirtSize}
                       onChange={(e) => setFamilyForm({ ...familyForm, preferredShirtSize: e.target.value })}
                       placeholder="e.g. M, 38, Kids 6Y, XL"
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg"
                     />
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {SHIRT_SIZE_PRESETS.slice(0, 6).map((sz) => (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {SHIRT_SIZE_PRESETS.map((sz) => (
                         <button
                           key={sz}
                           type="button"
                           onClick={() => setFamilyForm({ ...familyForm, preferredShirtSize: sz })}
-                          className="px-1.5 py-0.5 text-[10px] font-medium bg-white hover:bg-slate-100 border border-slate-200 rounded cursor-pointer transition-colors"
+                          className="px-2 py-0.5 text-[10px] font-medium bg-white hover:bg-slate-100 border border-slate-200 rounded cursor-pointer transition-colors"
                         >
                           {sz}
                         </button>
@@ -981,7 +986,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                     </div>
                   </div>
 
-                  <div>
+                  <div className="lg:col-span-2">
                     <div className="flex items-center justify-between mb-1">
                       <label className="block font-semibold text-slate-700">
                         Trouser / Waist <span className="text-slate-400 font-normal">(Optional)</span>
@@ -992,34 +997,34 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                       value={familyForm.preferredTrouserWaist}
                       onChange={(e) => setFamilyForm({ ...familyForm, preferredTrouserWaist: e.target.value })}
                       placeholder="e.g. 30, 32, Free Size"
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg"
                     />
-                    <div className="flex flex-wrap gap-1 mt-1">
+                    <div className="flex flex-wrap gap-1 mt-1.5">
                       {WAIST_SIZE_PRESETS.map((w) => (
                         <button
                           key={w}
                           type="button"
                           onClick={() => setFamilyForm({ ...familyForm, preferredTrouserWaist: w })}
-                          className="px-1.5 py-0.5 text-[10px] font-medium bg-white hover:bg-slate-100 border border-slate-200 rounded cursor-pointer transition-colors"
+                          className="px-2 py-0.5 text-[10px] font-medium bg-white hover:bg-slate-100 border border-slate-200 rounded cursor-pointer transition-colors"
                         >
                           {w}"
                         </button>
                       ))}
                     </div>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Clothing / Style Notes <span className="text-slate-400 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={familyForm.notes}
-                    onChange={(e) => setFamilyForm({ ...familyForm, notes: e.target.value })}
-                    placeholder="e.g. Loves pastel silk kurtis, allergic to pure wool, preferred collar: Mandarin"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg"
-                  />
+                  <div className="lg:col-span-4">
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Clothing / Style Notes <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={familyForm.notes}
+                      onChange={(e) => setFamilyForm({ ...familyForm, notes: e.target.value })}
+                      placeholder="e.g. Loves pastel silk kurtis, allergic to pure wool, preferred collar: Mandarin"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg"
+                    />
+                  </div>
                 </div>
 
                 {linkMode === 'new' && !editingFamilyId && (
@@ -1066,7 +1071,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                 <span>Save preferred off-the-rack garment sizes for quick cashier lookup during billing.</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
                     Preferred Shirt / Kurti Size <span className="text-slate-400 font-normal">(Optional)</span>
@@ -1078,7 +1083,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                     placeholder="e.g. L, 40, 42, XL"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg"
                   />
-                  <div className="flex gap-1.5 mt-1.5">
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
                     {['S (38)', 'M (40)', 'L (42)', 'XL (44)', 'XXL (46)'].map((sz) => (
                       <button
                         key={sz}
@@ -1103,7 +1108,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                     placeholder="e.g. 32, 34, 36"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg"
                   />
-                  <div className="flex gap-1.5 mt-1.5">
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
                     {['28', '30', '32', '34', '36', '38'].map((w) => (
                       <button
                         key={w}
@@ -1116,24 +1121,24 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                     ))}
                   </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Preferred Fit Style <span className="text-slate-400 font-normal">(Optional)</span>
-                </label>
-                <select
-                  value={profile.preferredFit || ''}
-                  onChange={(e) => setProfile({ ...profile, preferredFit: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg"
-                >
-                  <option value="">-- Select Preferred Fit (Optional) --</option>
-                  <option value="Slim Fit">Slim Fit</option>
-                  <option value="Regular Fit">Regular Fit</option>
-                  <option value="Relaxed Fit">Relaxed Fit</option>
-                  <option value="Comfort / Traditional">Comfort / Traditional</option>
-                  <option value="Tailored / Bespoke">Tailored / Bespoke</option>
-                </select>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Preferred Fit Style <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <select
+                    value={profile.preferredFit || ''}
+                    onChange={(e) => setProfile({ ...profile, preferredFit: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg"
+                  >
+                    <option value="">-- Select Preferred Fit (Optional) --</option>
+                    <option value="Slim Fit">Slim Fit</option>
+                    <option value="Regular Fit">Regular Fit</option>
+                    <option value="Relaxed Fit">Relaxed Fit</option>
+                    <option value="Comfort / Traditional">Comfort / Traditional</option>
+                    <option value="Tailored / Bespoke">Tailored / Bespoke</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}
@@ -1146,7 +1151,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                 <span>Store exact tailor measurements (in inches) to make bespoke fittings seamless.</span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Chest (inches)</label>
                   <input
@@ -1262,64 +1267,60 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                 <span>Optional residential address, delivery location, or business GSTIN.</span>
               </div>
 
-              <div className="space-y-3">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="sm:col-span-2">
                   <label className="block font-semibold text-slate-700 mb-1">Street Address / Landmark</label>
                   <input
                     type="text"
                     value={profile.address || ''}
                     onChange={(e) => setProfile({ ...profile, address: e.target.value })}
                     placeholder="e.g. 42 Model Town, Near Sector 14"
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">City / Region</label>
-                    <input
-                      type="text"
-                      value={profile.city || ''}
-                      onChange={(e) => setProfile({ ...profile, city: e.target.value })}
-                      placeholder="e.g. Karnal, Haryana"
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Pincode</label>
-                    <input
-                      type="text"
-                      value={profile.pincode || ''}
-                      onChange={(e) => setProfile({ ...profile, pincode: e.target.value })}
-                      placeholder="e.g. 132001"
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono"
-                    />
-                  </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">City / Region</label>
+                  <input
+                    type="text"
+                    value={profile.city || ''}
+                    onChange={(e) => setProfile({ ...profile, city: e.target.value })}
+                    placeholder="e.g. Karnal, Haryana"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg"
+                  />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Alternate Contact Phone</label>
-                    <input
-                      type="tel"
-                      value={profile.alternatePhone || ''}
-                      onChange={(e) => setProfile({ ...profile, alternatePhone: e.target.value })}
-                      placeholder="e.g. 9812000000"
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono"
-                    />
-                  </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Pincode</label>
+                  <input
+                    type="text"
+                    value={profile.pincode || ''}
+                    onChange={(e) => setProfile({ ...profile, pincode: e.target.value })}
+                    placeholder="e.g. 132001"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Customer / Business GSTIN</label>
-                    <input
-                      type="text"
-                      value={profile.gstin || ''}
-                      onChange={(e) => setProfile({ ...profile, gstin: e.target.value.toUpperCase() })}
-                      placeholder="e.g. 06AAAAA0000A1Z5"
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono uppercase"
-                    />
-                  </div>
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-slate-700 mb-1">Alternate Contact Phone</label>
+                  <input
+                    type="tel"
+                    value={profile.alternatePhone || ''}
+                    onChange={(e) => setProfile({ ...profile, alternatePhone: e.target.value })}
+                    placeholder="e.g. 9812000000"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-slate-700 mb-1">Customer / Business GSTIN</label>
+                  <input
+                    type="text"
+                    value={profile.gstin || ''}
+                    onChange={(e) => setProfile({ ...profile, gstin: e.target.value.toUpperCase() })}
+                    placeholder="e.g. 06AAAAA0000A1Z5"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono uppercase"
+                  />
                 </div>
               </div>
             </div>
