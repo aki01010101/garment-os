@@ -287,6 +287,8 @@ interface AppContextType {
   setCodePrintType: (type: CodePrintType) => void;
   qrPrintSize: QrPrintSize;
   setQrPrintSize: (size: QrPrintSize) => void;
+  autoSendWhatsAppOnPrint: boolean;
+  setAutoSendWhatsAppOnPrint: (enabled: boolean) => void;
 
   // UPI & Digital Payments
   storeUpiId: string;
@@ -388,6 +390,7 @@ const STORAGE_KEYS = {
   REGISTER: 'verve_clothing_register_v2',
   CODE_PRINT_TYPE: 'garment_os_code_print_type',
   QR_PRINT_SIZE: 'garment_os_qr_print_size',
+  AUTO_SEND_WHATSAPP_ON_PRINT: 'garment_os_auto_send_whatsapp_on_print',
   STORE_UPI_ID: 'garment_os_store_upi_id',
   STORE_UPI_NAME: 'garment_os_store_upi_name',
   SOUND: 'verve_clothing_sound_v2',
@@ -602,6 +605,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isSupabaseAutoSync) asyncSyncSetting('qrPrintSize', size);
   };
 
+  const [autoSendWhatsAppOnPrint, setAutoSendWhatsAppOnPrintState] = useState<boolean>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.AUTO_SEND_WHATSAPP_ON_PRINT);
+    return saved === 'true';
+  });
+
+  const setAutoSendWhatsAppOnPrint = (enabled: boolean) => {
+    setAutoSendWhatsAppOnPrintState(enabled);
+    localStorage.setItem(STORAGE_KEYS.AUTO_SEND_WHATSAPP_ON_PRINT, String(enabled));
+    if (isSupabaseAutoSync) asyncSyncSetting('autoSendWhatsAppOnPrint', enabled);
+  };
+
   // Store UPI VPA / ID & Merchant Name for Dynamic Payment QR Codes
   const [storeUpiId, setStoreUpiIdState] = useState<string>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.STORE_UPI_ID);
@@ -746,6 +760,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (s.googleReviewPromptText !== undefined) setGoogleReviewPromptText(s.googleReviewPromptText);
         if (s.enableReceiptReviewQr !== undefined) setEnableReceiptReviewQr(s.enableReceiptReviewQr);
         if (s.enableEReceiptQr !== undefined) setEnableEReceiptQr(s.enableEReceiptQr);
+        if (s.autoSendWhatsAppOnPrint !== undefined) setAutoSendWhatsAppOnPrint(s.autoSendWhatsAppOnPrint);
         if (s.soundEnabled !== undefined) setSoundEnabled(s.soundEnabled);
         if (s.activeCompanyId !== undefined) setActiveCompanyId(s.activeCompanyId);
       }
@@ -3569,6 +3584,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCodePrintType,
         qrPrintSize,
         setQrPrintSize,
+        autoSendWhatsAppOnPrint,
+        setAutoSendWhatsAppOnPrint,
         // UPI & Digital Payments
         storeUpiId,
         setStoreUpiId,

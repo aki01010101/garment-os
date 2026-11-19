@@ -166,7 +166,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
         (c.email && c.email.toLowerCase().includes(q))
       );
     });
-  }, [isOpen, customers, customer?.id, familyMembersList, editingFamilyId, linkSearchQuery]);
+  }, [customers, customer?.id, familyMembersList, editingFamilyId, linkSearchQuery, isOpen]);
 
   if (!isOpen || !customer) return null;
 

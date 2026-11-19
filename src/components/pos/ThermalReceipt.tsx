@@ -85,6 +85,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     setCodePrintType,
     qrPrintSize,
     setQrPrintSize,
+    autoSendWhatsAppOnPrint,
     storeUpiId,
     storeUpiName,
     storeGoogleReviewUrl,
@@ -113,6 +114,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
   const [copied, setCopied] = useState(false);
   const [whatsAppPhone, setWhatsAppPhone] = useState<string>('');
+  const [skipWhatsAppForThisPrint, setSkipWhatsAppForThisPrint] = useState<boolean>(false);
   const [includeUpiQr, setIncludeUpiQr] = useState<boolean>(true);
   const [includeReviewQr, setIncludeReviewQr] = useState<boolean>(() => {
     return enableReceiptReviewQr !== false;
@@ -466,7 +468,17 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     }
   };
 
+  const triggerAutoWhatsApp = () => {
+    if (!autoSendWhatsAppOnPrint || skipWhatsAppForThisPrint) return;
+    const rawPhone = (whatsAppPhone.trim() || receipt?.customerPhone || '').replace(/[^0-9]/g, '');
+    if (rawPhone.length >= 10 && rawPhone !== '0000000000') {
+      handleSendWhatsApp();
+    }
+  };
+
   const handlePrimaryPrint = () => {
+    triggerAutoWhatsApp();
+
     if (printMethod === 'bluetooth') {
       handlePrintBluetooth();
     } else if (printMethod === 'usb') {
@@ -505,9 +517,19 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         ? receipt.customerNewBalance
         : prevBal + thisCredit;
 
+    const digitalReceiptUrl =
+      typeof window !== 'undefined' && window.location?.origin
+        ? `${window.location.origin}/receipt/${encodeURIComponent(receipt.invoiceNumber)}`
+        : `https://garment-pos.app/receipt/${encodeURIComponent(receipt.invoiceNumber)}`;
+
+    const hasStampCard =
+      (receipt.stampsBalanceAfterSale !== undefined ||
+        (receipt.stampsEarnedThisSale && receipt.stampsEarnedThisSale > 0)) &&
+      loyaltyConfig?.stampCard?.enabled !== false;
+
     return `
 ================================
-*${receipt.companyName.toUpperCase()}*
+*${(receipt.companyName || 'STORE').toUpperCase()}*
 ================================
 Store: ${receipt.companyAddress}
 Tel: ${receipt.companyPhone}
@@ -523,11 +545,18 @@ ${receipt.items.map((i) => `* ${i.qty}x ${i.name} [Size: ${i.size}, ${i.color}] 
 *Subtotal:* Rs. ${receipt.subtotal.toFixed(2)}
 *Total Items:* ${totalItemsCount} pcs
 ${receipt.itemDiscountsTotal > 0 ? `*Discount:* -Rs. ${receipt.itemDiscountsTotal.toFixed(2)}\n` : ''}${Boolean(receipt.promoDiscountAmount && receipt.promoDiscountAmount > 0) ? `*Offer/Promo (${receipt.promoTitleApplied || 'Special Deal'}):* -Rs. ${receipt.promoDiscountAmount!.toFixed(2)}\n` : ''}${receipt.loyaltyDiscountAmount > 0 ? `*Loyalty Redeemed:* -Rs. ${receipt.loyaltyDiscountAmount.toFixed(2)}\n` : ''}${Boolean(receipt.couponDiscountAmount && receipt.couponDiscountAmount > 0) ? `*Coupon:* -Rs. ${receipt.couponDiscountAmount!.toFixed(2)}\n` : ''}${Boolean(receipt.creditNoteDiscountAmount && receipt.creditNoteDiscountAmount > 0) ? `*Credit Note:* -Rs. ${receipt.creditNoteDiscountAmount!.toFixed(2)}\n` : ''}${receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0 ? `*Previous Khata Settled:* +Rs. ${receipt.previousKhataIncluded.toFixed(2)}${receipt.previousKhataInvoices && receipt.previousKhataInvoices.length > 0 ? `\n(Settled Bills: ${receipt.previousKhataInvoices.map(i => `#${i.invoiceNumber}`).join(', ')})` : ''}\n` : ''}*GST:* Included in Price
-*${receipt.previousKhataIncluded ? 'TOTAL PAID (BILL + KHATA)' : 'NET PAID'}:* Rs. ${receipt.grandTotal.toFixed(2)} (${paymentModeLabel})
+*${receipt.previousKhataIncluded ? 'TOTAL PAID (BILL + KHATA)' : 'NET PAID'}:* Rs. ${totalPaidAmount.toFixed(2)} (${paymentModeLabel})
 --------------------------------
-${showKhataMemo ? `*KHATA / UDHAAR ACKNOWLEDGMENT*
+${showKhataMemo ? `*KHATA / UDHAAR STATUS:*
 ${receipt.previousKhataIncluded && receipt.previousKhataIncluded > 0 ? `*Previous Khata Settled:* Rs. ${receipt.previousKhataIncluded.toFixed(2)}\n*Remaining Khata Due:* Rs. 0.00 (ALL DUES FULLY CLEARED ✓)\n` : `${prevBal > 0 ? `*Previous Khata:* Rs. ${prevBal.toFixed(2)}\n` : ''}${thisCredit > 0 ? `*This Bill Credit:* Rs. ${thisCredit.toFixed(2)}\n` : ''}*Net Outstanding Debt:* Rs. ${totalOutstanding.toFixed(2)}\n`}${receipt.creditDueDate ? `*Promised Due Date:* ${receipt.creditDueDate}\n` : ''}"I acknowledge the balance above and agree to clear the outstanding debt."
-${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${receipt.customerName}\n` : `*Customer Signature:* __________________ (${receipt.customerName})\n`}--------------------------------\n` : ''}${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n--------------------------------\n' : ''}*Return Policy:* ${receipt.companyReturnPolicy}
+${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${receipt.customerName}\n` : `*Customer Signature:* __________________ (${receipt.customerName})\n`}--------------------------------\n` : ''}${hasStampCard ? `🎫 *Fantasy Check-in Card:* ${receipt.stampsBalanceAfterSale ?? 0}/10 Stamps${receipt.stampsEarnedThisSale ? ` (+${receipt.stampsEarnedThisSale} earned today!)` : ''}
+🎁 5th Visit: ${loyaltyConfig?.stampCard?.milestone5GiftText || 'Small Gift (Rs. 200-300 item)'}
+🎉 10th Visit: ${loyaltyConfig?.stampCard?.milestone10GiftText || 'Free Shirt/Top (Rs. 400-500 item)'}
+--------------------------------
+` : ''}${hasAlterations ? '*Alteration in Progress:* Check delivery date with store.\n--------------------------------\n' : ''}View your digital bill & warranty:
+${digitalReceiptUrl}
+${effectiveReviewUrl ? `\nRate us 5 stars on Google: ${effectiveReviewUrl}\n` : ''}
+*Return Policy:* ${receipt.companyReturnPolicy}
 *Thank you for shopping with us!*
 *Visit Again · ${receipt.companyName || 'Store'}*
 ================================
@@ -542,7 +571,8 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
   };
 
   const handleSendWhatsApp = () => {
-    const rawPhone = (whatsAppPhone.trim() || receipt.customerPhone).replace(/[^0-9]/g, '');
+    const rawPhone = (whatsAppPhone.trim() || receipt.customerPhone || '').replace(/[^0-9]/g, '');
+    if (!rawPhone || rawPhone === '0000000000' || rawPhone.length < 10) return;
     const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
     const text = encodeURIComponent(generateReceiptText());
     const url = `https://wa.me/${cleanPhone}?text=${text}`;
@@ -1478,9 +1508,35 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                     <MessageCircle className="w-4 h-4 text-emerald-600" />
                     <span>Send Digital E-Receipt via WhatsApp</span>
                   </div>
-                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                    Instant E-Bill
-                  </span>
+                  {autoSendWhatsAppOnPrint ? (
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          skipWhatsAppForThisPrint
+                            ? 'bg-amber-100 text-amber-800 border-amber-300'
+                            : 'bg-emerald-100 text-emerald-800 border-emerald-300 flex items-center gap-1'
+                        }`}
+                      >
+                        {skipWhatsAppForThisPrint ? 'Skipped for this bill' : '⚡ Auto-Send on Print'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSkipWhatsAppForThisPrint(!skipWhatsAppForThisPrint)}
+                        className="text-[10px] font-bold text-slate-600 hover:text-slate-900 underline cursor-pointer"
+                        title={
+                          skipWhatsAppForThisPrint
+                            ? 'Re-enable auto-send for this print'
+                            : 'Skip auto-send for this print only'
+                        }
+                      >
+                        {skipWhatsAppForThisPrint ? 'Re-enable' : 'Skip for this bill'}
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                      Instant E-Bill
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1500,6 +1556,11 @@ ${receipt.customerSignature ? `*Customer Signature:* Digitally Signed by ${recei
                     <span>Send on WhatsApp</span>
                   </button>
                 </div>
+                {autoSendWhatsAppOnPrint && !skipWhatsAppForThisPrint && (
+                  <p className="text-[10px] text-emerald-700 italic">
+                    💡 Auto-Send is active: Clicking any Print button below will automatically open WhatsApp for this customer.
+                  </p>
+                )}
               </div>
 
               {/* Copy Plain-Text Receipt Option */}

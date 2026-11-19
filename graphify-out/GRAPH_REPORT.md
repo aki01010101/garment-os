@@ -1,7 +1,7 @@
 # Graph Report - Garment POS  (2026-11-19)
 
 ## Corpus Check
-- 91 files · ~209,767 words
+- 91 files · ~210,468 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: .example 1, (none) 1, .css 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a4421317`
+- Built from commit: `3685dde0`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -55,7 +55,7 @@
 7. `printThermalReceiptHtml()` - 32 edges
 8. `ThermalReceipt()` - 31 edges
 9. `Customer` - 27 edges
-10. `printViaWebBluetooth()` - 26 edges
+10. `Product` - 26 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `StockTransferModalProps` --references--> `Product`  [EXTRACTED]
@@ -66,8 +66,8 @@
   vite.config.ts → src/server/printerBridge.js
 - `registerPrinterRoutes()` --calls--> `printRawToWindowsPrinter()`  [EXTRACTED]
   vite.config.ts → src/server/printerBridge.js
-- `DigitalReceiptModalProps` --references--> `SaleTransaction`  [EXTRACTED]
-  src/components/pos/DigitalReceiptModal.tsx → src/types.ts
+- `ZReportPreviewModal()` --calls--> `useApp()`  [EXTRACTED]
+  src/components/cash/ZReportPreviewModal.tsx → src/context/AppContext.tsx
 
 ## Import Cycles
 - None detected.

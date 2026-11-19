@@ -42,6 +42,8 @@ import {
   Loader2,
   HelpCircle,
   MonitorPlay,
+  MessageCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { BarcodeSvg } from '../common/BarcodeSvg';
 import { UpiPaymentQr } from '../common/UpiPaymentQr';
@@ -93,6 +95,8 @@ export const SettingsManager: React.FC = () => {
     setEnableReceiptReviewQr,
     enableEReceiptQr,
     setEnableEReceiptQr,
+    autoSendWhatsAppOnPrint,
+    setAutoSendWhatsAppOnPrint,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'staff' | 'entities' | 'promotions' | 'preferences' | 'database' | 'customer-display'>('staff');
@@ -1043,6 +1047,83 @@ export const SettingsManager: React.FC = () => {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Automated WhatsApp Receipts on Print Master Control */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4 md:col-span-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
+                  <MessageCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span>Auto-Send WhatsApp Receipt on Print</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      autoSendWhatsAppOnPrint
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-slate-100 text-slate-600 border-slate-300'
+                    }`}>
+                      {autoSendWhatsAppOnPrint ? 'ACTIVE' : 'OFF'}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Automatically opens customer's WhatsApp with the itemized bill and digital receipt as soon as the cashier prints the thermal receipt.
+                  </p>
+                </div>
+              </div>
+
+              {/* Master Toggle Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !autoSendWhatsAppOnPrint;
+                  setAutoSendWhatsAppOnPrint(next);
+                  showToast(next ? 'Auto-Send WhatsApp Receipts enabled.' : 'Auto-Send WhatsApp Receipts disabled.');
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                  autoSendWhatsAppOnPrint ? 'bg-emerald-600' : 'bg-slate-300'
+                }`}
+                role="switch"
+                aria-checked={autoSendWhatsAppOnPrint}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    autoSendWhatsAppOnPrint ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              {/* Feature Description Card */}
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2 text-xs text-slate-600">
+                <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Template 1: Detailed Itemized Bill (Active)</span>
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  Sends full itemized garments (size, color, price), financial summary, Khata settlement details, Fantasy Check-in stamp balance, 1-click digital receipt link, and 5-star Google review prompt.
+                </p>
+                <div className="text-[10px] text-slate-500 font-mono bg-white p-2 rounded-lg border border-slate-200">
+                  ⚡ Auto-Filter: Automatically skips anonymous walk-in shoppers with no mobile number (N/A) to prevent invalid links.
+                </div>
+              </div>
+
+              {/* Cashier Workflow Preview */}
+              <div className="p-3.5 bg-emerald-50/50 rounded-xl border border-emerald-200/70 space-y-2 text-xs text-emerald-950">
+                <div className="font-bold flex items-center gap-1.5 text-emerald-900">
+                  <Smartphone className="w-4 h-4 text-emerald-600" />
+                  <span>How it works at checkout:</span>
+                </div>
+                <ol className="list-decimal pl-4 space-y-1 text-[11px] text-emerald-900 leading-relaxed">
+                  <li>Cashier clicks <strong>Print Receipt</strong> on the POS screen.</li>
+                  <li>Thermal printer prints the 58mm/80mm paper receipt.</li>
+                  <li>Customer's WhatsApp chat opens automatically with the complete receipt pre-filled and ready to send with 1 click.</li>
+                  <li>Cashier can also skip auto-send on a per-bill basis directly inside the print dialog.</li>
+                </ol>
+              </div>
+            </div>
           </div>
 
           {/* Store UPI & Digital Payments (Dynamic QR Code) */}

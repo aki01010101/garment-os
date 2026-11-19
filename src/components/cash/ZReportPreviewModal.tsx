@@ -107,46 +107,20 @@ export const ZReportPreviewModal: React.FC<ZReportPreviewModalProps> = ({
     });
   };
 
-  const now = new Date();
-  const printTimestamp = now.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }) + ' ' + now.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-
-  const actualCounted =
-    countedCash !== undefined
-      ? countedCash
-      : dayRegister?.closingCashCounted !== undefined
-      ? dayRegister.closingCashCounted
-      : undefined;
-
-  const actualDiscrepancy =
-    discrepancy !== undefined
-      ? discrepancy
-      : actualCounted !== undefined
-      ? actualCounted - expectedCashInDrawer
-      : undefined;
-
-  // Executive Daily Briefing Metrics
+  // Executive Daily Briefing Metrics (Must be called unconditionally before early return)
   const executiveMetrics = useMemo(() => {
-    if (!isOpen || !dayRegister) {
+    if (!isOpen) {
       return {
         todayCreditAmount: 0,
         todayCreditCount: 0,
         todayRecoveredAmount: 0,
         todayRecoveredCount: 0,
-        topItem: 'No items sold today',
+        topItem: '',
         topItemCount: 0,
         pendingAlterations: 0,
         lowStockAlerts: 0,
       };
     }
-
     const todaySales = sales.filter((s) => (s.date || '').startsWith(dayRegister.date));
     const todayCreditAmount = todaySales.reduce((acc, s) => {
       if (s.paymentMode === 'Credit') return acc + s.grandTotal;
@@ -193,7 +167,34 @@ export const ZReportPreviewModal: React.FC<ZReportPreviewModalProps> = ({
       pendingAlterations,
       lowStockAlerts,
     };
-  }, [isOpen, sales, creditPayments, alterations, products, dayRegister?.date]);
+  }, [sales, creditPayments, alterations, products, dayRegister.date, isOpen]);
+
+  if (!isOpen) return null;
+
+  const now = new Date();
+  const printTimestamp = now.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }) + ' ' + now.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+
+  const actualCounted =
+    countedCash !== undefined
+      ? countedCash
+      : dayRegister.closingCashCounted !== undefined
+      ? dayRegister.closingCashCounted
+      : undefined;
+
+  const actualDiscrepancy =
+    discrepancy !== undefined
+      ? discrepancy
+      : actualCounted !== undefined
+      ? actualCounted - expectedCashInDrawer
+      : undefined;
 
   const handlePrint = async () => {
     if (printMethod === 'browser') {
@@ -290,8 +291,6 @@ Closed by: ${currentUser?.fullName || currentUser?.username || 'Cashier'} at ${p
       setTimeout(() => setCopied(false), 2000);
     });
   };
-
-  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto no-print">
